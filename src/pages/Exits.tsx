@@ -1,19 +1,31 @@
-import { useState } from "react";
-import { Plus, Search, Filter, Edit, Trash2, Eye, ArrowUpFromLine, Calendar } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, Edit, Trash2, ArrowUpFromLine, Calendar, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { exits, Exit } from "@/data/mockData";
+import { useExits, Exit, ExitFormData } from "@/hooks/useExits";
+import { useProducts } from "@/hooks/useProducts";
+import { useEmployees } from "@/hooks/useEmployees";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -23,19 +35,115 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { DataFilters } from "@/components/filters/DataFilters";
 
 export default function Exits() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { exits, isLoading, createExit, updateExit, deleteExit } = useExits();
+  const { products } = useProducts();
+  const { employees } = useEmployees();
+  const { canEdit, canDelete } = useAuth();
 
-  const filteredExits = exits.filter(
-    (e) =>
-      e.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.employee.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [editingExit, setEditingExit] = useState<Exit | null>(null);
+  const [deletingExitId, setDeletingExitId] = useState<string | null>(null);
+
+  // Filters
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
+
+  // Form state
+  const [formData, setFormData] = useState<ExitFormData>({
+    product_id: "",
+    employee_id: "",
+    quantity: 0,
+    destination: "",
+    reason: "",
+    notes: "",
+  });
+
+  const filteredExits = useMemo(() => {
+    return exits.filter((exit) => {
+      const matchesSearch =
+        exit.products?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        exit.employees?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        exit.destination?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const exitDate = new Date(exit.exit_date);
+      const matchesDateFrom = !dateFrom || exitDate >= dateFrom;
+      const matchesDateTo = !dateTo || exitDate <= dateTo;
+      const matchesEmployee = selectedEmployee === "all" || exit.employee_id === selectedEmployee;
+
+      return matchesSearch && matchesDateFrom && matchesDateTo && matchesEmployee;
+    });
+  }, [exits, searchTerm, dateFrom, dateTo, selectedEmployee]);
+
+  const resetForm = () => {
+    setFormData({
+      product_id: "",
+      employee_id: "",
+      quantity: 0,
+      destination: "",
+      reason: "",
+      notes: "",
+    });
+    setEditingExit(null);
+  };
+
+  const handleOpenDialog = (exit?: Exit) => {
+    if (exit) {
+      setEditingExit(exit);
+      setFormData({
+        product_id: exit.product_id,
+        employee_id: exit.employee_id || "",
+        quantity: exit.quantity,
+        destination: exit.destination || "",
+        reason: exit.reason || "",
+        notes: exit.notes || "",
+      });
+    } else {
+      resetForm();
+    }
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.product_id || formData.quantity <= 0) return;
+
+    if (editingExit) {
+      await updateExit.mutateAsync({
+        id: editingExit.id,
+        ...formData,
+      });
+    } else {
+      await createExit.mutateAsync(formData);
+    }
+
+    setIsDialogOpen(false);
+    resetForm();
+  };
+
+  const handleDelete = async () => {
+    if (!deletingExitId) return;
+    await deleteExit.mutateAsync(deletingExitId);
+    setIsDeleteDialogOpen(false);
+    setDeletingExitId(null);
+  };
+
+  const openDeleteDialog = (id: string) => {
+    setDeletingExitId(id);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const clearFilters = () => {
+    setDateFrom(undefined);
+    setDateTo(undefined);
+    setSelectedEmployee("all");
+  };
 
   const columns = [
     {
@@ -43,8 +151,8 @@ export default function Exits() {
       header: "Data",
       render: (exit: Exit) => (
         <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-muted-foreground" />
-          <span>{format(new Date(exit.date), "dd/MM/yyyy", { locale: ptBR })}</span>
+          <Calendar className="w-4 h-4 text-muted-foreground hidden sm:block" />
+          <span className="text-sm">{format(new Date(exit.exit_date), "dd/MM/yyyy", { locale: ptBR })}</span>
         </div>
       ),
     },
@@ -52,202 +160,266 @@ export default function Exits() {
       key: "product",
       header: "Produto",
       render: (exit: Exit) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
             <ArrowUpFromLine className="w-4 h-4 text-destructive" />
           </div>
-          <span className="font-medium">{exit.product}</span>
+          <span className="font-medium text-sm truncate max-w-[120px] sm:max-w-none">{exit.products?.name || "—"}</span>
         </div>
       ),
     },
     {
       key: "quantity",
-      header: "Quantidade",
+      header: "Qtd",
       render: (exit: Exit) => (
         <span className="font-semibold text-destructive">-{exit.quantity}</span>
       ),
     },
-    { key: "destination", header: "Destino/Setor" },
-    { key: "employee", header: "Funcionário" },
     {
-      key: "notes",
-      header: "Observações",
-      render: (exit: Exit) => (
-        <span className="text-muted-foreground text-sm truncate max-w-[200px] block">
-          {exit.notes || "-"}
-        </span>
-      ),
+      key: "destination",
+      header: "Destino",
+      className: "hidden md:table-cell",
+      render: (exit: Exit) => exit.destination || "—",
+    },
+    {
+      key: "employee",
+      header: "Funcionário",
+      className: "hidden lg:table-cell",
+      render: (exit: Exit) => exit.employees?.name || "—",
     },
     {
       key: "actions",
-      header: "Ações",
+      header: "",
       render: (exit: Exit) => (
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-            <Eye className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-            <Edit className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-            onClick={() => toast({ title: "Saída excluída", description: "O registro foi removido." })}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+        <div className="flex items-center gap-1">
+          {canEdit && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-primary"
+              onClick={() => handleOpenDialog(exit)}
+            >
+              <Edit className="w-4 h-4" />
+            </Button>
+          )}
+          {canDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              onClick={() => openDeleteDialog(exit.id)}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       ),
     },
   ];
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Saídas"
         description="Registre e gerencie todas as saídas de produtos"
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Saídas" }]}
         actions={
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gradient-primary text-primary-foreground glow-sm">
-                <Plus className="w-4 h-4 mr-2" />
-                Nova Saída
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="glass border-border max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Registrar Nova Saída</DialogTitle>
-                <DialogDescription>
-                  Preencha as informações da saída de produtos
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="product">Produto</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o produto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="parafuso">Parafuso Phillips 6mm</SelectItem>
-                      <SelectItem value="luva">Luva de Proteção Nitrílica</SelectItem>
-                      <SelectItem value="oleo">Óleo Lubrificante WD-40</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="quantity">Quantidade</Label>
-                    <Input id="quantity" type="number" placeholder="0" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="date">Data</Label>
-                    <Input id="date" type="date" defaultValue={new Date().toISOString().split("T")[0]} />
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="destination">Destino/Setor</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o destino" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="producao">Produção</SelectItem>
-                      <SelectItem value="manutencao">Manutenção</SelectItem>
-                      <SelectItem value="eletrica">Elétrica</SelectItem>
-                      <SelectItem value="logistica">Logística</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="employee">Funcionário que Retirou</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o funcionário" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="carlos">Carlos Mendes</SelectItem>
-                      <SelectItem value="roberto">Roberto Alves</SelectItem>
-                      <SelectItem value="fernando">Fernando Dias</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="notes">Observações</Label>
-                  <Textarea id="notes" placeholder="Ordem de serviço, motivo, etc..." />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button
-                  className="gradient-primary text-primary-foreground"
-                  onClick={() => {
-                    toast({ title: "Saída registrada!", description: "A saída foi registrada com sucesso." });
-                    setIsDialogOpen(false);
-                  }}
-                >
-                  Registrar Saída
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          canEdit && (
+            <Button
+              className="gradient-primary text-primary-foreground glow-sm"
+              onClick={() => handleOpenDialog()}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Nova Saída</span>
+              <span className="sm:hidden">Nova</span>
+            </Button>
+          )
         }
       />
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por produto ou funcionário..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-secondary/50 border-border/50"
-          />
-        </div>
-        <Button variant="outline" className="gap-2">
-          <Filter className="w-4 h-4" />
-          Filtros
-        </Button>
-      </div>
+      <DataFilters
+        onSearch={setSearchTerm}
+        searchPlaceholder="Buscar por produto, funcionário..."
+        showDateFilter
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        onDateFromChange={setDateFrom}
+        onDateToChange={setDateTo}
+        showEmployeeFilter
+        employees={employees.map((e) => ({ value: e.id, label: e.name }))}
+        selectedEmployee={selectedEmployee}
+        onEmployeeChange={setSelectedEmployee}
+        onClearFilters={clearFilters}
+      />
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="glass rounded-xl p-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center">
-            <ArrowUpFromLine className="w-6 h-6 text-destructive" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="glass rounded-xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0">
+            <ArrowUpFromLine className="w-5 h-5 sm:w-6 sm:h-6 text-destructive" />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Total de Saídas</p>
-            <p className="text-2xl font-bold">{exits.length}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Total</p>
+            <p className="text-xl sm:text-2xl font-bold">{exits.length}</p>
           </div>
         </div>
-        <div className="glass rounded-xl p-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Calendar className="w-6 h-6 text-primary" />
+        <div className="glass rounded-xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
+            <span className="text-lg sm:text-xl font-bold text-warning">∑</span>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Este Mês</p>
-            <p className="text-2xl font-bold">{exits.length}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Itens</p>
+            <p className="text-xl sm:text-2xl font-bold">{exits.reduce((acc, e) => acc + e.quantity, 0)}</p>
           </div>
         </div>
-        <div className="glass rounded-xl p-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
-            <span className="text-xl font-bold text-warning">∑</span>
+        <div className="glass rounded-xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4 col-span-2 sm:col-span-1">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Itens Retirados</p>
-            <p className="text-2xl font-bold">{exits.reduce((acc, e) => acc + e.quantity, 0)}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Filtrados</p>
+            <p className="text-xl sm:text-2xl font-bold">{filteredExits.length}</p>
           </div>
         </div>
       </div>
 
       {/* Table */}
-      <DataTable columns={columns} data={filteredExits} />
+      <div className="overflow-x-auto">
+        <DataTable columns={columns} data={filteredExits} />
+      </div>
+
+      {/* Create/Edit Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="glass border-border max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingExit ? "Editar Saída" : "Registrar Nova Saída"}</DialogTitle>
+            <DialogDescription>
+              {editingExit ? "Altere as informações da saída" : "Preencha as informações da saída de produtos"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="product">Produto *</Label>
+              <Select
+                value={formData.product_id}
+                onValueChange={(value) => setFormData({ ...formData, product_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o produto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {products.map((product) => (
+                    <SelectItem key={product.id} value={product.id}>
+                      {product.name} (Estoque: {product.quantity})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="quantity">Quantidade *</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  min="1"
+                  value={formData.quantity || ""}
+                  onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="destination">Destino/Setor</Label>
+                <Input
+                  id="destination"
+                  value={formData.destination || ""}
+                  onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
+                  placeholder="Ex: Produção"
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="employee">Funcionário</Label>
+              <Select
+                value={formData.employee_id}
+                onValueChange={(value) => setFormData({ ...formData, employee_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o funcionário" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.filter(e => e.status === 'active').map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="reason">Motivo</Label>
+              <Input
+                id="reason"
+                value={formData.reason || ""}
+                onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                placeholder="Motivo da retirada"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="notes">Observações</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes || ""}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Observações adicionais..."
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              className="gradient-primary text-primary-foreground"
+              onClick={handleSubmit}
+              disabled={!formData.product_id || formData.quantity <= 0 || createExit.isPending || updateExit.isPending}
+            >
+              {(createExit.isPending || updateExit.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {editingExit ? "Salvar" : "Registrar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta saída? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteExit.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Settings as SettingsIcon,
   Building2,
@@ -7,8 +8,11 @@ import {
   Shield,
   Palette,
   Database,
-  FileBarChart,
   Save,
+  Loader2,
+  Crown,
+  UserCog,
+  Eye,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -23,102 +27,191 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+
+interface NotificationSettings {
+  id: string;
+  user_id: string;
+  email_low_stock: boolean;
+  email_epi_expiring: boolean;
+  email_new_requisition: boolean;
+  low_stock_threshold: number;
+  epi_expiry_days: number;
+}
+
+interface UserWithRole {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: string;
+}
 
 export default function Settings() {
-  const [companyName, setCompanyName] = useState("Almoxarifado Industrial");
-  const [lowStockAlert, setLowStockAlert] = useState(true);
-  const [epiExpiryAlert, setEpiExpiryAlert] = useState(true);
-  const [emailNotifications, setEmailNotifications] = useState(false);
+  const { user, isAdmin } = useAuth();
+  const queryClient = useQueryClient();
 
-  const handleSave = () => {
-    toast({ title: "Configurações salvas!", description: "Suas alterações foram salvas com sucesso." });
+  const [localSettings, setLocalSettings] = useState<Partial<NotificationSettings>>({
+    email_low_stock: true,
+    email_epi_expiring: true,
+    email_new_requisition: true,
+    low_stock_threshold: 10,
+    epi_expiry_days: 30,
+  });
+
+  // Fetch notification settings
+  const { data: settings, isLoading: settingsLoading } = useQuery({
+    queryKey: ['notification-settings', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data, error } = await supabase
+        .from('notification_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as NotificationSettings | null;
+    },
+    enabled: !!user,
+  });
+
+  // Fetch users with roles (admin only)
+  const { data: usersWithRoles = [], isLoading: usersLoading } = useQuery({
+    queryKey: ['users-with-roles'],
+    queryFn: async () => {
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email');
+
+      if (profilesError) throw profilesError;
+
+      const { data: roles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      if (rolesError) throw rolesError;
+
+      return profiles.map(profile => ({
+        id: profile.user_id,
+        email: profile.email || '',
+        full_name: profile.full_name,
+        role: roles.find(r => r.user_id === profile.user_id)?.role || 'visualizador',
+      })) as UserWithRole[];
+    },
+    enabled: isAdmin,
+  });
+
+  // Update local state when settings are loaded
+  useEffect(() => {
+    if (settings) {
+      setLocalSettings(settings);
+    }
+  }, [settings]);
+
+  // Save notification settings
+  const saveSettings = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const { error } = await supabase
+        .from('notification_settings')
+        .upsert({
+          user_id: user.id,
+          ...localSettings,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notification-settings'] });
+      toast({ title: "Configurações salvas!", description: "Suas alterações foram salvas com sucesso." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Update user role (admin only)
+  const updateUserRole = useMutation({
+    mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
+      const { error } = await supabase
+        .from('user_roles')
+        .update({ role: newRole })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      toast({ title: "Permissão atualizada", description: "A permissão do usuário foi alterada." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const getRoleBadge = (role: string) => {
+    const styles = {
+      admin: "bg-primary/20 text-primary",
+      almoxarife: "bg-success/20 text-success",
+      visualizador: "bg-muted text-muted-foreground",
+    };
+    const labels = {
+      admin: "Administrador",
+      almoxarife: "Almoxarife",
+      visualizador: "Visualizador",
+    };
+    return (
+      <Badge className={styles[role as keyof typeof styles] || styles.visualizador}>
+        {labels[role as keyof typeof labels] || role}
+      </Badge>
+    );
+  };
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'admin': return <Crown className="w-4 h-4 text-primary" />;
+      case 'almoxarife': return <UserCog className="w-4 h-4 text-success" />;
+      default: return <Eye className="w-4 h-4 text-muted-foreground" />;
+    }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Configurações"
         description="Configure as preferências do sistema"
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Configurações" }]}
       />
 
-      <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="bg-secondary/50 flex-wrap h-auto gap-1 p-1">
-          <TabsTrigger value="general" className="gap-2">
-            <Building2 className="w-4 h-4" />
-            Geral
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="gap-2">
+      <Tabs defaultValue="notifications" className="space-y-4 sm:space-y-6">
+        <TabsList className="bg-secondary/50 flex-wrap h-auto gap-1 p-1 w-full sm:w-auto">
+          <TabsTrigger value="notifications" className="gap-2 text-xs sm:text-sm">
             <Bell className="w-4 h-4" />
-            Notificações
+            <span className="hidden sm:inline">Notificações</span>
           </TabsTrigger>
-          <TabsTrigger value="stock" className="gap-2">
+          <TabsTrigger value="stock" className="gap-2 text-xs sm:text-sm">
             <Database className="w-4 h-4" />
-            Estoque
+            <span className="hidden sm:inline">Estoque</span>
           </TabsTrigger>
-          <TabsTrigger value="users" className="gap-2">
-            <Users className="w-4 h-4" />
-            Usuários
-          </TabsTrigger>
-          <TabsTrigger value="security" className="gap-2">
-            <Shield className="w-4 h-4" />
-            Segurança
-          </TabsTrigger>
-          <TabsTrigger value="appearance" className="gap-2">
+          {isAdmin && (
+            <TabsTrigger value="users" className="gap-2 text-xs sm:text-sm">
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Usuários</span>
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="appearance" className="gap-2 text-xs sm:text-sm">
             <Palette className="w-4 h-4" />
-            Aparência
+            <span className="hidden sm:inline">Aparência</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="space-y-6">
-          <div className="glass rounded-xl p-6 space-y-6">
-            <div className="flex items-center gap-3 pb-4 border-b border-border/50">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Informações da Empresa</h3>
-                <p className="text-sm text-muted-foreground">Configure os dados básicos</p>
-              </div>
-            </div>
-
-            <div className="grid gap-4 max-w-xl">
-              <div className="grid gap-2">
-                <Label htmlFor="companyName">Nome da Empresa</Label>
-                <Input
-                  id="companyName"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="email">E-mail de Contato</Label>
-                <Input id="email" type="email" placeholder="contato@empresa.com" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="phone">Telefone</Label>
-                <Input id="phone" placeholder="(00) 0000-0000" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="timezone">Fuso Horário</Label>
-                <Select defaultValue="america_sp">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="america_sp">América/São Paulo (GMT-3)</SelectItem>
-                    <SelectItem value="america_rj">América/Rio de Janeiro (GMT-3)</SelectItem>
-                    <SelectItem value="america_bs">América/Brasília (GMT-3)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="notifications" className="space-y-6">
-          <div className="glass rounded-xl p-6 space-y-6">
+        <TabsContent value="notifications" className="space-y-4 sm:space-y-6">
+          <div className="glass rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div className="flex items-center gap-3 pb-4 border-b border-border/50">
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Bell className="w-5 h-5 text-primary" />
@@ -131,32 +224,41 @@ export default function Settings() {
 
             <div className="space-y-4 max-w-xl">
               <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
-                <div>
-                  <p className="font-medium">Alerta de Estoque Baixo</p>
-                  <p className="text-sm text-muted-foreground">Notificar quando o estoque atingir o mínimo</p>
+                <div className="flex-1 mr-4">
+                  <p className="font-medium text-sm sm:text-base">Alerta de Estoque Baixo</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Notificar quando o estoque atingir o mínimo</p>
                 </div>
-                <Switch checked={lowStockAlert} onCheckedChange={setLowStockAlert} />
+                <Switch
+                  checked={localSettings.email_low_stock}
+                  onCheckedChange={(checked) => setLocalSettings({ ...localSettings, email_low_stock: checked })}
+                />
               </div>
               <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
-                <div>
-                  <p className="font-medium">Alerta de EPIs Vencendo</p>
-                  <p className="text-sm text-muted-foreground">Notificar 30, 15 e 7 dias antes</p>
+                <div className="flex-1 mr-4">
+                  <p className="font-medium text-sm sm:text-base">Alerta de EPIs Vencendo</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Notificar 30, 15 e 7 dias antes</p>
                 </div>
-                <Switch checked={epiExpiryAlert} onCheckedChange={setEpiExpiryAlert} />
+                <Switch
+                  checked={localSettings.email_epi_expiring}
+                  onCheckedChange={(checked) => setLocalSettings({ ...localSettings, email_epi_expiring: checked })}
+                />
               </div>
               <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
-                <div>
-                  <p className="font-medium">Notificações por E-mail</p>
-                  <p className="text-sm text-muted-foreground">Receber alertas por e-mail</p>
+                <div className="flex-1 mr-4">
+                  <p className="font-medium text-sm sm:text-base">Novas Requisições</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Notificar sobre novas solicitações</p>
                 </div>
-                <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} />
+                <Switch
+                  checked={localSettings.email_new_requisition}
+                  onCheckedChange={(checked) => setLocalSettings({ ...localSettings, email_new_requisition: checked })}
+                />
               </div>
             </div>
           </div>
         </TabsContent>
 
-        <TabsContent value="stock" className="space-y-6">
-          <div className="glass rounded-xl p-6 space-y-6">
+        <TabsContent value="stock" className="space-y-4 sm:space-y-6">
+          <div className="glass rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div className="flex items-center gap-3 pb-4 border-b border-border/50">
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Database className="w-5 h-5 text-primary" />
@@ -169,86 +271,106 @@ export default function Settings() {
 
             <div className="grid gap-4 max-w-xl">
               <div className="grid gap-2">
-                <Label>Nível Mínimo Padrão</Label>
-                <Input type="number" placeholder="10" />
-                <p className="text-sm text-muted-foreground">
-                  Quantidade mínima padrão para novos produtos
+                <Label>Limite para Alerta de Estoque Baixo</Label>
+                <Input
+                  type="number"
+                  value={localSettings.low_stock_threshold || 10}
+                  onChange={(e) => setLocalSettings({ ...localSettings, low_stock_threshold: parseInt(e.target.value) || 10 })}
+                />
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Alertar quando o estoque estiver abaixo desta quantidade
                 </p>
               </div>
-              <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
-                <div>
-                  <p className="font-medium">Controle de Lote</p>
-                  <p className="text-sm text-muted-foreground">Ativar rastreamento por lote</p>
-                </div>
-                <Switch />
-              </div>
-              <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
-                <div>
-                  <p className="font-medium">Controle de Validade</p>
-                  <p className="text-sm text-muted-foreground">Ativar controle de validade</p>
-                </div>
-                <Switch defaultChecked />
+              <div className="grid gap-2">
+                <Label>Dias para Alerta de EPI</Label>
+                <Input
+                  type="number"
+                  value={localSettings.epi_expiry_days || 30}
+                  onChange={(e) => setLocalSettings({ ...localSettings, epi_expiry_days: parseInt(e.target.value) || 30 })}
+                />
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Alertar quando faltarem X dias para o EPI vencer
+                </p>
               </div>
             </div>
           </div>
         </TabsContent>
 
-        <TabsContent value="users" className="space-y-6">
-          <div className="glass rounded-xl p-6 space-y-6">
-            <div className="flex items-center gap-3 pb-4 border-b border-border/50">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Users className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Usuários e Permissões</h3>
-                <p className="text-sm text-muted-foreground">Gerencie os acessos ao sistema</p>
-              </div>
-            </div>
-
-            <div className="text-center py-8 text-muted-foreground">
-              <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Para gerenciar usuários, conecte-se ao Lovable Cloud</p>
-              <Button variant="outline" className="mt-4">
-                Conectar Lovable Cloud
-              </Button>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="security" className="space-y-6">
-          <div className="glass rounded-xl p-6 space-y-6">
-            <div className="flex items-center gap-3 pb-4 border-b border-border/50">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Shield className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Backup e Segurança</h3>
-                <p className="text-sm text-muted-foreground">Configure backups e segurança</p>
-              </div>
-            </div>
-
-            <div className="space-y-4 max-w-xl">
-              <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
-                <div>
-                  <p className="font-medium">Backup Automático</p>
-                  <p className="text-sm text-muted-foreground">Realizar backup diário</p>
+        {isAdmin && (
+          <TabsContent value="users" className="space-y-4 sm:space-y-6">
+            <div className="glass rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
+              <div className="flex items-center gap-3 pb-4 border-b border-border/50">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Users className="w-5 h-5 text-primary" />
                 </div>
-                <Switch defaultChecked />
+                <div>
+                  <h3 className="font-semibold">Usuários e Permissões</h3>
+                  <p className="text-sm text-muted-foreground">Gerencie os acessos ao sistema</p>
+                </div>
               </div>
-              <div className="flex gap-4">
-                <Button variant="outline" className="flex-1">
-                  Exportar Dados
-                </Button>
-                <Button variant="outline" className="flex-1">
-                  Importar Dados
-                </Button>
+
+              {usersLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {usersWithRoles.map((userItem) => (
+                    <div
+                      key={userItem.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg bg-secondary/50 gap-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        {getRoleIcon(userItem.role)}
+                        <div>
+                          <p className="font-medium text-sm sm:text-base">{userItem.full_name || 'Sem nome'}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground">{userItem.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        {userItem.id === user?.id ? (
+                          <Badge variant="outline">Você</Badge>
+                        ) : (
+                          <Select
+                            value={userItem.role}
+                            onValueChange={(newRole) => updateUserRole.mutate({ userId: userItem.id, newRole })}
+                          >
+                            <SelectTrigger className="w-[140px] sm:w-[160px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">Administrador</SelectItem>
+                              <SelectItem value="almoxarife">Almoxarife</SelectItem>
+                              <SelectItem value="visualizador">Visualizador</SelectItem>
+                            </SelectContent>
+                          </Select>
+                              <SelectItem value="admin">Administrador</SelectItem>
+                              <SelectItem value="almoxarife">Almoxarife</SelectItem>
+                              <SelectItem value="visualizador">Visualizador</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                        {getRoleBadge(userItem.role)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                <h4 className="font-medium mb-2 text-sm sm:text-base">Níveis de Acesso</h4>
+                <ul className="text-xs sm:text-sm text-muted-foreground space-y-1">
+                  <li><strong>Administrador:</strong> Acesso total, pode gerenciar usuários e excluir dados</li>
+                  <li><strong>Almoxarife:</strong> Pode adicionar e editar produtos, entradas, saídas e funcionários</li>
+                  <li><strong>Visualizador:</strong> Apenas visualização dos dados</li>
+                </ul>
               </div>
             </div>
-          </div>
-        </TabsContent>
+          </TabsContent>
+        )}
 
-        <TabsContent value="appearance" className="space-y-6">
-          <div className="glass rounded-xl p-6 space-y-6">
+        <TabsContent value="appearance" className="space-y-4 sm:space-y-6">
+          <div className="glass rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div className="flex items-center gap-3 pb-4 border-b border-border/50">
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Palette className="w-5 h-5 text-primary" />
@@ -261,17 +383,10 @@ export default function Settings() {
 
             <div className="space-y-4 max-w-xl">
               <div className="grid gap-2">
-                <Label>Cor Principal</Label>
-                <div className="flex gap-2">
-                  {["bg-cyan-500", "bg-blue-500", "bg-green-500", "bg-purple-500", "bg-orange-500"].map((color) => (
-                    <button
-                      key={color}
-                      className={`w-10 h-10 rounded-lg ${color} ring-2 ring-offset-2 ring-offset-background ring-transparent hover:ring-primary transition-all ${
-                        color === "bg-cyan-500" ? "ring-foreground" : ""
-                      }`}
-                    />
-                  ))}
-                </div>
+                <Label>Tema</Label>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  O sistema usa o tema escuro por padrão para melhor visualização em ambientes industriais.
+                </p>
               </div>
             </div>
           </div>
@@ -279,8 +394,16 @@ export default function Settings() {
       </Tabs>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave} className="gradient-primary text-primary-foreground glow-sm">
-          <Save className="w-4 h-4 mr-2" />
+        <Button
+          onClick={() => saveSettings.mutate()}
+          className="gradient-primary text-primary-foreground glow-sm w-full sm:w-auto"
+          disabled={saveSettings.isPending}
+        >
+          {saveSettings.isPending ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="w-4 h-4 mr-2" />
+          )}
           Salvar Alterações
         </Button>
       </div>
