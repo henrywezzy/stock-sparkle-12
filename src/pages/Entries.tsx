@@ -10,6 +10,8 @@ import { useCategories } from "@/hooks/useCategories";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColumnPreferences } from "@/hooks/useColumnPreferences";
 import { ColumnSettings } from "@/components/ui/column-settings";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { formatCurrency } from "@/lib/currency";
 import {
   Dialog,
   DialogContent,
