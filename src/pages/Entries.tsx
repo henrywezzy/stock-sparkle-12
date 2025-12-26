@@ -384,11 +384,11 @@ export default function Entries() {
         return <span className="font-semibold text-success">+{entry.quantity}</span>;
       case "unit_price":
         return entry.unit_price
-          ? `R$ ${entry.unit_price.toFixed(2)}`
+          ? formatCurrency(entry.unit_price)
           : "—";
       case "total":
         return entry.total_price
-          ? `R$ ${entry.total_price.toFixed(2)}`
+          ? formatCurrency(entry.total_price)
           : "—";
       case "supplier":
         return entry.suppliers?.name || "—";
@@ -797,14 +797,13 @@ export default function Entries() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="unit_price">Preço Unitário</Label>
-                <Input
+                <CurrencyInput
                   id="unit_price"
-                  type="number"
-                  step="0.01"
-                  value={formData.unit_price || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, unit_price: parseFloat(e.target.value) || 0 })
+                  value={formData.unit_price || 0}
+                  onChange={(value) =>
+                    setFormData({ ...formData, unit_price: value })
                   }
+                  placeholder="R$ 0,00"
                 />
               </div>
             </div>
