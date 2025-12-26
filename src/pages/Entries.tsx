@@ -1,13 +1,15 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Plus, Search, Edit, Trash2, ArrowDownToLine, Calendar, Loader2, X, Package, Hash } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
-import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useEntries, Entry, EntryFormData } from "@/hooks/useEntries";
 import { useProducts } from "@/hooks/useProducts";
 import { useSuppliers } from "@/hooks/useSuppliers";
+import { useCategories } from "@/hooks/useCategories";
 import { useAuth } from "@/contexts/AuthContext";
+import { useColumnPreferences } from "@/hooks/useColumnPreferences";
+import { ColumnSettings } from "@/components/ui/column-settings";
 import {
   Dialog,
   DialogContent,
@@ -35,25 +37,72 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DataFilters } from "@/components/filters/DataFilters";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-// Função para gerar SKU automático
-const generateSKU = () => {
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 5).toUpperCase();
-  return `PRD-${timestamp.slice(-4)}${random}`;
+// Colunas padrão para a tabela
+const DEFAULT_COLUMNS = [
+  { key: "date", label: "Data", visible: true },
+  { key: "sku", label: "ID (SKU)", visible: true },
+  { key: "product", label: "Produto", visible: true },
+  { key: "quantity", label: "Quantidade", visible: true },
+  { key: "unit_price", label: "Preço Unit.", visible: true },
+  { key: "total", label: "Total", visible: true },
+  { key: "supplier", label: "Fornecedor", visible: true },
+  { key: "invoice", label: "Nota Fiscal", visible: false },
+  { key: "received_by", label: "Responsável", visible: false },
+  { key: "notes", label: "Observações", visible: false },
+  { key: "actions", label: "Ações", visible: true },
+];
+
+// Função para gerar SKU no formato CATEGORIA-TIPO-VALOR-LOTE
+const generateSKU = (
+  categoryName?: string,
+  productName?: string,
+  variant?: string,
+  batchNumber?: number
+) => {
+  const sanitize = (str: string) =>
+    str
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .substring(0, 4);
+
+  const category = categoryName ? sanitize(categoryName) : "GER";
+  const type = productName ? sanitize(productName) : "PROD";
+  const value = variant ? sanitize(variant) : "STD";
+  const batch = String(batchNumber || Math.floor(Math.random() * 999) + 1).padStart(3, "0");
+
+  return `${category}-${type}-${value}-${batch}`;
 };
 
 export default function Entries() {
   const { entries, isLoading, createEntry, updateEntry, deleteEntry } = useEntries();
   const { products, createProduct } = useProducts();
   const { suppliers } = useSuppliers();
+  const { categories } = useCategories();
   const { canEdit, canDelete } = useAuth();
   const { toast } = useToast();
+
+  const {
+    columns,
+    visibleColumns,
+    toggleColumn,
+    reorderColumns,
+    resetToDefaults,
+  } = useColumnPreferences("entries", DEFAULT_COLUMNS);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -74,6 +123,10 @@ export default function Entries() {
   const [isNewProduct, setIsNewProduct] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
+  // New product fields
+  const [newProductCategory, setNewProductCategory] = useState("");
+  const [newProductVariant, setNewProductVariant] = useState("");
+
   // Form state
   const [formData, setFormData] = useState<EntryFormData>({
     product_id: "",
@@ -92,12 +145,12 @@ export default function Entries() {
       setIsNewProduct(false);
       return;
     }
-    
+
     setIsSearching(true);
     const product = products.find(
       (p) => p.sku?.toLowerCase() === sku.toLowerCase()
     );
-    
+
     if (product) {
       setFoundProduct(product);
       setFormData((prev) => ({ ...prev, product_id: product.id }));
@@ -121,9 +174,9 @@ export default function Entries() {
   // Buscar produto por nome (autocomplete)
   const filteredProducts = useMemo(() => {
     if (!productNameSearch.trim()) return [];
-    return products.filter((p) =>
-      p.name.toLowerCase().includes(productNameSearch.toLowerCase())
-    ).slice(0, 5);
+    return products
+      .filter((p) => p.name.toLowerCase().includes(productNameSearch.toLowerCase()))
+      .slice(0, 5);
   }, [products, productNameSearch]);
 
   const selectProduct = (product: typeof products[0]) => {
@@ -145,15 +198,19 @@ export default function Entries() {
     setProductIdSearch("");
     setProductNameSearch("");
     setIsNewProduct(false);
+    setNewProductCategory("");
+    setNewProductVariant("");
     setFormData((prev) => ({ ...prev, product_id: "" }));
   };
 
   const filteredEntries = useMemo(() => {
     return entries.filter((entry) => {
+      const product = products.find((p) => p.id === entry.product_id);
       const matchesSearch =
         entry.products?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         entry.suppliers?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        entry.received_by?.toLowerCase().includes(searchTerm.toLowerCase());
+        entry.received_by?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product?.sku?.toLowerCase().includes(searchTerm.toLowerCase());
 
       const entryDate = new Date(entry.entry_date);
       const matchesDateFrom = !dateFrom || entryDate >= dateFrom;
@@ -162,7 +219,7 @@ export default function Entries() {
 
       return matchesSearch && matchesDateFrom && matchesDateTo && matchesSupplier;
     });
-  }, [entries, searchTerm, dateFrom, dateTo, selectedSupplier]);
+  }, [entries, products, searchTerm, dateFrom, dateTo, selectedSupplier]);
 
   const resetForm = () => {
     setFormData({
@@ -179,6 +236,8 @@ export default function Entries() {
     setProductIdSearch("");
     setProductNameSearch("");
     setIsNewProduct(false);
+    setNewProductCategory("");
+    setNewProductVariant("");
     setProductSearchMode("name");
   };
 
@@ -212,15 +271,22 @@ export default function Entries() {
     // Se é um novo produto, criar primeiro
     if (isNewProduct && productNameSearch.trim()) {
       try {
-        const newSku = generateSKU();
+        const categoryObj = categories.find((c) => c.id === newProductCategory);
+        const newSku = generateSKU(
+          categoryObj?.name,
+          productNameSearch,
+          newProductVariant
+        );
+
         const newProduct = await createProduct.mutateAsync({
           name: productNameSearch.trim(),
           sku: newSku,
-          quantity: 0, // Será atualizado pela entrada
+          quantity: 0,
+          category_id: newProductCategory || undefined,
           supplier_id: formData.supplier_id || undefined,
         });
         productId = newProduct.id;
-        
+
         toast({
           title: "Novo produto criado!",
           description: `${productNameSearch} foi cadastrado com ID: ${newSku}`,
@@ -278,92 +344,93 @@ export default function Entries() {
   };
 
   const clearFilters = () => {
+    setSearchTerm("");
     setDateFrom(undefined);
     setDateTo(undefined);
     setSelectedSupplier("all");
   };
 
-  const columns = [
-    {
-      key: "date",
-      header: "Data",
-      render: (entry: Entry) => (
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-muted-foreground hidden sm:block" />
-          <span className="text-sm">{format(new Date(entry.entry_date), "dd/MM/yyyy", { locale: ptBR })}</span>
-        </div>
-      ),
-    },
-    {
-      key: "product",
-      header: "Produto",
-      render: (entry: Entry) => {
-        const product = products.find((p) => p.id === entry.product_id);
+  const renderCell = (entry: Entry, columnKey: string) => {
+    const product = products.find((p) => p.id === entry.product_id);
+
+    switch (columnKey) {
+      case "date":
         return (
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm">
+              {format(new Date(entry.entry_date), "dd/MM/yyyy", { locale: ptBR })}
+            </span>
+          </div>
+        );
+      case "sku":
+        return (
+          <span className="font-mono text-xs bg-muted px-2 py-1 rounded">
+            {product?.sku || "—"}
+          </span>
+        );
+      case "product":
+        return (
+          <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
               <ArrowDownToLine className="w-4 h-4 text-success" />
             </div>
-            <div className="flex flex-col">
-              <span className="font-medium text-sm truncate max-w-[120px] sm:max-w-none">
-                {entry.products?.name || "—"}
-              </span>
-              {product?.sku && (
-                <span className="text-xs text-muted-foreground font-mono">{product.sku}</span>
-              )}
-            </div>
+            <span className="font-medium text-sm">{entry.products?.name || "—"}</span>
           </div>
         );
-      },
-    },
-    {
-      key: "quantity",
-      header: "Qtd",
-      render: (entry: Entry) => (
-        <span className="font-semibold text-success">+{entry.quantity}</span>
-      ),
-    },
-    {
-      key: "supplier",
-      header: "Fornecedor",
-      className: "hidden md:table-cell",
-      render: (entry: Entry) => entry.suppliers?.name || "—",
-    },
-    {
-      key: "received_by",
-      header: "Responsável",
-      className: "hidden lg:table-cell",
-      render: (entry: Entry) => entry.received_by || "—",
-    },
-    {
-      key: "actions",
-      header: "",
-      render: (entry: Entry) => (
-        <div className="flex items-center gap-1">
-          {canEdit && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-primary"
-              onClick={() => handleOpenDialog(entry)}
-            >
-              <Edit className="w-4 h-4" />
-            </Button>
-          )}
-          {canDelete && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              onClick={() => openDeleteDialog(entry.id)}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-      ),
-    },
-  ];
+      case "quantity":
+        return <span className="font-semibold text-success">+{entry.quantity}</span>;
+      case "unit_price":
+        return entry.unit_price
+          ? `R$ ${entry.unit_price.toFixed(2)}`
+          : "—";
+      case "total":
+        return entry.total_price
+          ? `R$ ${entry.total_price.toFixed(2)}`
+          : "—";
+      case "supplier":
+        return entry.suppliers?.name || "—";
+      case "invoice":
+        return entry.invoice_number || "—";
+      case "received_by":
+        return entry.received_by || "—";
+      case "notes":
+        return entry.notes ? (
+          <span className="max-w-[150px] truncate block" title={entry.notes}>
+            {entry.notes}
+          </span>
+        ) : (
+          "—"
+        );
+      case "actions":
+        return (
+          <div className="flex items-center gap-1">
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                onClick={() => handleOpenDialog(entry)}
+              >
+                <Edit className="w-4 h-4" />
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={() => openDeleteDialog(entry.id)}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        );
+      default:
+        return "—";
+    }
+  };
 
   if (isLoading) {
     return (
@@ -380,23 +447,31 @@ export default function Entries() {
         description="Registre e gerencie todas as entradas de produtos"
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Entradas" }]}
         actions={
-          canEdit && (
-            <Button
-              className="gradient-primary text-primary-foreground glow-sm"
-              onClick={() => handleOpenDialog()}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Nova Entrada</span>
-              <span className="sm:hidden">Nova</span>
-            </Button>
-          )
+          <div className="flex items-center gap-2">
+            <ColumnSettings
+              columns={columns}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetToDefaults}
+            />
+            {canEdit && (
+              <Button
+                className="gradient-primary text-primary-foreground glow-sm"
+                onClick={() => handleOpenDialog()}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Nova Entrada</span>
+                <span className="sm:hidden">Nova</span>
+              </Button>
+            )}
+          </div>
         }
       />
 
       {/* Filters */}
       <DataFilters
         onSearch={setSearchTerm}
-        searchPlaceholder="Buscar por produto, fornecedor..."
+        searchPlaceholder="Buscar por produto, SKU, fornecedor..."
         showDateFilter
         dateFrom={dateFrom}
         dateTo={dateTo}
@@ -426,7 +501,9 @@ export default function Entries() {
           </div>
           <div>
             <p className="text-xs sm:text-sm text-muted-foreground">Itens</p>
-            <p className="text-xl sm:text-2xl font-bold">{entries.reduce((acc, e) => acc + e.quantity, 0)}</p>
+            <p className="text-xl sm:text-2xl font-bold">
+              {entries.reduce((acc, e) => acc + e.quantity, 0)}
+            </p>
           </div>
         </div>
         <div className="glass rounded-xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4 col-span-2 sm:col-span-1">
@@ -441,17 +518,55 @@ export default function Entries() {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
-        <DataTable columns={columns} data={filteredEntries} />
+      <div className="glass rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                {visibleColumns.map((col) => (
+                  <TableHead key={col.key} className="text-muted-foreground">
+                    {col.label}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredEntries.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={visibleColumns.length}
+                    className="text-center py-8 text-muted-foreground"
+                  >
+                    Nenhuma entrada encontrada
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredEntries.map((entry) => (
+                  <TableRow key={entry.id} className="border-border">
+                    {visibleColumns.map((col) => (
+                      <TableCell key={`${entry.id}-${col.key}`}>
+                        {renderCell(entry, col.key)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="glass border-border max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingEntry ? "Editar Entrada" : "Registrar Nova Entrada"}</DialogTitle>
+            <DialogTitle>
+              {editingEntry ? "Editar Entrada" : "Registrar Nova Entrada"}
+            </DialogTitle>
             <DialogDescription>
-              {editingEntry ? "Altere as informações da entrada" : "Busque por ID ou nome do produto, ou cadastre um novo"}
+              {editingEntry
+                ? "Altere as informações da entrada"
+                : "Busque por ID ou nome do produto, ou cadastre um novo"}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -494,7 +609,7 @@ export default function Entries() {
                     id="product_id"
                     value={productIdSearch}
                     onChange={(e) => setProductIdSearch(e.target.value.toUpperCase())}
-                    placeholder="Ex: PRD-A1B2XYZ"
+                    placeholder="Ex: EPI-LUVA-P-001"
                     className="font-mono"
                   />
                   <Button
@@ -502,7 +617,11 @@ export default function Entries() {
                     onClick={() => searchProductBySKU(productIdSearch)}
                     disabled={isSearching || !productIdSearch.trim()}
                   >
-                    {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                    {isSearching ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4" />
+                    )}
                   </Button>
                 </div>
               </div>
@@ -595,26 +714,70 @@ export default function Entries() {
               </div>
             )}
 
-            {/* New Product Indicator */}
+            {/* New Product Fields */}
             {isNewProduct && (
-              <div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/20 rounded-lg">
-                <Plus className="w-5 h-5 text-primary" />
-                <div className="flex-1">
-                  <p className="font-medium">Novo produto será criado</p>
-                  <p className="text-xs text-muted-foreground">
-                    "{productNameSearch}" • Um ID será gerado automaticamente
+              <>
+                <div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                  <Plus className="w-5 h-5 text-primary" />
+                  <div className="flex-1">
+                    <p className="font-medium">Novo produto será criado</p>
+                    <p className="text-xs text-muted-foreground">
+                      "{productNameSearch}" • SKU será gerado automaticamente
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={clearProductSelection}
+                    className="h-8 w-8"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="category">Categoria</Label>
+                    <Select
+                      value={newProductCategory}
+                      onValueChange={setNewProductCategory}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="variant">Variante/Tamanho</Label>
+                    <Input
+                      id="variant"
+                      value={newProductVariant}
+                      onChange={(e) => setNewProductVariant(e.target.value)}
+                      placeholder="Ex: P, M, G, 10L"
+                    />
+                  </div>
+                </div>
+
+                {/* SKU Preview */}
+                <div className="p-2 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground">SKU gerado:</p>
+                  <p className="font-mono text-sm font-medium">
+                    {generateSKU(
+                      categories.find((c) => c.id === newProductCategory)?.name,
+                      productNameSearch,
+                      newProductVariant
+                    )}
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={clearProductSelection}
-                  className="h-8 w-8"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
+              </>
             )}
 
             <div className="grid grid-cols-2 gap-4">
@@ -625,7 +788,9 @@ export default function Entries() {
                   type="number"
                   min="1"
                   value={formData.quantity || ""}
-                  onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })
+                  }
                 />
               </div>
               <div className="grid gap-2">
@@ -635,7 +800,9 @@ export default function Entries() {
                   type="number"
                   step="0.01"
                   value={formData.unit_price || ""}
-                  onChange={(e) => setFormData({ ...formData, unit_price: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, unit_price: parseFloat(e.target.value) || 0 })
+                  }
                 />
               </div>
             </div>
@@ -695,9 +862,9 @@ export default function Entries() {
               className="gradient-primary text-primary-foreground"
               onClick={handleSubmit}
               disabled={
-                (!formData.product_id && !isNewProduct) || 
-                formData.quantity <= 0 || 
-                createEntry.isPending || 
+                (!formData.product_id && !isNewProduct) ||
+                formData.quantity <= 0 ||
+                createEntry.isPending ||
                 updateEntry.isPending ||
                 createProduct.isPending
               }
@@ -717,7 +884,8 @@ export default function Entries() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir esta entrada? Esta ação não pode ser desfeita e o estoque do produto será ajustado.
+              Tem certeza que deseja excluir esta entrada? Esta ação não pode ser desfeita e
+              o estoque do produto será ajustado.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
