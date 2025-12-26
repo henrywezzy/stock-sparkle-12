@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Plus, Search, Edit, Trash2, ArrowDownToLine, Calendar, Loader2, X } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Plus, Search, Edit, Trash2, ArrowDownToLine, Calendar, Loader2, X, Package, Hash } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
@@ -35,15 +35,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DataFilters } from "@/components/filters/DataFilters";
+import { useToast } from "@/hooks/use-toast";
+
+// Função para gerar SKU automático
+const generateSKU = () => {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 5).toUpperCase();
+  return `PRD-${timestamp.slice(-4)}${random}`;
+};
 
 export default function Entries() {
   const { entries, isLoading, createEntry, updateEntry, deleteEntry } = useEntries();
-  const { products } = useProducts();
+  const { products, createProduct } = useProducts();
   const { suppliers } = useSuppliers();
   const { canEdit, canDelete } = useAuth();
+  const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -56,6 +66,14 @@ export default function Entries() {
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [selectedSupplier, setSelectedSupplier] = useState<string>("all");
 
+  // Product search state
+  const [productSearchMode, setProductSearchMode] = useState<"id" | "name">("name");
+  const [productIdSearch, setProductIdSearch] = useState("");
+  const [productNameSearch, setProductNameSearch] = useState("");
+  const [foundProduct, setFoundProduct] = useState<typeof products[0] | null>(null);
+  const [isNewProduct, setIsNewProduct] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+
   // Form state
   const [formData, setFormData] = useState<EntryFormData>({
     product_id: "",
@@ -66,6 +84,69 @@ export default function Entries() {
     invoice_number: "",
     notes: "",
   });
+
+  // Buscar produto por SKU
+  const searchProductBySKU = (sku: string) => {
+    if (!sku.trim()) {
+      setFoundProduct(null);
+      setIsNewProduct(false);
+      return;
+    }
+    
+    setIsSearching(true);
+    const product = products.find(
+      (p) => p.sku?.toLowerCase() === sku.toLowerCase()
+    );
+    
+    if (product) {
+      setFoundProduct(product);
+      setFormData((prev) => ({ ...prev, product_id: product.id }));
+      setIsNewProduct(false);
+      toast({
+        title: "Produto encontrado!",
+        description: `${product.name} (${product.sku})`,
+      });
+    } else {
+      setFoundProduct(null);
+      setIsNewProduct(false);
+      toast({
+        title: "Produto não encontrado",
+        description: "Nenhum produto com este ID foi encontrado.",
+        variant: "destructive",
+      });
+    }
+    setIsSearching(false);
+  };
+
+  // Buscar produto por nome (autocomplete)
+  const filteredProducts = useMemo(() => {
+    if (!productNameSearch.trim()) return [];
+    return products.filter((p) =>
+      p.name.toLowerCase().includes(productNameSearch.toLowerCase())
+    ).slice(0, 5);
+  }, [products, productNameSearch]);
+
+  const selectProduct = (product: typeof products[0]) => {
+    setFoundProduct(product);
+    setProductNameSearch(product.name);
+    setFormData((prev) => ({ ...prev, product_id: product.id }));
+    setIsNewProduct(false);
+  };
+
+  const createNewProduct = () => {
+    if (!productNameSearch.trim()) return;
+    setIsNewProduct(true);
+    setFoundProduct(null);
+    setFormData((prev) => ({ ...prev, product_id: "" }));
+  };
+
+  const clearProductSelection = () => {
+    setFoundProduct(null);
+    setProductIdSearch("");
+    setProductNameSearch("");
+    setIsNewProduct(false);
+    setFormData((prev) => ({ ...prev, product_id: "" }));
+  };
 
   const filteredEntries = useMemo(() => {
     return entries.filter((entry) => {
@@ -94,11 +175,20 @@ export default function Entries() {
       notes: "",
     });
     setEditingEntry(null);
+    setFoundProduct(null);
+    setProductIdSearch("");
+    setProductNameSearch("");
+    setIsNewProduct(false);
+    setProductSearchMode("name");
   };
 
   const handleOpenDialog = (entry?: Entry) => {
     if (entry) {
       setEditingEntry(entry);
+      const product = products.find((p) => p.id === entry.product_id);
+      setFoundProduct(product || null);
+      setProductNameSearch(product?.name || "");
+      setProductIdSearch(product?.sku || "");
       setFormData({
         product_id: entry.product_id,
         supplier_id: entry.supplier_id || "",
@@ -115,7 +205,44 @@ export default function Entries() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.product_id || formData.quantity <= 0) return;
+    if (formData.quantity <= 0) return;
+
+    let productId = formData.product_id;
+
+    // Se é um novo produto, criar primeiro
+    if (isNewProduct && productNameSearch.trim()) {
+      try {
+        const newSku = generateSKU();
+        const newProduct = await createProduct.mutateAsync({
+          name: productNameSearch.trim(),
+          sku: newSku,
+          quantity: 0, // Será atualizado pela entrada
+          supplier_id: formData.supplier_id || undefined,
+        });
+        productId = newProduct.id;
+        
+        toast({
+          title: "Novo produto criado!",
+          description: `${productNameSearch} foi cadastrado com ID: ${newSku}`,
+        });
+      } catch (error) {
+        toast({
+          title: "Erro ao criar produto",
+          description: "Não foi possível cadastrar o novo produto.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (!productId) {
+      toast({
+        title: "Selecione um produto",
+        description: "Busque por ID ou nome, ou crie um novo produto.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const total = (formData.unit_price || 0) * formData.quantity;
 
@@ -123,11 +250,13 @@ export default function Entries() {
       await updateEntry.mutateAsync({
         id: editingEntry.id,
         ...formData,
+        product_id: productId,
         total_price: total,
       });
     } else {
       await createEntry.mutateAsync({
         ...formData,
+        product_id: productId,
         total_price: total,
       });
     }
@@ -168,14 +297,24 @@ export default function Entries() {
     {
       key: "product",
       header: "Produto",
-      render: (entry: Entry) => (
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
-            <ArrowDownToLine className="w-4 h-4 text-success" />
+      render: (entry: Entry) => {
+        const product = products.find((p) => p.id === entry.product_id);
+        return (
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
+              <ArrowDownToLine className="w-4 h-4 text-success" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-medium text-sm truncate max-w-[120px] sm:max-w-none">
+                {entry.products?.name || "—"}
+              </span>
+              {product?.sku && (
+                <span className="text-xs text-muted-foreground font-mono">{product.sku}</span>
+              )}
+            </div>
           </div>
-          <span className="font-medium text-sm truncate max-w-[120px] sm:max-w-none">{entry.products?.name || "—"}</span>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: "quantity",
@@ -312,28 +451,172 @@ export default function Entries() {
           <DialogHeader>
             <DialogTitle>{editingEntry ? "Editar Entrada" : "Registrar Nova Entrada"}</DialogTitle>
             <DialogDescription>
-              {editingEntry ? "Altere as informações da entrada" : "Preencha as informações da entrada de produtos"}
+              {editingEntry ? "Altere as informações da entrada" : "Busque por ID ou nome do produto, ou cadastre um novo"}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="product">Produto *</Label>
-              <Select
-                value={formData.product_id}
-                onValueChange={(value) => setFormData({ ...formData, product_id: value })}
+            {/* Product Search Mode Toggle */}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={productSearchMode === "name" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setProductSearchMode("name");
+                  clearProductSelection();
+                }}
+                className="flex-1"
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o produto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <Package className="w-4 h-4 mr-2" />
+                Por Nome
+              </Button>
+              <Button
+                type="button"
+                variant={productSearchMode === "id" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setProductSearchMode("id");
+                  clearProductSelection();
+                }}
+                className="flex-1"
+              >
+                <Hash className="w-4 h-4 mr-2" />
+                Por ID (SKU)
+              </Button>
             </div>
+
+            {/* Product Search by ID */}
+            {productSearchMode === "id" && (
+              <div className="grid gap-2">
+                <Label htmlFor="product_id">ID do Produto (SKU)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="product_id"
+                    value={productIdSearch}
+                    onChange={(e) => setProductIdSearch(e.target.value.toUpperCase())}
+                    placeholder="Ex: PRD-A1B2XYZ"
+                    className="font-mono"
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => searchProductBySKU(productIdSearch)}
+                    disabled={isSearching || !productIdSearch.trim()}
+                  >
+                    {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Product Search by Name */}
+            {productSearchMode === "name" && (
+              <div className="grid gap-2">
+                <Label htmlFor="product_name">Nome do Produto *</Label>
+                <div className="relative">
+                  <Input
+                    id="product_name"
+                    value={productNameSearch}
+                    onChange={(e) => {
+                      setProductNameSearch(e.target.value);
+                      setFoundProduct(null);
+                      setIsNewProduct(false);
+                      setFormData((prev) => ({ ...prev, product_id: "" }));
+                    }}
+                    placeholder="Digite o nome do produto..."
+                  />
+                  {productNameSearch && !foundProduct && !isNewProduct && (
+                    <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {filteredProducts.length > 0 ? (
+                        <>
+                          {filteredProducts.map((product) => (
+                            <button
+                              key={product.id}
+                              type="button"
+                              onClick={() => selectProduct(product)}
+                              className="w-full px-4 py-2 text-left hover:bg-muted flex items-center justify-between"
+                            >
+                              <div>
+                                <span className="font-medium">{product.name}</span>
+                                {product.sku && (
+                                  <span className="text-xs text-muted-foreground ml-2 font-mono">
+                                    {product.sku}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                Estoque: {product.quantity}
+                              </span>
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={createNewProduct}
+                            className="w-full px-4 py-2 text-left hover:bg-muted border-t border-border flex items-center gap-2 text-primary"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span>Criar novo produto: "{productNameSearch}"</span>
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={createNewProduct}
+                          className="w-full px-4 py-2 text-left hover:bg-muted flex items-center gap-2 text-primary"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Criar novo produto: "{productNameSearch}"</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Selected Product Display */}
+            {foundProduct && (
+              <div className="flex items-center gap-3 p-3 bg-success/10 border border-success/20 rounded-lg">
+                <Package className="w-5 h-5 text-success" />
+                <div className="flex-1">
+                  <p className="font-medium">{foundProduct.name}</p>
+                  <p className="text-xs text-muted-foreground font-mono">
+                    ID: {foundProduct.sku || "Sem ID"} • Estoque atual: {foundProduct.quantity}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={clearProductSelection}
+                  className="h-8 w-8"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+
+            {/* New Product Indicator */}
+            {isNewProduct && (
+              <div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                <Plus className="w-5 h-5 text-primary" />
+                <div className="flex-1">
+                  <p className="font-medium">Novo produto será criado</p>
+                  <p className="text-xs text-muted-foreground">
+                    "{productNameSearch}" • Um ID será gerado automaticamente
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={clearProductSelection}
+                  className="h-8 w-8"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="quantity">Quantidade *</Label>
@@ -411,9 +694,17 @@ export default function Entries() {
             <Button
               className="gradient-primary text-primary-foreground"
               onClick={handleSubmit}
-              disabled={!formData.product_id || formData.quantity <= 0 || createEntry.isPending || updateEntry.isPending}
+              disabled={
+                (!formData.product_id && !isNewProduct) || 
+                formData.quantity <= 0 || 
+                createEntry.isPending || 
+                updateEntry.isPending ||
+                createProduct.isPending
+              }
             >
-              {(createEntry.isPending || updateEntry.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {(createEntry.isPending || updateEntry.isPending || createProduct.isPending) && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
               {editingEntry ? "Salvar" : "Registrar"}
             </Button>
           </DialogFooter>
