@@ -1,13 +1,14 @@
 import { useState, useMemo } from "react";
-import { Plus, Edit, Trash2, ArrowUpFromLine, Calendar, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, ArrowUpFromLine, Calendar, Loader2, Search, Package, Hash, X } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
-import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useExits, Exit, ExitFormData } from "@/hooks/useExits";
 import { useProducts } from "@/hooks/useProducts";
 import { useEmployees } from "@/hooks/useEmployees";
 import { useAuth } from "@/contexts/AuthContext";
+import { useColumnPreferences } from "@/hooks/useColumnPreferences";
+import { ColumnSettings } from "@/components/ui/column-settings";
 import {
   Dialog,
   DialogContent,
@@ -38,12 +39,43 @@ import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DataFilters } from "@/components/filters/DataFilters";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+// Colunas padrão para a tabela
+const DEFAULT_COLUMNS = [
+  { key: "date", label: "Data", visible: true },
+  { key: "sku", label: "ID (SKU)", visible: true },
+  { key: "product", label: "Produto", visible: true },
+  { key: "quantity", label: "Quantidade", visible: true },
+  { key: "destination", label: "Destino", visible: true },
+  { key: "employee", label: "Funcionário", visible: true },
+  { key: "reason", label: "Motivo", visible: false },
+  { key: "notes", label: "Observações", visible: false },
+  { key: "actions", label: "Ações", visible: true },
+];
 
 export default function Exits() {
   const { exits, isLoading, createExit, updateExit, deleteExit } = useExits();
   const { products } = useProducts();
   const { employees } = useEmployees();
   const { canEdit, canDelete } = useAuth();
+  const { toast } = useToast();
+
+  const {
+    columns,
+    visibleColumns,
+    toggleColumn,
+    reorderColumns,
+    resetToDefaults,
+  } = useColumnPreferences("exits", DEFAULT_COLUMNS);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -56,6 +88,13 @@ export default function Exits() {
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
 
+  // Product search state
+  const [productSearchMode, setProductSearchMode] = useState<"id" | "name">("name");
+  const [productIdSearch, setProductIdSearch] = useState("");
+  const [productNameSearch, setProductNameSearch] = useState("");
+  const [foundProduct, setFoundProduct] = useState<typeof products[0] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+
   // Form state
   const [formData, setFormData] = useState<ExitFormData>({
     product_id: "",
@@ -66,12 +105,65 @@ export default function Exits() {
     notes: "",
   });
 
+  // Buscar produto por SKU
+  const searchProductBySKU = (sku: string) => {
+    if (!sku.trim()) {
+      setFoundProduct(null);
+      return;
+    }
+
+    setIsSearching(true);
+    const product = products.find(
+      (p) => p.sku?.toLowerCase() === sku.toLowerCase()
+    );
+
+    if (product) {
+      setFoundProduct(product);
+      setFormData((prev) => ({ ...prev, product_id: product.id }));
+      toast({
+        title: "Produto encontrado!",
+        description: `${product.name} (${product.sku})`,
+      });
+    } else {
+      setFoundProduct(null);
+      toast({
+        title: "Produto não encontrado",
+        description: "Nenhum produto com este ID foi encontrado.",
+        variant: "destructive",
+      });
+    }
+    setIsSearching(false);
+  };
+
+  // Buscar produto por nome (autocomplete)
+  const filteredProducts = useMemo(() => {
+    if (!productNameSearch.trim()) return [];
+    return products
+      .filter((p) => p.name.toLowerCase().includes(productNameSearch.toLowerCase()))
+      .slice(0, 5);
+  }, [products, productNameSearch]);
+
+  const selectProduct = (product: typeof products[0]) => {
+    setFoundProduct(product);
+    setProductNameSearch(product.name);
+    setFormData((prev) => ({ ...prev, product_id: product.id }));
+  };
+
+  const clearProductSelection = () => {
+    setFoundProduct(null);
+    setProductIdSearch("");
+    setProductNameSearch("");
+    setFormData((prev) => ({ ...prev, product_id: "" }));
+  };
+
   const filteredExits = useMemo(() => {
     return exits.filter((exit) => {
+      const product = products.find((p) => p.id === exit.product_id);
       const matchesSearch =
         exit.products?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         exit.employees?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        exit.destination?.toLowerCase().includes(searchTerm.toLowerCase());
+        exit.destination?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product?.sku?.toLowerCase().includes(searchTerm.toLowerCase());
 
       const exitDate = new Date(exit.exit_date);
       const matchesDateFrom = !dateFrom || exitDate >= dateFrom;
@@ -80,7 +172,7 @@ export default function Exits() {
 
       return matchesSearch && matchesDateFrom && matchesDateTo && matchesEmployee;
     });
-  }, [exits, searchTerm, dateFrom, dateTo, selectedEmployee]);
+  }, [exits, products, searchTerm, dateFrom, dateTo, selectedEmployee]);
 
   const resetForm = () => {
     setFormData({
@@ -92,11 +184,19 @@ export default function Exits() {
       notes: "",
     });
     setEditingExit(null);
+    setFoundProduct(null);
+    setProductIdSearch("");
+    setProductNameSearch("");
+    setProductSearchMode("name");
   };
 
   const handleOpenDialog = (exit?: Exit) => {
     if (exit) {
       setEditingExit(exit);
+      const product = products.find((p) => p.id === exit.product_id);
+      setFoundProduct(product || null);
+      setProductNameSearch(product?.name || "");
+      setProductIdSearch(product?.sku || "");
       setFormData({
         product_id: exit.product_id,
         employee_id: exit.employee_id || "",
@@ -112,7 +212,25 @@ export default function Exits() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.product_id || formData.quantity <= 0) return;
+    if (!formData.product_id || formData.quantity <= 0) {
+      toast({
+        title: "Dados inválidos",
+        description: "Selecione um produto e informe a quantidade.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar estoque
+    const product = products.find((p) => p.id === formData.product_id);
+    if (product && formData.quantity > product.quantity) {
+      toast({
+        title: "Estoque insuficiente",
+        description: `Estoque disponível: ${product.quantity} unidades`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (editingExit) {
       await updateExit.mutateAsync({
@@ -140,82 +258,85 @@ export default function Exits() {
   };
 
   const clearFilters = () => {
+    setSearchTerm("");
     setDateFrom(undefined);
     setDateTo(undefined);
     setSelectedEmployee("all");
   };
 
-  const columns = [
-    {
-      key: "date",
-      header: "Data",
-      render: (exit: Exit) => (
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-muted-foreground hidden sm:block" />
-          <span className="text-sm">{format(new Date(exit.exit_date), "dd/MM/yyyy", { locale: ptBR })}</span>
-        </div>
-      ),
-    },
-    {
-      key: "product",
-      header: "Produto",
-      render: (exit: Exit) => (
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
-            <ArrowUpFromLine className="w-4 h-4 text-destructive" />
+  const renderCell = (exit: Exit, columnKey: string) => {
+    const product = products.find((p) => p.id === exit.product_id);
+
+    switch (columnKey) {
+      case "date":
+        return (
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm">
+              {format(new Date(exit.exit_date), "dd/MM/yyyy", { locale: ptBR })}
+            </span>
           </div>
-          <span className="font-medium text-sm truncate max-w-[120px] sm:max-w-none">{exit.products?.name || "—"}</span>
-        </div>
-      ),
-    },
-    {
-      key: "quantity",
-      header: "Qtd",
-      render: (exit: Exit) => (
-        <span className="font-semibold text-destructive">-{exit.quantity}</span>
-      ),
-    },
-    {
-      key: "destination",
-      header: "Destino",
-      className: "hidden md:table-cell",
-      render: (exit: Exit) => exit.destination || "—",
-    },
-    {
-      key: "employee",
-      header: "Funcionário",
-      className: "hidden lg:table-cell",
-      render: (exit: Exit) => exit.employees?.name || "—",
-    },
-    {
-      key: "actions",
-      header: "",
-      render: (exit: Exit) => (
-        <div className="flex items-center gap-1">
-          {canEdit && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-primary"
-              onClick={() => handleOpenDialog(exit)}
-            >
-              <Edit className="w-4 h-4" />
-            </Button>
-          )}
-          {canDelete && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              onClick={() => openDeleteDialog(exit.id)}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-      ),
-    },
-  ];
+        );
+      case "sku":
+        return (
+          <span className="font-mono text-xs bg-muted px-2 py-1 rounded">
+            {product?.sku || "—"}
+          </span>
+        );
+      case "product":
+        return (
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+              <ArrowUpFromLine className="w-4 h-4 text-destructive" />
+            </div>
+            <span className="font-medium text-sm">{exit.products?.name || "—"}</span>
+          </div>
+        );
+      case "quantity":
+        return <span className="font-semibold text-destructive">-{exit.quantity}</span>;
+      case "destination":
+        return exit.destination || "—";
+      case "employee":
+        return exit.employees?.name || "—";
+      case "reason":
+        return exit.reason || "—";
+      case "notes":
+        return exit.notes ? (
+          <span className="max-w-[150px] truncate block" title={exit.notes}>
+            {exit.notes}
+          </span>
+        ) : (
+          "—"
+        );
+      case "actions":
+        return (
+          <div className="flex items-center gap-1">
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                onClick={() => handleOpenDialog(exit)}
+              >
+                <Edit className="w-4 h-4" />
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={() => openDeleteDialog(exit.id)}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        );
+      default:
+        return "—";
+    }
+  };
 
   if (isLoading) {
     return (
@@ -232,23 +353,31 @@ export default function Exits() {
         description="Registre e gerencie todas as saídas de produtos"
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Saídas" }]}
         actions={
-          canEdit && (
-            <Button
-              className="gradient-primary text-primary-foreground glow-sm"
-              onClick={() => handleOpenDialog()}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Nova Saída</span>
-              <span className="sm:hidden">Nova</span>
-            </Button>
-          )
+          <div className="flex items-center gap-2">
+            <ColumnSettings
+              columns={columns}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetToDefaults}
+            />
+            {canEdit && (
+              <Button
+                className="gradient-primary text-primary-foreground glow-sm"
+                onClick={() => handleOpenDialog()}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Nova Saída</span>
+                <span className="sm:hidden">Nova</span>
+              </Button>
+            )}
+          </div>
         }
       />
 
       {/* Filters */}
       <DataFilters
         onSearch={setSearchTerm}
-        searchPlaceholder="Buscar por produto, funcionário..."
+        searchPlaceholder="Buscar por produto, SKU, funcionário..."
         showDateFilter
         dateFrom={dateFrom}
         dateTo={dateTo}
@@ -278,7 +407,9 @@ export default function Exits() {
           </div>
           <div>
             <p className="text-xs sm:text-sm text-muted-foreground">Itens</p>
-            <p className="text-xl sm:text-2xl font-bold">{exits.reduce((acc, e) => acc + e.quantity, 0)}</p>
+            <p className="text-xl sm:text-2xl font-bold">
+              {exits.reduce((acc, e) => acc + e.quantity, 0)}
+            </p>
           </div>
         </div>
         <div className="glass rounded-xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4 col-span-2 sm:col-span-1">
@@ -293,38 +424,186 @@ export default function Exits() {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
-        <DataTable columns={columns} data={filteredExits} />
+      <div className="glass rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                {visibleColumns.map((col) => (
+                  <TableHead key={col.key} className="text-muted-foreground">
+                    {col.label}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredExits.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={visibleColumns.length}
+                    className="text-center py-8 text-muted-foreground"
+                  >
+                    Nenhuma saída encontrada
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredExits.map((exit) => (
+                  <TableRow key={exit.id} className="border-border">
+                    {visibleColumns.map((col) => (
+                      <TableCell key={`${exit.id}-${col.key}`}>
+                        {renderCell(exit, col.key)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="glass border-border max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingExit ? "Editar Saída" : "Registrar Nova Saída"}</DialogTitle>
+            <DialogTitle>
+              {editingExit ? "Editar Saída" : "Registrar Nova Saída"}
+            </DialogTitle>
             <DialogDescription>
-              {editingExit ? "Altere as informações da saída" : "Preencha as informações da saída de produtos"}
+              {editingExit
+                ? "Altere as informações da saída"
+                : "Busque por ID ou nome do produto para registrar a saída"}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="product">Produto *</Label>
-              <Select
-                value={formData.product_id}
-                onValueChange={(value) => setFormData({ ...formData, product_id: value })}
+            {/* Product Search Mode Toggle */}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={productSearchMode === "name" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setProductSearchMode("name");
+                  clearProductSelection();
+                }}
+                className="flex-1"
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o produto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name} (Estoque: {product.quantity})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <Package className="w-4 h-4 mr-2" />
+                Por Nome
+              </Button>
+              <Button
+                type="button"
+                variant={productSearchMode === "id" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setProductSearchMode("id");
+                  clearProductSelection();
+                }}
+                className="flex-1"
+              >
+                <Hash className="w-4 h-4 mr-2" />
+                Por ID (SKU)
+              </Button>
             </div>
+
+            {/* Product Search by ID */}
+            {productSearchMode === "id" && (
+              <div className="grid gap-2">
+                <Label htmlFor="product_id">ID do Produto (SKU)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="product_id"
+                    value={productIdSearch}
+                    onChange={(e) => setProductIdSearch(e.target.value.toUpperCase())}
+                    placeholder="Ex: EPI-LUVA-P-001"
+                    className="font-mono"
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => searchProductBySKU(productIdSearch)}
+                    disabled={isSearching || !productIdSearch.trim()}
+                  >
+                    {isSearching ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Product Search by Name */}
+            {productSearchMode === "name" && (
+              <div className="grid gap-2">
+                <Label htmlFor="product_name">Nome do Produto *</Label>
+                <div className="relative">
+                  <Input
+                    id="product_name"
+                    value={productNameSearch}
+                    onChange={(e) => {
+                      setProductNameSearch(e.target.value);
+                      setFoundProduct(null);
+                      setFormData((prev) => ({ ...prev, product_id: "" }));
+                    }}
+                    placeholder="Digite o nome do produto..."
+                  />
+                  {productNameSearch && !foundProduct && (
+                    <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {filteredProducts.length > 0 ? (
+                        filteredProducts.map((product) => (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => selectProduct(product)}
+                            className="w-full px-4 py-2 text-left hover:bg-muted flex items-center justify-between"
+                          >
+                            <div>
+                              <span className="font-medium">{product.name}</span>
+                              {product.sku && (
+                                <span className="text-xs text-muted-foreground ml-2 font-mono">
+                                  {product.sku}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              Estoque: {product.quantity}
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-2 text-sm text-muted-foreground">
+                          Nenhum produto encontrado
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Selected Product Display */}
+            {foundProduct && (
+              <div className="flex items-center gap-3 p-3 bg-success/10 border border-success/20 rounded-lg">
+                <Package className="w-5 h-5 text-success" />
+                <div className="flex-1">
+                  <p className="font-medium">{foundProduct.name}</p>
+                  <p className="text-xs text-muted-foreground font-mono">
+                    ID: {foundProduct.sku || "Sem ID"} • Estoque: {foundProduct.quantity}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={clearProductSelection}
+                  className="h-8 w-8"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="quantity">Quantidade *</Label>
@@ -332,9 +611,17 @@ export default function Exits() {
                   id="quantity"
                   type="number"
                   min="1"
+                  max={foundProduct?.quantity || undefined}
                   value={formData.quantity || ""}
-                  onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })
+                  }
                 />
+                {foundProduct && (
+                  <p className="text-xs text-muted-foreground">
+                    Máximo: {foundProduct.quantity}
+                  </p>
+                )}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="destination">Destino/Setor</Label>
@@ -356,11 +643,13 @@ export default function Exits() {
                   <SelectValue placeholder="Selecione o funcionário" />
                 </SelectTrigger>
                 <SelectContent>
-                  {employees.filter(e => e.status === 'active').map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id}>
-                      {employee.name}
-                    </SelectItem>
-                  ))}
+                  {employees
+                    .filter((e) => e.status === "active")
+                    .map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -390,9 +679,16 @@ export default function Exits() {
             <Button
               className="gradient-primary text-primary-foreground"
               onClick={handleSubmit}
-              disabled={!formData.product_id || formData.quantity <= 0 || createExit.isPending || updateExit.isPending}
+              disabled={
+                !formData.product_id ||
+                formData.quantity <= 0 ||
+                createExit.isPending ||
+                updateExit.isPending
+              }
             >
-              {(createExit.isPending || updateExit.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {(createExit.isPending || updateExit.isPending) && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
               {editingExit ? "Salvar" : "Registrar"}
             </Button>
           </DialogFooter>

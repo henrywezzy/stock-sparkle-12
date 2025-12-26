@@ -49,9 +49,18 @@ export const useExits = () => {
 
   const createExit = useMutation({
     mutationFn: async (exit: ExitFormData) => {
+      // Convert empty strings to null for UUID fields
+      const sanitizedExit = {
+        ...exit,
+        employee_id: exit.employee_id && exit.employee_id.trim() !== '' ? exit.employee_id : null,
+        destination: exit.destination && exit.destination.trim() !== '' ? exit.destination : null,
+        reason: exit.reason && exit.reason.trim() !== '' ? exit.reason : null,
+        notes: exit.notes && exit.notes.trim() !== '' ? exit.notes : null,
+      };
+      
       const { data, error } = await supabase
         .from('exits')
-        .insert([exit])
+        .insert([sanitizedExit])
         .select()
         .single();
 
@@ -78,9 +87,18 @@ export const useExits = () => {
 
   const updateExit = useMutation({
     mutationFn: async ({ id, ...exit }: Partial<Exit> & { id: string }) => {
+      // Convert empty strings to null for UUID fields
+      const sanitizedExit = {
+        ...exit,
+        employee_id: exit.employee_id && String(exit.employee_id).trim() !== '' ? exit.employee_id : null,
+        destination: exit.destination && exit.destination.trim() !== '' ? exit.destination : null,
+        reason: exit.reason && exit.reason.trim() !== '' ? exit.reason : null,
+        notes: exit.notes && exit.notes.trim() !== '' ? exit.notes : null,
+      };
+      
       const { data, error } = await supabase
         .from('exits')
-        .update(exit)
+        .update(sanitizedExit)
         .eq('id', id)
         .select()
         .single();

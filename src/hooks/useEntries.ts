@@ -55,9 +55,19 @@ export const useEntries = () => {
 
   const createEntry = useMutation({
     mutationFn: async (entry: EntryFormData) => {
+      // Convert empty strings to null for UUID and optional fields
+      const sanitizedEntry = {
+        ...entry,
+        supplier_id: entry.supplier_id && entry.supplier_id.trim() !== '' ? entry.supplier_id : null,
+        received_by: entry.received_by && entry.received_by.trim() !== '' ? entry.received_by : null,
+        invoice_number: entry.invoice_number && entry.invoice_number.trim() !== '' ? entry.invoice_number : null,
+        batch: entry.batch && entry.batch.trim() !== '' ? entry.batch : null,
+        notes: entry.notes && entry.notes.trim() !== '' ? entry.notes : null,
+      };
+      
       const { data, error } = await supabase
         .from('entries')
-        .insert([entry])
+        .insert([sanitizedEntry])
         .select()
         .single();
 
@@ -84,9 +94,19 @@ export const useEntries = () => {
 
   const updateEntry = useMutation({
     mutationFn: async ({ id, ...entry }: Partial<Entry> & { id: string }) => {
+      // Convert empty strings to null for UUID and optional fields
+      const sanitizedEntry = {
+        ...entry,
+        supplier_id: entry.supplier_id && String(entry.supplier_id).trim() !== '' ? entry.supplier_id : null,
+        received_by: entry.received_by && entry.received_by.trim() !== '' ? entry.received_by : null,
+        invoice_number: entry.invoice_number && entry.invoice_number.trim() !== '' ? entry.invoice_number : null,
+        batch: entry.batch && entry.batch.trim() !== '' ? entry.batch : null,
+        notes: entry.notes && entry.notes.trim() !== '' ? entry.notes : null,
+      };
+      
       const { data, error } = await supabase
         .from('entries')
-        .update(entry)
+        .update(sanitizedEntry)
         .eq('id', id)
         .select()
         .single();
