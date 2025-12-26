@@ -137,7 +137,7 @@ export default function Settings() {
 
   // Update user role (admin only)
   const updateUserRole = useMutation({
-    mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
+    mutationFn: async ({ userId, newRole }: { userId: string; newRole: "admin" | "almoxarife" | "visualizador" }) => {
       const { error } = await supabase
         .from('user_roles')
         .update({ role: newRole })
@@ -333,17 +333,12 @@ export default function Settings() {
                         ) : (
                           <Select
                             value={userItem.role}
-                            onValueChange={(newRole) => updateUserRole.mutate({ userId: userItem.id, newRole })}
+                            onValueChange={(newRole: "admin" | "almoxarife" | "visualizador") => updateUserRole.mutate({ userId: userItem.id, newRole })}
                           >
                             <SelectTrigger className="w-[140px] sm:w-[160px]">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="admin">Administrador</SelectItem>
-                              <SelectItem value="almoxarife">Almoxarife</SelectItem>
-                              <SelectItem value="visualizador">Visualizador</SelectItem>
-                            </SelectContent>
-                          </Select>
                               <SelectItem value="admin">Administrador</SelectItem>
                               <SelectItem value="almoxarife">Almoxarife</SelectItem>
                               <SelectItem value="visualizador">Visualizador</SelectItem>
