@@ -15,6 +15,15 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useProducts } from "@/hooks/useProducts";
 import { useEntries } from "@/hooks/useEntries";
 import { useSuppliers } from "@/hooks/useSuppliers";
@@ -100,6 +109,11 @@ export default function Purchases() {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<PurchaseSuggestion | null>(null);
+  
+  // Form state for purchase confirmation
+  const [purchaseQuantity, setPurchaseQuantity] = useState<number>(0);
+  const [purchasePrice, setPurchasePrice] = useState<string>("");
+  const [purchaseSupplierId, setPurchaseSupplierId] = useState<string>("");
 
   // Gerar sugestões de compra baseado em produtos com estoque baixo/crítico
   const purchaseSuggestions = useMemo(() => {
@@ -127,8 +141,11 @@ export default function Purchases() {
           supplier_id: entry.supplier_id,
         }));
 
-      // Calcular quantidade sugerida para atingir o máximo
-      const suggestedQuantity = Math.max(maxQty - product.quantity, minQty);
+      // Calcular quantidade sugerida para atingir o estoque mínimo
+      const suggestedQuantity = Math.max(minQty - product.quantity, 0);
+      
+      // Só adicionar se realmente precisar comprar algo
+      if (suggestedQuantity <= 0) return;
 
       suggestions.push({
         product: {
@@ -174,6 +191,10 @@ export default function Purchases() {
 
   const handleConfirmPurchase = (suggestion: PurchaseSuggestion) => {
     setSelectedProduct(suggestion);
+    setPurchaseQuantity(suggestion.suggestedQuantity);
+    const bestPrice = getBestPrice(suggestion.lastPurchases);
+    setPurchasePrice(bestPrice?.unit_price?.toString() || "");
+    setPurchaseSupplierId(bestPrice?.supplier_id || suggestion.product.supplier_id || "");
     setConfirmDialogOpen(true);
   };
 
@@ -182,15 +203,49 @@ export default function Purchases() {
     setRejectDialogOpen(true);
   };
 
-  const confirmPurchase = () => {
-    if (selectedProduct) {
-      toast({
-        title: "Compra confirmada!",
-        description: `Pedido de ${selectedProduct.suggestedQuantity} unidades de ${selectedProduct.product.name} registrado.`,
-      });
+  const { createEntry } = useEntries();
+
+  const confirmPurchase = async () => {
+    if (selectedProduct && purchaseQuantity > 0) {
+      try {
+        // Registrar a entrada
+        await createEntry.mutateAsync({
+          product_id: selectedProduct.product.id,
+          quantity: purchaseQuantity,
+          unit_price: purchasePrice ? parseFloat(purchasePrice) : undefined,
+          total_price: purchasePrice ? parseFloat(purchasePrice) * purchaseQuantity : undefined,
+          supplier_id: purchaseSupplierId || undefined,
+          entry_date: new Date().toISOString(),
+        });
+
+        const newStock = selectedProduct.product.quantity + purchaseQuantity;
+        const minQty = selectedProduct.product.min_quantity || 10;
+        
+        if (newStock >= minQty) {
+          toast({
+            title: "Compra registrada!",
+            description: `${purchaseQuantity} unidades de ${selectedProduct.product.name} adicionadas ao estoque. Estoque normalizado!`,
+          });
+        } else {
+          const remaining = minQty - newStock;
+          toast({
+            title: "Compra registrada!",
+            description: `${purchaseQuantity} unidades adicionadas. Ainda faltam ${remaining} unidades para atingir o estoque mínimo.`,
+          });
+        }
+      } catch (error) {
+        toast({
+          title: "Erro ao registrar compra",
+          description: "Ocorreu um erro ao registrar a entrada.",
+          variant: "destructive",
+        });
+      }
     }
     setConfirmDialogOpen(false);
     setSelectedProduct(null);
+    setPurchaseQuantity(0);
+    setPurchasePrice("");
+    setPurchaseSupplierId("");
   };
 
   const rejectPurchase = () => {
@@ -548,14 +603,14 @@ export default function Purchases() {
 
       {/* Confirm Dialog */}
       <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
-        <DialogContent className="glass border-border">
+        <DialogContent className="glass border-border sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Check className="w-5 h-5 text-success" />
-              Confirmar Compra
+              Registrar Compra
             </DialogTitle>
             <DialogDescription>
-              Deseja confirmar a sugestão de compra para este produto?
+              Informe os detalhes da compra realizada
             </DialogDescription>
           </DialogHeader>
           {selectedProduct && (
@@ -571,14 +626,76 @@ export default function Purchases() {
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Estoque Atual</p>
+              
+              <div className="grid grid-cols-3 gap-3 text-sm p-3 rounded-lg bg-muted/50">
+                <div className="text-center">
+                  <p className="text-muted-foreground text-xs">Estoque Atual</p>
                   <p className="font-semibold text-destructive">{selectedProduct.product.quantity}</p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground">Quantidade Sugerida</p>
+                <div className="text-center">
+                  <p className="text-muted-foreground text-xs">Mínimo</p>
+                  <p className="font-semibold">{selectedProduct.product.min_quantity}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-muted-foreground text-xs">Sugerido</p>
                   <p className="font-semibold text-success">+{selectedProduct.suggestedQuantity}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="quantity">Quantidade Comprada *</Label>
+                  <Input
+                    id="quantity"
+                    type="number"
+                    min={1}
+                    value={purchaseQuantity}
+                    onChange={(e) => setPurchaseQuantity(parseInt(e.target.value) || 0)}
+                    placeholder="Quantidade"
+                  />
+                  {purchaseQuantity > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Novo estoque: {selectedProduct.product.quantity + purchaseQuantity} unidades
+                      {selectedProduct.product.quantity + purchaseQuantity >= (selectedProduct.product.min_quantity || 10)
+                        ? <span className="text-success ml-1">(estoque normalizado)</span>
+                        : <span className="text-warning ml-1">(ainda abaixo do mínimo)</span>
+                      }
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="price">Preço Unitário (R$)</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={purchasePrice}
+                    onChange={(e) => setPurchasePrice(e.target.value)}
+                    placeholder="0,00"
+                  />
+                  {purchasePrice && purchaseQuantity > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Total: {formatCurrency(parseFloat(purchasePrice) * purchaseQuantity)}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="supplier">Fornecedor</Label>
+                  <Select value={purchaseSupplierId} onValueChange={setPurchaseSupplierId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o fornecedor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {suppliers.map((supplier) => (
+                        <SelectItem key={supplier.id} value={supplier.id}>
+                          {supplier.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -587,9 +704,17 @@ export default function Purchases() {
             <Button variant="outline" onClick={() => setConfirmDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={confirmPurchase} className="bg-success hover:bg-success/90">
-              <Check className="w-4 h-4 mr-2" />
-              Confirmar
+            <Button 
+              onClick={confirmPurchase} 
+              className="bg-success hover:bg-success/90"
+              disabled={purchaseQuantity <= 0 || createEntry.isPending}
+            >
+              {createEntry.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Check className="w-4 h-4 mr-2" />
+              )}
+              Registrar Compra
             </Button>
           </DialogFooter>
         </DialogContent>
