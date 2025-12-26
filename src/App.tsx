@@ -19,6 +19,7 @@ import Inventory from "./pages/Inventory";
 import History from "./pages/History";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import Purchases from "./pages/Purchases";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -39,6 +40,7 @@ const App = () => (
               <Route path="/categorias" element={<Categories />} />
               <Route path="/entrada" element={<Entries />} />
               <Route path="/saida" element={<Exits />} />
+              <Route path="/compras" element={<Purchases />} />
               <Route path="/funcionarios" element={<Employees />} />
               <Route path="/epis" element={<EPIs />} />
               <Route path="/fornecedores" element={<Suppliers />} />
