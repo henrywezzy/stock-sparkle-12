@@ -93,7 +93,7 @@ export default function Exits() {
   const [productIdSearch, setProductIdSearch] = useState("");
   const [productNameSearch, setProductNameSearch] = useState("");
   const [foundProduct, setFoundProduct] = useState<typeof products[0] | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
+  const [showSkuSuggestions, setShowSkuSuggestions] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState<ExitFormData>({
@@ -105,34 +105,24 @@ export default function Exits() {
     notes: "",
   });
 
-  // Buscar produto por SKU
-  const searchProductBySKU = (sku: string) => {
-    if (!sku.trim()) {
-      setFoundProduct(null);
-      return;
-    }
+  // SKU autocomplete for ID search
+  const filteredProductsBySKU = useMemo(() => {
+    if (!productIdSearch.trim()) return [];
+    return products
+      .filter((p) => p.sku?.toLowerCase().startsWith(productIdSearch.toLowerCase()))
+      .slice(0, 8);
+  }, [products, productIdSearch]);
 
-    setIsSearching(true);
-    const product = products.find(
-      (p) => p.sku?.toLowerCase() === sku.toLowerCase()
-    );
-
-    if (product) {
-      setFoundProduct(product);
-      setFormData((prev) => ({ ...prev, product_id: product.id }));
-      toast({
-        title: "Produto encontrado!",
-        description: `${product.name} (${product.sku})`,
-      });
-    } else {
-      setFoundProduct(null);
-      toast({
-        title: "Produto não encontrado",
-        description: "Nenhum produto com este ID foi encontrado.",
-        variant: "destructive",
-      });
-    }
-    setIsSearching(false);
+  // Select product from SKU suggestions
+  const selectProductFromSKU = (product: typeof products[0]) => {
+    setFoundProduct(product);
+    setProductIdSearch(product.sku || "");
+    setFormData((prev) => ({ ...prev, product_id: product.id }));
+    setShowSkuSuggestions(false);
+    toast({
+      title: "Produto encontrado!",
+      description: `${product.name} (${product.sku})`,
+    });
   };
 
   // Buscar produto por nome (autocomplete)
@@ -188,6 +178,7 @@ export default function Exits() {
     setProductIdSearch("");
     setProductNameSearch("");
     setProductSearchMode("name");
+    setShowSkuSuggestions(false);
   };
 
   const handleOpenDialog = (exit?: Exit) => {
@@ -506,29 +497,50 @@ export default function Exits() {
               </Button>
             </div>
 
-            {/* Product Search by ID */}
+            {/* Product Search by ID with Autocomplete */}
             {productSearchMode === "id" && (
               <div className="grid gap-2">
                 <Label htmlFor="product_id">ID do Produto (SKU)</Label>
-                <div className="flex gap-2">
+                <div className="relative">
                   <Input
                     id="product_id"
                     value={productIdSearch}
-                    onChange={(e) => setProductIdSearch(e.target.value.toUpperCase())}
-                    placeholder="Ex: EPI-LUVA-P-001"
+                    onChange={(e) => {
+                      setProductIdSearch(e.target.value.toUpperCase());
+                      setShowSkuSuggestions(true);
+                      setFoundProduct(null);
+                      setFormData((prev) => ({ ...prev, product_id: "" }));
+                    }}
+                    onFocus={() => setShowSkuSuggestions(true)}
+                    placeholder="Digite o início do SKU..."
                     className="font-mono"
                   />
-                  <Button
-                    type="button"
-                    onClick={() => searchProductBySKU(productIdSearch)}
-                    disabled={isSearching || !productIdSearch.trim()}
-                  >
-                    {isSearching ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Search className="w-4 h-4" />
-                    )}
-                  </Button>
+                  {showSkuSuggestions && productIdSearch && !foundProduct && (
+                    <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                      {filteredProductsBySKU.length > 0 ? (
+                        filteredProductsBySKU.map((product) => (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => selectProductFromSKU(product)}
+                            className="w-full px-4 py-2 text-left hover:bg-muted flex items-center justify-between"
+                          >
+                            <div className="flex flex-col">
+                              <span className="font-mono text-sm font-medium">{product.sku}</span>
+                              <span className="text-xs text-muted-foreground">{product.name}</span>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              Estoque: {product.quantity}
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+                          Nenhum produto encontrado com este SKU
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
