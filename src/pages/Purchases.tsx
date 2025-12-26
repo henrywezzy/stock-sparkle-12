@@ -702,7 +702,7 @@ export default function Purchases() {
             </Button>
             <Button 
               onClick={confirmPurchase} 
-              className="bg-success hover:bg-success/90"
+              className="bg-success text-success-foreground hover:bg-success/90"
               disabled={purchaseQuantity <= 0 || createEntry.isPending}
             >
               {createEntry.isPending ? (
