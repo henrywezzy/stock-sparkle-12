@@ -479,8 +479,8 @@ export default function Products() {
                 <Input
                   id="quantity"
                   type="number"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
+                  value={formData.quantity || ""}
+                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value === "" ? 0 : parseInt(e.target.value) })}
                   placeholder="0"
                 />
               </div>
@@ -496,10 +496,16 @@ export default function Products() {
                   <SelectContent>
                     <SelectItem value="un">Unidade</SelectItem>
                     <SelectItem value="m">Metro</SelectItem>
+                    <SelectItem value="mm">Milímetro</SelectItem>
+                    <SelectItem value="cm">Centímetro</SelectItem>
                     <SelectItem value="kg">Quilograma</SelectItem>
+                    <SelectItem value="g">Grama</SelectItem>
                     <SelectItem value="l">Litro</SelectItem>
+                    <SelectItem value="ml">Mililitro</SelectItem>
                     <SelectItem value="cx">Caixa</SelectItem>
                     <SelectItem value="pc">Peça</SelectItem>
+                    <SelectItem value="par">Par</SelectItem>
+                    <SelectItem value="rolo">Rolo</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -510,8 +516,8 @@ export default function Products() {
                 <Input
                   id="minStock"
                   type="number"
-                  value={formData.min_quantity || 10}
-                  onChange={(e) => setFormData({ ...formData, min_quantity: parseInt(e.target.value) || 10 })}
+                  value={formData.min_quantity || ""}
+                  onChange={(e) => setFormData({ ...formData, min_quantity: e.target.value === "" ? 10 : parseInt(e.target.value) })}
                   placeholder="10"
                 />
               </div>

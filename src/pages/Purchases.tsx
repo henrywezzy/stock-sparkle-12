@@ -645,8 +645,8 @@ export default function Purchases() {
                     id="quantity"
                     type="number"
                     min={1}
-                    value={purchaseQuantity}
-                    onChange={(e) => setPurchaseQuantity(parseInt(e.target.value) || 0)}
+                    value={purchaseQuantity || ""}
+                    onChange={(e) => setPurchaseQuantity(e.target.value === "" ? 0 : parseInt(e.target.value))}
                     placeholder="Quantidade"
                   />
                   {purchaseQuantity > 0 && (
