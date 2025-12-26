@@ -21,6 +21,7 @@ import {
   Warehouse,
   LogOut,
   X,
+  ShoppingCart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ const menuItems: MenuItem[] = [
   { title: "Categorias", icon: Tags, path: "/categorias" },
   { title: "Entrada", icon: ArrowDownToLine, path: "/entrada" },
   { title: "Saída", icon: ArrowUpFromLine, path: "/saida" },
+  { title: "Compras", icon: ShoppingCart, path: "/compras" },
   {
     title: "Gestão de Pessoas",
     icon: Users,

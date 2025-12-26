@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useProducts } from './useProducts';
 import { useEntries } from './useEntries';
 import { useExits } from './useExits';
@@ -20,15 +20,26 @@ export const useNotifications = () => {
   const { entries } = useEntries();
   const { exits } = useExits();
   const { employees } = useEmployees();
+  
+  // Estado para armazenar IDs de notificações descartadas
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('dismissedNotifications');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
 
-  const notifications = useMemo(() => {
-    const allNotifications: Notification[] = [];
+  const saveDismissedIds = useCallback((ids: Set<string>) => {
+    localStorage.setItem('dismissedNotifications', JSON.stringify(Array.from(ids)));
+    setDismissedIds(ids);
+  }, []);
+
+  const allNotifications = useMemo(() => {
+    const notifications: Notification[] = [];
 
     // Low stock notifications
     products
       .filter((p) => p.quantity <= (p.min_quantity || 10))
       .forEach((product) => {
-        allNotifications.push({
+        notifications.push({
           id: `low-stock-${product.id}`,
           type: 'low_stock',
           title: 'Estoque Baixo',
@@ -40,7 +51,7 @@ export const useNotifications = () => {
 
     // Recent entries (last 5)
     entries.slice(0, 5).forEach((entry) => {
-      allNotifications.push({
+      notifications.push({
         id: `entry-${entry.id}`,
         type: 'entry',
         title: 'Nova Entrada',
@@ -52,7 +63,7 @@ export const useNotifications = () => {
 
     // Recent exits (last 5)
     exits.slice(0, 5).forEach((exit) => {
-      allNotifications.push({
+      notifications.push({
         id: `exit-${exit.id}`,
         type: 'exit',
         title: 'Nova Saída',
@@ -72,7 +83,7 @@ export const useNotifications = () => {
         const expiryDate = new Date(product.expiry_date!);
         const isExpired = expiryDate < today;
         
-        allNotifications.push({
+        notifications.push({
           id: `expiry-${product.id}`,
           type: 'expiry',
           title: isExpired ? 'Produto Vencido' : 'Vencimento Próximo',
@@ -87,7 +98,7 @@ export const useNotifications = () => {
       .filter((e) => e.status === 'active')
       .slice(0, 3)
       .forEach((employee) => {
-        allNotifications.push({
+        notifications.push({
           id: `employee-${employee.id}`,
           type: 'employee',
           title: 'Funcionário Ativo',
@@ -98,7 +109,7 @@ export const useNotifications = () => {
       });
 
     // Sort by most recent
-    return allNotifications.sort((a, b) => {
+    return notifications.sort((a, b) => {
       // Priority: low_stock and expiry first, then by time
       if (a.type === 'low_stock' && b.type !== 'low_stock') return -1;
       if (a.type !== 'low_stock' && b.type === 'low_stock') return 1;
@@ -108,10 +119,35 @@ export const useNotifications = () => {
     });
   }, [products, entries, exits, employees]);
 
+  // Filtrar notificações descartadas
+  const notifications = useMemo(() => {
+    return allNotifications.filter((n) => !dismissedIds.has(n.id));
+  }, [allNotifications, dismissedIds]);
+
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const dismissNotification = useCallback((id: string) => {
+    const newDismissed = new Set(dismissedIds);
+    newDismissed.add(id);
+    saveDismissedIds(newDismissed);
+  }, [dismissedIds, saveDismissedIds]);
+
+  const dismissAllNotifications = useCallback(() => {
+    const allIds = new Set(notifications.map((n) => n.id));
+    const newDismissed = new Set([...dismissedIds, ...allIds]);
+    saveDismissedIds(newDismissed);
+  }, [notifications, dismissedIds, saveDismissedIds]);
+
+  const dismissSelectedNotifications = useCallback((ids: string[]) => {
+    const newDismissed = new Set([...dismissedIds, ...ids]);
+    saveDismissedIds(newDismissed);
+  }, [dismissedIds, saveDismissedIds]);
 
   return {
     notifications,
     unreadCount,
+    dismissNotification,
+    dismissAllNotifications,
+    dismissSelectedNotifications,
   };
 };
