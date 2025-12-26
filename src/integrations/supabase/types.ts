@@ -14,16 +14,605 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      employees: {
+        Row: {
+          admission_date: string | null
+          created_at: string
+          department: string | null
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          photo_url: string | null
+          position: string | null
+          registration_number: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          admission_date?: string | null
+          created_at?: string
+          department?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          photo_url?: string | null
+          position?: string | null
+          registration_number?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admission_date?: string | null
+          created_at?: string
+          department?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          photo_url?: string | null
+          position?: string | null
+          registration_number?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      entries: {
+        Row: {
+          batch: string | null
+          created_at: string
+          entry_date: string
+          id: string
+          invoice_number: string | null
+          notes: string | null
+          product_id: string
+          quantity: number
+          received_by: string | null
+          supplier_id: string | null
+          total_price: number | null
+          unit_price: number | null
+        }
+        Insert: {
+          batch?: string | null
+          created_at?: string
+          entry_date?: string
+          id?: string
+          invoice_number?: string | null
+          notes?: string | null
+          product_id: string
+          quantity: number
+          received_by?: string | null
+          supplier_id?: string | null
+          total_price?: number | null
+          unit_price?: number | null
+        }
+        Update: {
+          batch?: string | null
+          created_at?: string
+          entry_date?: string
+          id?: string
+          invoice_number?: string | null
+          notes?: string | null
+          product_id?: string
+          quantity?: number
+          received_by?: string | null
+          supplier_id?: string | null
+          total_price?: number | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entries_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entries_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      epi_deliveries: {
+        Row: {
+          created_at: string
+          delivery_date: string
+          employee_id: string
+          epi_id: string
+          expiry_date: string | null
+          id: string
+          notes: string | null
+          quantity: number
+          status: string | null
+        }
+        Insert: {
+          created_at?: string
+          delivery_date?: string
+          employee_id: string
+          epi_id: string
+          expiry_date?: string | null
+          id?: string
+          notes?: string | null
+          quantity?: number
+          status?: string | null
+        }
+        Update: {
+          created_at?: string
+          delivery_date?: string
+          employee_id?: string
+          epi_id?: string
+          expiry_date?: string | null
+          id?: string
+          notes?: string | null
+          quantity?: number
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "epi_deliveries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "epi_deliveries_epi_id_fkey"
+            columns: ["epi_id"]
+            isOneToOne: false
+            referencedRelation: "epis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      epis: {
+        Row: {
+          ca_number: string | null
+          category: string | null
+          created_at: string
+          default_validity_days: number | null
+          description: string | null
+          id: string
+          image_url: string | null
+          min_quantity: number | null
+          name: string
+          quantity: number
+          updated_at: string
+        }
+        Insert: {
+          ca_number?: string | null
+          category?: string | null
+          created_at?: string
+          default_validity_days?: number | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          min_quantity?: number | null
+          name: string
+          quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          ca_number?: string | null
+          category?: string | null
+          created_at?: string
+          default_validity_days?: number | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          min_quantity?: number | null
+          name?: string
+          quantity?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      exits: {
+        Row: {
+          created_at: string
+          destination: string | null
+          employee_id: string | null
+          exit_date: string
+          id: string
+          notes: string | null
+          product_id: string
+          quantity: number
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          destination?: string | null
+          employee_id?: string | null
+          exit_date?: string
+          id?: string
+          notes?: string | null
+          product_id: string
+          quantity: number
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          destination?: string | null
+          employee_id?: string | null
+          exit_date?: string
+          id?: string
+          notes?: string | null
+          product_id?: string
+          quantity?: number
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exits_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exits_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_settings: {
+        Row: {
+          created_at: string
+          email_epi_expiring: boolean | null
+          email_low_stock: boolean | null
+          email_new_requisition: boolean | null
+          epi_expiry_days: number | null
+          id: string
+          low_stock_threshold: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_epi_expiring?: boolean | null
+          email_low_stock?: boolean | null
+          email_new_requisition?: boolean | null
+          epi_expiry_days?: number | null
+          id?: string
+          low_stock_threshold?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_epi_expiring?: boolean | null
+          email_low_stock?: boolean | null
+          email_new_requisition?: boolean | null
+          epi_expiry_days?: number | null
+          id?: string
+          low_stock_threshold?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          batch: string | null
+          category_id: string | null
+          created_at: string
+          description: string | null
+          expiry_date: string | null
+          id: string
+          location: string | null
+          max_quantity: number | null
+          min_quantity: number | null
+          name: string
+          price: number | null
+          quantity: number
+          sku: string | null
+          status: string | null
+          supplier_id: string | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          batch?: string | null
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          expiry_date?: string | null
+          id?: string
+          location?: string | null
+          max_quantity?: number | null
+          min_quantity?: number | null
+          name: string
+          price?: number | null
+          quantity?: number
+          sku?: string | null
+          status?: string | null
+          supplier_id?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          batch?: string | null
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          expiry_date?: string | null
+          id?: string
+          location?: string | null
+          max_quantity?: number | null
+          min_quantity?: number | null
+          name?: string
+          price?: number | null
+          quantity?: number
+          sku?: string | null
+          status?: string | null
+          supplier_id?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      requisitions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          employee_id: string | null
+          id: string
+          notes: string | null
+          priority: string | null
+          product_id: string
+          quantity: number
+          requested_by: string | null
+          status: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          employee_id?: string | null
+          id?: string
+          notes?: string | null
+          priority?: string | null
+          product_id: string
+          quantity: number
+          requested_by?: string | null
+          status?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          employee_id?: string | null
+          id?: string
+          notes?: string | null
+          priority?: string | null
+          product_id?: string
+          quantity?: number
+          requested_by?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requisitions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requisitions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_history: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          new_quantity: number | null
+          notes: string | null
+          previous_quantity: number | null
+          product_id: string
+          quantity: number
+          user_name: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          new_quantity?: number | null
+          notes?: string | null
+          previous_quantity?: number | null
+          product_id: string
+          quantity: number
+          user_name?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          new_quantity?: number | null
+          notes?: string | null
+          previous_quantity?: number | null
+          product_id?: string
+          quantity?: number
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          cnpj: string | null
+          contact_name: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          rating: number | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          cnpj?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          rating?: number | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          cnpj?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          rating?: number | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "almoxarife" | "visualizador"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +739,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "almoxarife", "visualizador"],
+    },
   },
 } as const

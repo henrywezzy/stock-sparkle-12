@@ -19,9 +19,11 @@ import {
   HardHat,
   UserCircle,
   Warehouse,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Collapsible,
   CollapsibleContent,
@@ -61,6 +63,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [openMenus, setOpenMenus] = useState<string[]>(["Gestão de Pessoas"]);
   const location = useLocation();
+  const { signOut, userRole, user } = useAuth();
 
   const toggleMenu = (title: string) => {
     setOpenMenus((prev) =>
@@ -177,14 +180,23 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      {!collapsed && (
-        <div className="p-4 border-t border-sidebar-border">
+      <div className="p-4 border-t border-sidebar-border space-y-3">
+        {!collapsed && user && (
           <div className="glass rounded-lg p-3">
-            <p className="text-xs text-muted-foreground">Versão 1.0.0</p>
-            <p className="text-xs text-muted-foreground">© 2024 Almoxarifado</p>
+            <p className="text-sm font-medium text-foreground truncate">{user.email}</p>
+            <p className="text-xs text-primary capitalize">{userRole || 'Carregando...'}</p>
           </div>
-        </div>
-      )}
+        )}
+        <Button
+          variant="ghost"
+          size={collapsed ? "icon" : "default"}
+          onClick={signOut}
+          className="w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+        >
+          <LogOut className="w-4 h-4" />
+          {!collapsed && <span className="ml-2">Sair</span>}
+        </Button>
+      </div>
     </aside>
   );
 }
