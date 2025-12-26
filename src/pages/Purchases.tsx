@@ -343,34 +343,30 @@ export default function Purchases() {
       case "actions":
         return (
           <div className="flex items-center gap-1">
-            {canEdit && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-success hover:text-success hover:bg-success/10"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleConfirmPurchase(suggestion);
-                  }}
-                  title="Confirmar compra"
-                >
-                  <Check className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRejectPurchase(suggestion);
-                  }}
-                  title="Rejeitar sugestão"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </>
-            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-success hover:text-success hover:bg-success/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleConfirmPurchase(suggestion);
+              }}
+              title="Confirmar compra"
+            >
+              <Check className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRejectPurchase(suggestion);
+              }}
+              title="Rejeitar sugestão"
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
         );
       default:
