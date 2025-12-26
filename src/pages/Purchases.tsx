@@ -398,36 +398,40 @@ export default function Purchases() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col gap-4">
         <DataFilters
           onSearch={setSearchTerm}
           searchPlaceholder="Buscar por produto ou SKU..."
           onClearFilters={clearFilters}
         />
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant={statusFilter === "all" ? "default" : "outline"}
-            size="sm"
             onClick={() => setStatusFilter("all")}
+            className="flex-1 sm:flex-none"
           >
             Todos
           </Button>
           <Button
             variant={statusFilter === "critical" ? "destructive" : "outline"}
-            size="sm"
             onClick={() => setStatusFilter("critical")}
-            className={statusFilter === "critical" ? "" : "text-destructive border-destructive/50 hover:bg-destructive/10"}
+            className={cn(
+              "flex-1 sm:flex-none",
+              statusFilter === "critical" ? "" : "text-destructive border-destructive/50 hover:bg-destructive/10"
+            )}
           >
-            <AlertTriangle className="w-4 h-4 mr-1" />
+            <AlertTriangle className="w-4 h-4 mr-2" />
             Críticos
           </Button>
           <Button
             variant={statusFilter === "low" ? "secondary" : "outline"}
-            size="sm"
             onClick={() => setStatusFilter("low")}
-            className={statusFilter === "low" ? "bg-warning/20 text-warning hover:bg-warning/30" : "text-warning border-warning/50 hover:bg-warning/10"}
+            className={cn(
+              "flex-1 sm:flex-none",
+              statusFilter === "low" ? "bg-warning/20 text-warning hover:bg-warning/30" : "text-warning border-warning/50 hover:bg-warning/10"
+            )}
           >
-            <TrendingDown className="w-4 h-4 mr-1" />
+            <TrendingDown className="w-4 h-4 mr-2" />
             Baixos
           </Button>
         </div>
