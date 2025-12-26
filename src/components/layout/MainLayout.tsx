@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
-import { Bell, Menu, User } from "lucide-react";
+import { Menu, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { NotificationPanel } from "@/components/notifications/NotificationPanel";
 
 export function MainLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -30,10 +31,7 @@ export function MainLayout() {
           <div className="flex-1" />
           
           <div className="flex items-center gap-2 sm:gap-3">
-            <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
-            </Button>
+            <NotificationPanel />
             
             <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l border-border">
               <div className="text-right hidden sm:block">

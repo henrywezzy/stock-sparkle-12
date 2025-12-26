@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, Edit, Trash2, Package, Loader2, AlertTriangle } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, Loader2, AlertTriangle, Calendar } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,10 @@ import { useProducts, Product, ProductFormData } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { useAuth } from "@/contexts/AuthContext";
+import { useColumnPreferences } from "@/hooks/useColumnPreferences";
+import { ColumnSettings } from "@/components/ui/column-settings";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { formatCurrency } from "@/lib/currency";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +39,33 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { DataFilters } from "@/components/filters/DataFilters";
+
+// Colunas padrão para a tabela
+const DEFAULT_COLUMNS = [
+  { key: "sku", label: "ID (SKU)", visible: true },
+  { key: "name", label: "Produto", visible: true },
+  { key: "category", label: "Categoria", visible: true },
+  { key: "quantity", label: "Quantidade", visible: true },
+  { key: "min_quantity", label: "Qtd. Mínima", visible: false },
+  { key: "unit", label: "Unidade", visible: true },
+  { key: "price", label: "Preço Unit.", visible: true },
+  { key: "location", label: "Localização", visible: true },
+  { key: "supplier", label: "Fornecedor", visible: false },
+  { key: "status", label: "Status", visible: true },
+  { key: "updated_at", label: "Atualizado", visible: false },
+  { key: "actions", label: "Ações", visible: true },
+];
 
 export default function Products() {
   const { products, isLoading, createProduct, updateProduct, deleteProduct } = useProducts();
@@ -42,7 +73,17 @@ export default function Products() {
   const { suppliers } = useSuppliers();
   const { canEdit, canDelete } = useAuth();
 
+  const {
+    columns,
+    visibleColumns,
+    toggleColumn,
+    reorderColumns,
+    resetToDefaults,
+  } = useColumnPreferences("products", DEFAULT_COLUMNS);
+
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedSupplier, setSelectedSupplier] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -57,16 +98,25 @@ export default function Products() {
   });
 
   const filteredProducts = useMemo(() => {
-    return products.filter(
-      (p) =>
+    return products.filter((p) => {
+      const matchesSearch =
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.categories?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.sku?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [products, searchTerm]);
+        p.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesCategory = selectedCategory === "all" || p.category_id === selectedCategory;
+      const matchesSupplier = selectedSupplier === "all" || p.supplier_id === selectedSupplier;
+
+      return matchesSearch && matchesCategory && matchesSupplier;
+    });
+  }, [products, searchTerm, selectedCategory, selectedSupplier]);
 
   const lowStockProducts = useMemo(() => {
     return products.filter((p) => p.quantity <= (p.min_quantity || 10));
+  }, [products]);
+
+  const totalValue = useMemo(() => {
+    return products.reduce((acc, p) => acc + (p.quantity * (p.price || 0)), 0);
   }, [products]);
 
   const resetForm = () => {
@@ -129,6 +179,117 @@ export default function Products() {
     setIsDeleteDialogOpen(true);
   };
 
+  const clearFilters = () => {
+    setSearchTerm("");
+    setSelectedCategory("all");
+    setSelectedSupplier("all");
+  };
+
+  const renderCell = (product: Product, columnKey: string) => {
+    switch (columnKey) {
+      case "sku":
+        return (
+          <span className="font-mono text-xs bg-muted px-2 py-1 rounded">
+            {product.sku || "—"}
+          </span>
+        );
+      case "name":
+        return (
+          <div className="flex items-center gap-2">
+            <div 
+              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+              style={{ backgroundColor: `${product.categories?.color || '#3B82F6'}20` }}
+            >
+              <Package className="w-4 h-4" style={{ color: product.categories?.color || '#3B82F6' }} />
+            </div>
+            <div className="min-w-0">
+              <span className="font-medium text-sm block truncate max-w-[200px]">{product.name}</span>
+              {product.description && (
+                <span className="text-xs text-muted-foreground truncate block max-w-[200px]">
+                  {product.description}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      case "category":
+        return product.categories?.name ? (
+          <Badge 
+            variant="secondary" 
+            style={{ 
+              backgroundColor: `${product.categories.color}20`, 
+              color: product.categories.color 
+            }}
+          >
+            {product.categories.name}
+          </Badge>
+        ) : "—";
+      case "quantity":
+        const isLowStock = product.quantity <= (product.min_quantity || 10);
+        return (
+          <span className={`font-semibold ${isLowStock ? 'text-destructive' : 'text-foreground'}`}>
+            {product.quantity}
+          </span>
+        );
+      case "min_quantity":
+        return product.min_quantity || 10;
+      case "unit":
+        return product.unit || "un";
+      case "price":
+        return formatCurrency(product.price || 0);
+      case "location":
+        return product.location || "—";
+      case "supplier":
+        return product.suppliers?.name || "—";
+      case "status":
+        const lowStock = product.quantity <= (product.min_quantity || 10);
+        return (
+          <Badge
+            className={
+              lowStock
+                ? "bg-destructive/20 text-destructive"
+                : "bg-success/20 text-success"
+            }
+          >
+            {lowStock ? "Baixo" : "Normal"}
+          </Badge>
+        );
+      case "updated_at":
+        return (
+          <span className="text-sm text-muted-foreground">
+            {format(new Date(product.updated_at), "dd/MM/yyyy", { locale: ptBR })}
+          </span>
+        );
+      case "actions":
+        return (
+          <div className="flex items-center gap-1">
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                onClick={() => handleOpenDialog(product)}
+              >
+                <Edit className="w-4 h-4" />
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={() => openDeleteDialog(product.id)}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        );
+      default:
+        return "—";
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -144,21 +305,44 @@ export default function Products() {
         description="Gerencie todos os produtos do almoxarifado"
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Produtos" }]}
         actions={
-          canEdit && (
-            <Button
-              className="gradient-primary text-primary-foreground glow-sm"
-              onClick={() => handleOpenDialog()}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Novo Produto</span>
-              <span className="sm:hidden">Novo</span>
-            </Button>
-          )
+          <div className="flex items-center gap-2">
+            <ColumnSettings
+              columns={columns}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetToDefaults}
+            />
+            {canEdit && (
+              <Button
+                className="gradient-primary text-primary-foreground glow-sm"
+                onClick={() => handleOpenDialog()}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Novo Produto</span>
+                <span className="sm:hidden">Novo</span>
+              </Button>
+            )}
+          </div>
         }
       />
 
+      {/* Filters */}
+      <DataFilters
+        onSearch={setSearchTerm}
+        searchPlaceholder="Buscar por nome, SKU, categoria..."
+        showCategoryFilter
+        categories={categories.map((c) => ({ value: c.id, label: c.name }))}
+        selectedCategory={selectedCategory}
+        onCategoryChange={setSelectedCategory}
+        showSupplierFilter
+        suppliers={suppliers.map((s) => ({ value: s.id, label: s.name }))}
+        selectedSupplier={selectedSupplier}
+        onSupplierChange={setSelectedSupplier}
+        onClearFilters={clearFilters}
+      />
+
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="glass rounded-xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
             <Package className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
@@ -177,7 +361,7 @@ export default function Products() {
             <p className="text-xl sm:text-2xl font-bold">{lowStockProducts.length}</p>
           </div>
         </div>
-        <div className="glass rounded-xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4 col-span-2 sm:col-span-1">
+        <div className="glass rounded-xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-success/10 flex items-center justify-center shrink-0">
             <Package className="w-5 h-5 sm:w-6 sm:h-6 text-success" />
           </div>
@@ -186,22 +370,18 @@ export default function Products() {
             <p className="text-xl sm:text-2xl font-bold">{categories.length}</p>
           </div>
         </div>
-      </div>
-
-      {/* Search */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar produtos..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-secondary/50 border-border/50"
-          />
+        <div className="glass rounded-xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
+            <span className="text-lg sm:text-xl font-bold text-warning">R$</span>
+          </div>
+          <div>
+            <p className="text-xs sm:text-sm text-muted-foreground">Valor Total</p>
+            <p className="text-lg sm:text-xl font-bold truncate">{formatCurrency(totalValue)}</p>
+          </div>
         </div>
       </div>
 
-      {/* Products Grid */}
+      {/* Products Table */}
       {filteredProducts.length === 0 ? (
         <div className="glass rounded-xl p-8 text-center">
           <Package className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -214,82 +394,34 @@ export default function Products() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredProducts.map((product) => (
-            <div
-              key={product.id}
-              className="glass rounded-xl p-4 sm:p-6 glass-hover animate-slide-up"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div 
-                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: `${product.categories?.color || '#3B82F6'}20` }}
+        <div className="glass rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent border-border/50">
+                  {visibleColumns.map((col) => (
+                    <TableHead key={col.key} className="text-muted-foreground font-semibold">
+                      {col.label}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProducts.map((product) => (
+                  <TableRow
+                    key={product.id}
+                    className="hover:bg-secondary/30 border-border/50 transition-colors"
                   >
-                    <Package className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: product.categories?.color || '#3B82F6' }} />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-sm sm:text-base truncate">{product.name}</h3>
-                    <p className="text-xs sm:text-sm text-muted-foreground">{product.sku || "Sem SKU"}</p>
-                  </div>
-                </div>
-                <Badge
-                  className={
-                    product.quantity <= (product.min_quantity || 10)
-                      ? "bg-destructive/20 text-destructive shrink-0"
-                      : "bg-success/20 text-success shrink-0"
-                  }
-                >
-                  {product.quantity <= (product.min_quantity || 10) ? "Baixo" : "Normal"}
-                </Badge>
-              </div>
-
-              <div className="space-y-2 text-xs sm:text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Categoria:</span>
-                  <span>{product.categories?.name || "—"}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Quantidade:</span>
-                  <span className="font-medium">
-                    {product.quantity} {product.unit}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Localização:</span>
-                  <span>{product.location || "—"}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Preço:</span>
-                  <span className="font-medium">R$ {(product.price || 0).toFixed(2)}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border/50">
-                {canEdit && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="flex-1 text-muted-foreground hover:text-primary text-xs sm:text-sm"
-                    onClick={() => handleOpenDialog(product)}
-                  >
-                    <Edit className="w-4 h-4 mr-1 sm:mr-2" />
-                    Editar
-                  </Button>
-                )}
-                {canDelete && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={() => openDeleteDialog(product.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
+                    {visibleColumns.map((col) => (
+                      <TableCell key={col.key}>
+                        {renderCell(product, col.key)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 
@@ -384,14 +516,11 @@ export default function Products() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="price">Preço Unitário</Label>
-                <Input
+                <Label htmlFor="price">Preço Unitário *</Label>
+                <CurrencyInput
                   id="price"
-                  type="number"
-                  step="0.01"
                   value={formData.price || 0}
-                  onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                  placeholder="0.00"
+                  onChange={(value) => setFormData({ ...formData, price: value })}
                 />
               </div>
             </div>
@@ -452,7 +581,7 @@ export default function Products() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="glass border-border">
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
             <AlertDialogDescription>
