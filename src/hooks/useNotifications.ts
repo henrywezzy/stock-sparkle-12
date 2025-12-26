@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useProducts } from './useProducts';
 import { useEntries } from './useEntries';
 import { useExits } from './useExits';
@@ -15,6 +15,8 @@ export interface Notification {
   read: boolean;
 }
 
+const STORAGE_KEY = 'dismissedNotifications';
+
 export const useNotifications = () => {
   const { products } = useProducts();
   const { entries } = useEntries();
@@ -22,13 +24,28 @@ export const useNotifications = () => {
   const { employees } = useEmployees();
   
   // Estado para armazenar IDs de notificações descartadas
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem('dismissedNotifications');
-    return saved ? new Set(JSON.parse(saved)) : new Set();
-  });
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Carregar do localStorage após montagem
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        setDismissedIds(new Set(JSON.parse(saved)));
+      }
+    } catch (e) {
+      console.error('Error loading dismissed notifications:', e);
+    }
+    setIsInitialized(true);
+  }, []);
 
   const saveDismissedIds = useCallback((ids: Set<string>) => {
-    localStorage.setItem('dismissedNotifications', JSON.stringify(Array.from(ids)));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(ids)));
+    } catch (e) {
+      console.error('Error saving dismissed notifications:', e);
+    }
     setDismissedIds(ids);
   }, []);
 
