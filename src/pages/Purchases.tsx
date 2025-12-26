@@ -39,11 +39,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DataFilters } from "@/components/filters/DataFilters";
@@ -101,7 +96,7 @@ export default function Purchases() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "critical" | "low">("all");
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<PurchaseSuggestion | null>(null);
@@ -174,13 +169,7 @@ export default function Purchases() {
   }, [purchaseSuggestions, searchTerm, statusFilter]);
 
   const toggleRow = (productId: string) => {
-    const newExpanded = new Set(expandedRows);
-    if (newExpanded.has(productId)) {
-      newExpanded.delete(productId);
-    } else {
-      newExpanded.add(productId);
-    }
-    setExpandedRows(newExpanded);
+    setExpandedRow(expandedRow === productId ? null : productId);
   };
 
   const handleConfirmPurchase = (suggestion: PurchaseSuggestion) => {
@@ -199,7 +188,6 @@ export default function Purchases() {
         title: "Compra confirmada!",
         description: `Pedido de ${selectedProduct.suggestedQuantity} unidades de ${selectedProduct.product.name} registrado.`,
       });
-      // Aqui você pode adicionar lógica para criar uma requisição ou pedido
     }
     setConfirmDialogOpen(false);
     setSelectedProduct(null);
@@ -472,30 +460,25 @@ export default function Purchases() {
                 </TableRow>
               ) : (
                 filteredSuggestions.map((suggestion) => (
-                  <Collapsible
-                    key={suggestion.product.id}
-                    open={expandedRows.has(suggestion.product.id)}
-                    onOpenChange={() => toggleRow(suggestion.product.id)}
-                  >
+                  <>
                     <TableRow
+                      key={suggestion.product.id}
                       className={cn(
                         "border-border cursor-pointer transition-colors",
                         suggestion.status === 'critical' && "bg-destructive/5",
                         suggestion.status === 'low' && "bg-warning/5",
-                        expandedRows.has(suggestion.product.id) && "bg-secondary/50"
+                        expandedRow === suggestion.product.id && "bg-secondary/50"
                       )}
                       onClick={() => toggleRow(suggestion.product.id)}
                     >
                       <TableCell className="w-10">
-                        <CollapsibleTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6">
-                            {expandedRows.has(suggestion.product.id) ? (
-                              <ChevronUp className="w-4 h-4" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </CollapsibleTrigger>
+                        <Button variant="ghost" size="icon" className="h-6 w-6">
+                          {expandedRow === suggestion.product.id ? (
+                            <ChevronUp className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
+                        </Button>
                       </TableCell>
                       {visibleColumns.map((col) => (
                         <TableCell key={col.key}>
@@ -503,8 +486,8 @@ export default function Purchases() {
                         </TableCell>
                       ))}
                     </TableRow>
-                    <CollapsibleContent asChild>
-                      <TableRow className="bg-secondary/30 border-border">
+                    {expandedRow === suggestion.product.id && (
+                      <TableRow key={`${suggestion.product.id}-details`} className="bg-secondary/30 border-border">
                         <TableCell colSpan={visibleColumns.length + 1}>
                           <div className="py-4 px-2">
                             <div className="flex items-center gap-2 mb-3">
@@ -550,8 +533,8 @@ export default function Purchases() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    </CollapsibleContent>
-                  </Collapsible>
+                    )}
+                  </>
                 ))
               )}
             </TableBody>
