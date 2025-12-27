@@ -208,6 +208,7 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      refetchUsers();
       toast({ title: "Usuário aprovado", description: "O usuário agora pode acessar o sistema." });
     },
     onError: (error: Error) => {
@@ -225,6 +226,7 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      refetchUsers();
       toast({ title: "Acesso revogado", description: "O usuário não pode mais acessar o sistema." });
     },
     onError: (error: Error) => {

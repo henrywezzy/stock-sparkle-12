@@ -129,8 +129,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 <Warehouse className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="font-bold text-foreground">Almoxarifado</h1>
-                <p className="text-xs text-muted-foreground">Sistema de Gestão</p>
+                <h1 className="font-bold text-foreground">Stockly</h1>
+                <p className="text-xs text-muted-foreground">Gestão de Almoxarifado</p>
               </div>
             </div>
           )}
