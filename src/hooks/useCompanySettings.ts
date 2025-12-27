@@ -26,24 +26,48 @@ export function useCompanySettings() {
       const { data, error } = await supabase
         .from("company_settings")
         .select("*")
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      return data as CompanySettings;
+      return data as CompanySettings | null;
     },
   });
 
   const updateSettings = useMutation({
     mutationFn: async (updates: Partial<CompanySettings>) => {
-      const { data, error } = await supabase
-        .from("company_settings")
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq("id", settings?.id)
-        .select()
-        .single();
+      // Check if a settings record exists
+      if (settings?.id) {
+        // Update existing record
+        const { data, error } = await supabase
+          .from("company_settings")
+          .update({ ...updates, updated_at: new Date().toISOString() })
+          .eq("id", settings.id)
+          .select()
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (error) throw error;
+        return data;
+      } else {
+        // Create new record
+        const { data, error } = await supabase
+          .from("company_settings")
+          .insert({ 
+            name: updates.name || "Empresa",
+            cnpj: updates.cnpj || null,
+            address: updates.address || null,
+            city: updates.city || null,
+            state: updates.state || null,
+            zip_code: updates.zip_code || null,
+            phone: updates.phone || null,
+            email: updates.email || null,
+            logo_url: updates.logo_url || null,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["company-settings"] });

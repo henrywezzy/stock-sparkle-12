@@ -1,26 +1,23 @@
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { TermoEntrega } from "@/hooks/useTermosEntrega";
+import { CompanySettings } from "@/hooks/useCompanySettings";
 
 interface DeliveryTermPrintProps {
   termo: TermoEntrega;
-  companyInfo?: {
-    name: string;
-    cnpj: string;
-    address: string;
-    phone: string;
-  };
+  companySettings?: CompanySettings | null;
 }
 
-export function DeliveryTermPrint({ termo, companyInfo }: DeliveryTermPrintProps) {
-  const defaultCompany = {
-    name: "Empresa XYZ Ltda",
-    cnpj: "00.000.000/0001-00",
-    address: "Rua Exemplo, 123 - Centro - Cidade/UF",
-    phone: "(00) 0000-0000",
+export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintProps) {
+  const company = {
+    name: companySettings?.name || "Empresa XYZ Ltda",
+    cnpj: companySettings?.cnpj || "00.000.000/0001-00",
+    address: companySettings?.address 
+      ? `${companySettings.address}${companySettings.city ? ` - ${companySettings.city}` : ''}${companySettings.state ? `/${companySettings.state}` : ''}`
+      : "Rua Exemplo, 123 - Centro - Cidade/UF",
+    phone: companySettings?.phone || "(00) 0000-0000",
+    logo_url: companySettings?.logo_url,
   };
-
-  const company = companyInfo || defaultCompany;
 
   const formatDate = (date: string) => {
     return format(new Date(date), "dd/MM/yyyy", { locale: ptBR });
@@ -35,11 +32,16 @@ export function DeliveryTermPrint({ termo, companyInfo }: DeliveryTermPrintProps
       {/* Header */}
       <div className="border-b-2 border-black pb-4 mb-6">
         <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-xl font-bold">{company.name}</h1>
-            <p className="text-sm">CNPJ: {company.cnpj}</p>
-            <p className="text-sm">{company.address}</p>
-            <p className="text-sm">Tel: {company.phone}</p>
+          <div className="flex items-start gap-4">
+            {company.logo_url && (
+              <img src={company.logo_url} alt="Logo" className="w-16 h-16 object-contain" />
+            )}
+            <div>
+              <h1 className="text-xl font-bold">{company.name}</h1>
+              <p className="text-sm">CNPJ: {company.cnpj}</p>
+              <p className="text-sm">{company.address}</p>
+              <p className="text-sm">Tel: {company.phone}</p>
+            </div>
           </div>
           <div className="text-right">
             <p className="text-sm">Data: {formatDate(termo.data_emissao)}</p>
