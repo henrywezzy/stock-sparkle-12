@@ -41,6 +41,51 @@ export type Database = {
         }
         Relationships: []
       }
+      company_settings: {
+        Row: {
+          address: string | null
+          city: string | null
+          cnpj: string | null
+          created_at: string
+          email: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          phone: string | null
+          state: string | null
+          updated_at: string
+          zip_code: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          phone?: string | null
+          state?: string | null
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          phone?: string | null
+          state?: string | null
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           admission_date: string | null
