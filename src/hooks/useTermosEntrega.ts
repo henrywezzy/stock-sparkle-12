@@ -31,6 +31,7 @@ export interface TermoEPI {
   quantidade: number;
   data_entrega: string;
   data_validade: string | null;
+  data_devolucao: string | null;
   created_at: string;
   epis?: { name: string; ca_number: string | null } | null;
 }
