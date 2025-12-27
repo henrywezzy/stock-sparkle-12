@@ -142,11 +142,7 @@ const Auth = () => {
     setIsLoading(false);
 
     if (!error) {
-      if (emailConfirmation) {
-        setEmailConfirmationSent(true);
-      } else {
-        navigate('/');
-      }
+      setEmailConfirmationSent(true);
     }
   };
 
@@ -166,13 +162,18 @@ const Auth = () => {
             <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-4">
               <Mail className="w-8 h-8 text-primary" />
             </div>
-            <h2 className="text-xl font-bold mb-2">Verifique seu email</h2>
+            <h2 className="text-xl font-bold mb-2">Cadastro realizado!</h2>
             <p className="text-muted-foreground mb-4">
               Enviamos um link de confirmação para <strong>{signUpData.email}</strong>. 
-              Clique no link para ativar sua conta.
+              Clique no link para verificar sua conta.
             </p>
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 mb-4">
+              <p className="text-sm text-warning font-medium">
+                Após confirmar seu email, seu acesso ainda precisará ser aprovado por um administrador.
+              </p>
+            </div>
             <p className="text-sm text-muted-foreground">
-              Após confirmar seu email, você poderá fazer login no sistema.
+              Você receberá uma notificação quando seu acesso for liberado.
             </p>
             <Button 
               variant="outline" 
@@ -365,7 +366,7 @@ const Auth = () => {
 
                   <p className="text-xs text-muted-foreground text-center">
                     Após o cadastro, você receberá um email de confirmação.
-                    O primeiro usuário será automaticamente administrador.
+                    Novos usuários precisam de aprovação do administrador.
                   </p>
                 </form>
               </TabsContent>

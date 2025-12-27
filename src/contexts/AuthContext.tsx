@@ -5,10 +5,16 @@ import { useToast } from '@/hooks/use-toast';
 
 type AppRole = 'admin' | 'almoxarife' | 'visualizador';
 
+interface UserRoleData {
+  role: AppRole;
+  approved: boolean;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   userRole: AppRole | null;
+  isApproved: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null; emailConfirmation?: boolean }>;
@@ -24,14 +30,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<AppRole | null>(null);
+  const [isApproved, setIsApproved] = useState(false);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchUserRole = async (userId: string) => {
+  const fetchUserRole = async (userId: string): Promise<UserRoleData | null> => {
     try {
       const { data, error } = await supabase
         .from('user_roles')
-        .select('role')
+        .select('role, approved')
         .eq('user_id', userId)
         .maybeSingle();
 
@@ -40,7 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       }
 
-      return data?.role as AppRole || null;
+      return data ? { role: data.role as AppRole, approved: data.approved ?? false } : null;
     } catch (error) {
       console.error('Error fetching user role:', error);
       return null;
@@ -55,10 +62,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (session?.user) {
           setTimeout(() => {
-            fetchUserRole(session.user.id).then(setUserRole);
+            fetchUserRole(session.user.id).then((data) => {
+              setUserRole(data?.role ?? null);
+              setIsApproved(data?.approved ?? false);
+            });
           }, 0);
         } else {
           setUserRole(null);
+          setIsApproved(false);
         }
       }
     );
@@ -68,8 +79,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchUserRole(session.user.id).then((role) => {
-          setUserRole(role);
+        fetchUserRole(session.user.id).then((data) => {
+          setUserRole(data?.role ?? null);
+          setIsApproved(data?.approved ?? false);
           setLoading(false);
         });
       } else {
@@ -82,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -94,6 +106,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           variant: "destructive",
         });
         return { error };
+      }
+
+      // Check if user is approved
+      if (data.user) {
+        const roleData = await fetchUserRole(data.user.id);
+        if (roleData && !roleData.approved) {
+          await supabase.auth.signOut();
+          toast({
+            title: "Acesso pendente",
+            description: "Seu cadastro ainda não foi aprovado pelo administrador. Aguarde a aprovação.",
+            variant: "destructive",
+          });
+          return { error: new Error("Usuário não aprovado") };
+        }
       }
 
       toast({
@@ -145,15 +171,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (needsEmailConfirmation) {
         toast({
           title: "Verifique seu email",
-          description: "Enviamos um link de confirmação para o seu email.",
+          description: "Enviamos um link de confirmação. Após confirmar, aguarde a aprovação do administrador.",
         });
         return { error: null, emailConfirmation: true };
       }
 
       toast({
-        title: "Cadastro realizado com sucesso!",
-        description: "Você já pode acessar o sistema.",
+        title: "Cadastro realizado!",
+        description: "Aguarde a aprovação do administrador para acessar o sistema.",
       });
+
+      // Sign out because user needs admin approval
+      await supabase.auth.signOut();
 
       return { error: null, emailConfirmation: false };
     } catch (error) {
@@ -166,6 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setSession(null);
     setUserRole(null);
+    setIsApproved(false);
     toast({
       title: "Logout realizado",
       description: "Você foi desconectado do sistema.",
@@ -182,6 +212,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         session,
         userRole,
+        isApproved,
         loading,
         signIn,
         signUp,
