@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, Trash2, Printer, FileText, X } from "lucide-react";
+import { Plus, Trash2, Printer, FileText, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,14 +22,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useEmployees } from "@/hooks/useEmployees";
-import { useEPIs, EPI } from "@/hooks/useEPIs";
-import { useTermosEntrega, TermoEntrega } from "@/hooks/useTermosEntrega";
+import { useEPIs } from "@/hooks/useEPIs";
+import { useTermosEntrega } from "@/hooks/useTermosEntrega";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { DeliveryTermPrint } from "./DeliveryTermPrint";
+import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 interface EPIItem {
   epi_id: string;
@@ -39,6 +39,42 @@ interface EPIItem {
   quantidade: number;
   data_entrega: string;
   data_validade: string;
+}
+
+interface TermoEmployee {
+  name: string;
+  department: string | null;
+  position: string | null;
+  registration_number: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+interface TermoEPIItem {
+  id: string;
+  termo_id: string;
+  epi_id: string;
+  ca_number: string | null;
+  tamanho: string | null;
+  quantidade: number;
+  data_entrega: string;
+  data_validade: string | null;
+  data_devolucao: string | null;
+  created_at: string;
+  epis?: { name: string; ca_number: string | null } | null;
+}
+
+interface TermoData {
+  id: string;
+  numero: string;
+  employee_id: string;
+  data_emissao: string;
+  responsavel_nome: string | null;
+  observacoes: string | null;
+  status: string | null;
+  created_at: string;
+  employees?: TermoEmployee | null;
+  termo_epis?: TermoEPIItem[];
 }
 
 interface DeliveryTermDialogProps {
@@ -58,16 +94,8 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [observacoes, setObservacoes] = useState("");
   const [epiItems, setEpiItems] = useState<EPIItem[]>([]);
-  const [createdTermo, setCreatedTermo] = useState<TermoEntrega | null>(null);
-
-  const company = {
-    name: companySettings?.name || "Empresa XYZ Ltda",
-    cnpj: companySettings?.cnpj || "00.000.000/0001-00",
-    address: companySettings?.address 
-      ? `${companySettings.address}${companySettings.city ? ` - ${companySettings.city}` : ''}${companySettings.state ? `/${companySettings.state}` : ''}`
-      : "Rua Exemplo, 123 - Centro - Cidade/UF",
-    phone: companySettings?.phone || "(00) 0000-0000",
-  };
+  const [createdTermo, setCreatedTermo] = useState<TermoData | null>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -99,7 +127,6 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
     const updated = [...epiItems];
     updated[index] = { ...updated[index], [field]: value };
 
-    // If EPI is selected, auto-fill CA and calculate validity
     if (field === 'epi_id' && value) {
       const epi = epis.find(e => e.id === value);
       if (epi) {
@@ -112,7 +139,6 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
       }
     }
 
-    // Recalculate validity when delivery date changes
     if (field === 'data_entrega' && value) {
       const epi = epis.find(e => e.id === updated[index].epi_id);
       if (epi?.default_validity_days) {
@@ -172,7 +198,6 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
         })),
       });
 
-      // Create a mock termo for preview
       setCreatedTermo({
         id: 'preview',
         numero: `TERMO-${new Date().getFullYear()}-XXXXX`,
@@ -180,7 +205,7 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
         data_emissao: new Date().toISOString().split('T')[0],
         responsavel_nome: user?.email?.split('@')[0] || "Almoxarife",
         observacoes,
-        status: 'pendente',
+        status: null,
         created_at: new Date().toISOString(),
         employees: selectedEmployee ? {
           name: selectedEmployee.name,
@@ -215,300 +240,62 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
     window.print();
   };
 
-  const handleDownloadPDF = () => {
-    if (!createdTermo) return;
+  const handleDownloadPDF = async () => {
+    if (!printRef.current || !createdTermo) return;
 
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    
-    // Company Header
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text(company.name, 14, 15);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text(`CNPJ: ${company.cnpj}`, 14, 21);
-    doc.text(company.address, 14, 26);
-    doc.text(`Tel: ${company.phone}`, 14, 31);
-    
-    // Term number and date
-    doc.setFontSize(10);
-    doc.text(`Nº ${createdTermo.numero}`, pageWidth - 14, 15, { align: "right" });
-    doc.text(`Data: ${format(new Date(createdTermo.data_emissao), 'dd/MM/yyyy')}`, pageWidth - 14, 21, { align: "right" });
-    
-    // Separator line
-    doc.setLineWidth(0.5);
-    doc.line(14, 36, pageWidth - 14, 36);
-    
-    // Title
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("TERMO DE RESPONSABILIDADE E RECEBIMENTO", pageWidth / 2, 46, { align: "center" });
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Equipamentos de Proteção Individual (EPIs)", pageWidth / 2, 52, { align: "center" });
-    
-    // Employee box
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.3);
-    doc.rect(14, 58, pageWidth - 28, 28);
-    doc.setFillColor(240, 240, 240);
-    doc.rect(14, 58, pageWidth - 28, 7, 'F');
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("DADOS DO COLABORADOR", 18, 63);
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(`Nome: ${createdTermo.employees?.name || '-'}`, 18, 72);
-    doc.text(`Matrícula: ${createdTermo.employees?.registration_number || '-'}`, pageWidth / 2 + 10, 72);
-    doc.text(`Cargo: ${createdTermo.employees?.position || '-'}`, 18, 79);
-    doc.text(`Setor: ${createdTermo.employees?.department || '-'}`, pageWidth / 2 + 10, 79);
+    setIsGeneratingPDF(true);
 
-    // EPIs table with empty rows for manual additions
-    const epiRows = createdTermo.termo_epis?.map(item => [
-      item.epis?.name || '-',
-      item.ca_number || '-',
-      item.tamanho || '-',
-      item.quantidade.toString(),
-      format(new Date(item.data_entrega), 'dd/MM/yyyy'),
-      '___/___/______',
-      item.data_validade ? format(new Date(item.data_validade), 'dd/MM/yyyy') : '-',
-    ]) || [];
+    try {
+      const canvas = await html2canvas(printRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: 794,
+      });
 
-    // Add 5 empty rows for manual additions
-    for (let i = 0; i < 5; i++) {
-      epiRows.push(['', '', '', '', '___/___/______', '___/___/______', '___/___/______']);
+      const imgData = canvas.toDataURL('image/png');
+      
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const imgWidth = pdfWidth - 16;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 8;
+      const pageHeight = pdfHeight - 16;
+      
+      pdf.addImage(imgData, 'PNG', 8, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+      
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight + 8;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 8, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      const fileName = `termo-epi-${createdTermo.employees?.registration_number || 'sem-matricula'}-${format(new Date(), 'yyyyMMdd')}.pdf`;
+      pdf.save(fileName);
+      toast({ title: "PDF gerado", description: "O arquivo foi baixado com sucesso." });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({ title: "Erro ao gerar PDF", variant: "destructive" });
+    } finally {
+      setIsGeneratingPDF(false);
     }
-
-    autoTable(doc, {
-      startY: 92,
-      head: [['Item', 'CA', 'Tam.', 'Qtd', 'Entrega', 'Devolução', 'Validade']],
-      body: epiRows,
-      headStyles: { fillColor: [80, 80, 80], fontSize: 9 },
-      bodyStyles: { fontSize: 9, minCellHeight: 8 },
-      columnStyles: {
-        0: { cellWidth: 45 },
-        1: { cellWidth: 20, halign: 'center' },
-        2: { cellWidth: 15, halign: 'center' },
-        3: { cellWidth: 12, halign: 'center' },
-        4: { cellWidth: 25, halign: 'center' },
-        5: { cellWidth: 28, halign: 'center' },
-        6: { cellWidth: 27, halign: 'center' },
-      },
-    });
-
-    // Terms text box
-    let finalY = (doc as any).lastAutoTable.finalY + 8;
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.3);
-    doc.rect(14, finalY, pageWidth - 28, 55);
-    
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    const termsY = finalY + 6;
-    doc.text("Declaro que recebi os Equipamentos de Proteção Individual (EPIs) discriminados acima, em perfeito estado de", 18, termsY);
-    doc.text("conservação e adequados às minhas medidas.", 18, termsY + 4);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("COMPROMETO-ME A:", 18, termsY + 12);
-    doc.setFont("helvetica", "normal");
-    doc.text("• Utilizar os EPIs durante todo o período de trabalho", 22, termsY + 17);
-    doc.text("• Guardar e conservar em local adequado", 22, termsY + 21);
-    doc.text("• Comunicar qualquer alteração que os torne impróprios", 22, termsY + 25);
-    doc.text("• Responsabilizar-me pela guarda e conservação", 22, termsY + 29);
-    doc.text("• Devolver em caso de desligamento", 22, termsY + 33);
-    doc.text("• Ressarcir em caso de dano ou perda por negligência", 22, termsY + 37);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("ESTOU CIENTE DE QUE: O não uso dos EPIs constitui ato faltoso, sujeitando-me às penalidades previstas", 18, termsY + 45);
-    doc.text("na NR-06 e CLT Art. 158.", 18, termsY + 49);
-
-    // Observations
-    if (createdTermo.observacoes) {
-      finalY = finalY + 60;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text(`Observações: ${createdTermo.observacoes}`, 14, finalY);
-      finalY += 10;
-    } else {
-      finalY = finalY + 60;
-    }
-
-    // Date line
-    const dateExtended = format(new Date(createdTermo.data_emissao), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Local e Data: _________________________, ${dateExtended}`, pageWidth / 2, finalY + 10, { align: "center" });
-
-    // Signatures
-    const sigY = finalY + 35;
-    doc.setLineWidth(0.3);
-    doc.line(25, sigY, 95, sigY);
-    doc.line(115, sigY, 185, sigY);
-    
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text(createdTermo.employees?.name || 'Colaborador', 60, sigY + 5, { align: "center" });
-    doc.text(createdTermo.responsavel_nome || 'Responsável', 150, sigY + 5, { align: "center" });
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text(`Matrícula: ${createdTermo.employees?.registration_number || '-'}`, 60, sigY + 10, { align: "center" });
-    doc.text("Almoxarifado", 150, sigY + 10, { align: "center" });
-    doc.text("ASSINATURA DO COLABORADOR", 60, sigY + 16, { align: "center" });
-    doc.text("ASSINATURA DO RESPONSÁVEL", 150, sigY + 16, { align: "center" });
-
-    // Footer
-    doc.setFontSize(7);
-    doc.setTextColor(100);
-    doc.text("VIA DO COLABORADOR", 14, 285);
-    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, pageWidth - 14, 285, { align: "right" });
-
-    // Second page (company copy)
-    doc.addPage();
-    
-    // Repeat header for second page
-    doc.setTextColor(0);
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text(company.name, 14, 15);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text(`CNPJ: ${company.cnpj}`, 14, 21);
-    doc.text(company.address, 14, 26);
-    doc.text(`Tel: ${company.phone}`, 14, 31);
-    
-    doc.setFontSize(10);
-    doc.text(`Nº ${createdTermo.numero}`, pageWidth - 14, 15, { align: "right" });
-    doc.text(`Data: ${format(new Date(createdTermo.data_emissao), 'dd/MM/yyyy')}`, pageWidth - 14, 21, { align: "right" });
-    
-    doc.setLineWidth(0.5);
-    doc.line(14, 36, pageWidth - 14, 36);
-    
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("TERMO DE RESPONSABILIDADE E RECEBIMENTO", pageWidth / 2, 46, { align: "center" });
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Equipamentos de Proteção Individual (EPIs)", pageWidth / 2, 52, { align: "center" });
-    
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.3);
-    doc.rect(14, 58, pageWidth - 28, 28);
-    doc.setFillColor(240, 240, 240);
-    doc.rect(14, 58, pageWidth - 28, 7, 'F');
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("DADOS DO COLABORADOR", 18, 63);
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(`Nome: ${createdTermo.employees?.name || '-'}`, 18, 72);
-    doc.text(`Matrícula: ${createdTermo.employees?.registration_number || '-'}`, pageWidth / 2 + 10, 72);
-    doc.text(`Cargo: ${createdTermo.employees?.position || '-'}`, 18, 79);
-    doc.text(`Setor: ${createdTermo.employees?.department || '-'}`, pageWidth / 2 + 10, 79);
-
-    // EPIs table for second page with empty rows
-    const epiRows2 = createdTermo.termo_epis?.map(item => [
-      item.epis?.name || '-',
-      item.ca_number || '-',
-      item.tamanho || '-',
-      item.quantidade.toString(),
-      format(new Date(item.data_entrega), 'dd/MM/yyyy'),
-      '___/___/______',
-      item.data_validade ? format(new Date(item.data_validade), 'dd/MM/yyyy') : '-',
-    ]) || [];
-
-    for (let i = 0; i < 5; i++) {
-      epiRows2.push(['', '', '', '', '___/___/______', '___/___/______', '___/___/______']);
-    }
-
-    autoTable(doc, {
-      startY: 92,
-      head: [['Item', 'CA', 'Tam.', 'Qtd', 'Entrega', 'Devolução', 'Validade']],
-      body: epiRows2,
-      headStyles: { fillColor: [80, 80, 80], fontSize: 9 },
-      bodyStyles: { fontSize: 9, minCellHeight: 8 },
-      columnStyles: {
-        0: { cellWidth: 45 },
-        1: { cellWidth: 20, halign: 'center' },
-        2: { cellWidth: 15, halign: 'center' },
-        3: { cellWidth: 12, halign: 'center' },
-        4: { cellWidth: 25, halign: 'center' },
-        5: { cellWidth: 28, halign: 'center' },
-        6: { cellWidth: 27, halign: 'center' },
-      },
-    });
-
-    finalY = (doc as any).lastAutoTable.finalY + 8;
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.3);
-    doc.rect(14, finalY, pageWidth - 28, 55);
-    
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    const termsY2 = finalY + 6;
-    doc.text("Declaro que recebi os Equipamentos de Proteção Individual (EPIs) discriminados acima, em perfeito estado de", 18, termsY2);
-    doc.text("conservação e adequados às minhas medidas.", 18, termsY2 + 4);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("COMPROMETO-ME A:", 18, termsY2 + 12);
-    doc.setFont("helvetica", "normal");
-    doc.text("• Utilizar os EPIs durante todo o período de trabalho", 22, termsY2 + 17);
-    doc.text("• Guardar e conservar em local adequado", 22, termsY2 + 21);
-    doc.text("• Comunicar qualquer alteração que os torne impróprios", 22, termsY2 + 25);
-    doc.text("• Responsabilizar-me pela guarda e conservação", 22, termsY2 + 29);
-    doc.text("• Devolver em caso de desligamento", 22, termsY2 + 33);
-    doc.text("• Ressarcir em caso de dano ou perda por negligência", 22, termsY2 + 37);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("ESTOU CIENTE DE QUE: O não uso dos EPIs constitui ato faltoso, sujeitando-me às penalidades previstas", 18, termsY2 + 45);
-    doc.text("na NR-06 e CLT Art. 158.", 18, termsY2 + 49);
-
-    if (createdTermo.observacoes) {
-      finalY = finalY + 60;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text(`Observações: ${createdTermo.observacoes}`, 14, finalY);
-      finalY += 10;
-    } else {
-      finalY = finalY + 60;
-    }
-
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Local e Data: _________________________, ${dateExtended}`, pageWidth / 2, finalY + 10, { align: "center" });
-
-    const sigY2 = finalY + 35;
-    doc.setLineWidth(0.3);
-    doc.line(25, sigY2, 95, sigY2);
-    doc.line(115, sigY2, 185, sigY2);
-    
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text(createdTermo.employees?.name || 'Colaborador', 60, sigY2 + 5, { align: "center" });
-    doc.text(createdTermo.responsavel_nome || 'Responsável', 150, sigY2 + 5, { align: "center" });
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text(`Matrícula: ${createdTermo.employees?.registration_number || '-'}`, 60, sigY2 + 10, { align: "center" });
-    doc.text("Almoxarifado", 150, sigY2 + 10, { align: "center" });
-    doc.text("ASSINATURA DO COLABORADOR", 60, sigY2 + 16, { align: "center" });
-    doc.text("ASSINATURA DO RESPONSÁVEL", 150, sigY2 + 16, { align: "center" });
-
-    doc.setFontSize(7);
-    doc.setTextColor(100);
-    doc.text("VIA DA EMPRESA - ARQUIVO", 14, 285);
-    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, pageWidth - 14, 285, { align: "right" });
-
-    doc.save(`termo-epi-${createdTermo.employees?.registration_number || 'sem-matricula'}-${format(new Date(), 'yyyyMMdd')}.pdf`);
-    toast({ title: "PDF gerado", description: "O arquivo foi baixado com sucesso." });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={step === 'preview' ? "max-w-4xl max-h-[90vh] overflow-y-auto" : "max-w-2xl"}>
+      <DialogContent className={step === 'preview' ? "termo-dialog max-w-4xl max-h-[90vh] overflow-y-auto print:max-h-none print:overflow-visible" : "max-w-2xl"}>
         {step === 'form' ? (
           <>
             <DialogHeader>
@@ -558,21 +345,9 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
                 ) : (
                   <div className="space-y-3 max-h-[300px] overflow-y-auto">
                     {epiItems.map((item, index) => (
-                      <div key={index} className="border rounded-lg p-3 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">Item {index + 1}</span>
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-6 w-6"
-                            onClick={() => removeEPIItem(index)}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="col-span-2">
+                      <div key={index} className="border rounded-lg p-3 space-y-3 bg-secondary/30">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
                             <Select 
                               value={item.epi_id} 
                               onValueChange={(v) => updateEPIItem(index, 'epi_id', v)}
@@ -589,30 +364,72 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
                               </SelectContent>
                             </Select>
                           </div>
-                          <Input 
-                            placeholder="CA" 
-                            value={item.ca_number}
-                            onChange={(e) => updateEPIItem(index, 'ca_number', e.target.value)}
-                          />
-                          <Input 
-                            placeholder="Tamanho" 
-                            value={item.tamanho}
-                            onChange={(e) => updateEPIItem(index, 'tamanho', e.target.value)}
-                          />
-                          <Input 
-                            type="number" 
-                            min={1}
-                            value={item.quantidade}
-                            onChange={(e) => updateEPIItem(index, 'quantidade', parseInt(e.target.value) || 1)}
-                          />
-                          <Input 
-                            type="date" 
-                            value={item.data_entrega}
-                            onChange={(e) => updateEPIItem(index, 'data_entrega', e.target.value)}
-                          />
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => removeEPIItem(index)}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          Validade: {item.data_validade ? format(new Date(item.data_validade), 'dd/MM/yyyy', { locale: ptBR }) : 'Não calculada'}
+                        <div className="grid grid-cols-4 gap-2">
+                          <div>
+                            <Label className="text-xs">CA</Label>
+                            <Input 
+                              value={item.ca_number} 
+                              onChange={(e) => updateEPIItem(index, 'ca_number', e.target.value)}
+                              placeholder="CA"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Tamanho</Label>
+                            <Select 
+                              value={item.tamanho} 
+                              onValueChange={(v) => updateEPIItem(index, 'tamanho', v)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Tam" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="PP">PP</SelectItem>
+                                <SelectItem value="P">P</SelectItem>
+                                <SelectItem value="M">M</SelectItem>
+                                <SelectItem value="G">G</SelectItem>
+                                <SelectItem value="GG">GG</SelectItem>
+                                <SelectItem value="XG">XG</SelectItem>
+                                <SelectItem value="34">34</SelectItem>
+                                <SelectItem value="35">35</SelectItem>
+                                <SelectItem value="36">36</SelectItem>
+                                <SelectItem value="37">37</SelectItem>
+                                <SelectItem value="38">38</SelectItem>
+                                <SelectItem value="39">39</SelectItem>
+                                <SelectItem value="40">40</SelectItem>
+                                <SelectItem value="41">41</SelectItem>
+                                <SelectItem value="42">42</SelectItem>
+                                <SelectItem value="43">43</SelectItem>
+                                <SelectItem value="44">44</SelectItem>
+                                <SelectItem value="Único">Único</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Qtd</Label>
+                            <Input 
+                              type="number" 
+                              min="1"
+                              value={item.quantidade} 
+                              onChange={(e) => updateEPIItem(index, 'quantidade', parseInt(e.target.value) || 1)}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Entrega</Label>
+                            <Input 
+                              type="date" 
+                              value={item.data_entrega} 
+                              onChange={(e) => updateEPIItem(index, 'data_entrega', e.target.value)}
+                            />
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -649,7 +466,7 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
               </DialogDescription>
             </DialogHeader>
 
-            <div ref={printRef}>
+            <div ref={printRef} className="print-content">
               {createdTermo && <DeliveryTermPrint termo={createdTermo} companySettings={companySettings} />}
             </div>
 
@@ -657,8 +474,12 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
               <Button variant="outline" onClick={() => setStep('form')}>
                 Voltar
               </Button>
-              <Button variant="outline" onClick={handleDownloadPDF}>
-                <FileText className="w-4 h-4 mr-2" />
+              <Button variant="outline" onClick={handleDownloadPDF} disabled={isGeneratingPDF}>
+                {isGeneratingPDF ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4 mr-2" />
+                )}
                 Baixar PDF
               </Button>
               <Button onClick={handlePrint}>

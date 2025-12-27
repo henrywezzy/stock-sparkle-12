@@ -9,16 +9,51 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { TermoEntrega } from "@/hooks/useTermosEntrega";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { DeliveryTermPrint } from "./DeliveryTermPrint";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
+interface TermoEmployee {
+  name: string;
+  department: string | null;
+  position: string | null;
+  registration_number: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+interface TermoEPIItem {
+  id: string;
+  termo_id: string;
+  epi_id: string;
+  ca_number: string | null;
+  tamanho: string | null;
+  quantidade: number;
+  data_entrega: string;
+  data_validade: string | null;
+  data_devolucao: string | null;
+  created_at: string;
+  epis?: { name: string; ca_number: string | null } | null;
+}
+
+interface TermoData {
+  id: string;
+  numero: string;
+  employee_id: string;
+  data_emissao: string;
+  responsavel_nome: string | null;
+  observacoes: string | null;
+  status: string | null;
+  created_at: string;
+  employees?: TermoEmployee | null;
+  termo_epis?: TermoEPIItem[];
+}
+
 interface TermoViewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  termo: TermoEntrega | null;
+  termo: TermoData | null;
 }
 
 export function TermoViewDialog({ open, onOpenChange, termo }: TermoViewDialogProps) {
@@ -38,18 +73,16 @@ export function TermoViewDialog({ open, onOpenChange, termo }: TermoViewDialogPr
     setIsGeneratingPDF(true);
     
     try {
-      // Render the HTML to canvas
       const canvas = await html2canvas(printRef.current, {
-        scale: 2, // Higher quality
+        scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        windowWidth: 794, // A4 width in pixels at 96dpi
+        windowWidth: 794,
       });
 
       const imgData = canvas.toDataURL('image/png');
       
-      // Create PDF with A4 dimensions
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -59,20 +92,16 @@ export function TermoViewDialog({ open, onOpenChange, termo }: TermoViewDialogPr
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      // Calculate dimensions to fit A4
-      const imgWidth = pdfWidth - 16; // 8mm margin on each side
+      const imgWidth = pdfWidth - 16;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
-      // Handle multi-page if content is longer than A4
       let heightLeft = imgHeight;
-      let position = 8; // Top margin
-      const pageHeight = pdfHeight - 16; // Available height per page
+      let position = 8;
+      const pageHeight = pdfHeight - 16;
       
-      // First page
       pdf.addImage(imgData, 'PNG', 8, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
       
-      // Additional pages if needed
       while (heightLeft > 0) {
         position = heightLeft - imgHeight + 8;
         pdf.addPage();
@@ -80,7 +109,6 @@ export function TermoViewDialog({ open, onOpenChange, termo }: TermoViewDialogPr
         heightLeft -= pageHeight;
       }
 
-      // Save the PDF
       const fileName = `termo-epi-${termo.employees?.registration_number || 'sem-matricula'}-${format(new Date(), 'yyyyMMdd')}.pdf`;
       pdf.save(fileName);
     } catch (error) {
