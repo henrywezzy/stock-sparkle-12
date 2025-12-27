@@ -77,6 +77,7 @@ export function DeliveryTermPrint({ termo, companyInfo }: DeliveryTermPrintProps
               <th className="border border-black px-2 py-1 text-center">Qtd</th>
               <th className="border border-black px-2 py-1 text-center">Entrega</th>
               <th className="border border-black px-2 py-1 text-center">Validade</th>
+              <th className="border border-black px-2 py-1 text-center">Devolução</th>
             </tr>
           </thead>
           <tbody>
@@ -88,6 +89,7 @@ export function DeliveryTermPrint({ termo, companyInfo }: DeliveryTermPrintProps
                 <td className="border border-black px-2 py-1 text-center">{item.quantidade}</td>
                 <td className="border border-black px-2 py-1 text-center">{formatDate(item.data_entrega)}</td>
                 <td className="border border-black px-2 py-1 text-center">{item.data_validade ? formatDate(item.data_validade) : '-'}</td>
+                <td className="border border-black px-2 py-1 text-center">{item.data_devolucao ? formatDate(item.data_devolucao) : '___/___/______'}</td>
               </tr>
             ))}
           </tbody>

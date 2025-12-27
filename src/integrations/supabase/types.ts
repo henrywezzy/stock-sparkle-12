@@ -156,6 +156,7 @@ export type Database = {
           id: string
           notes: string | null
           quantity: number
+          return_date: string | null
           status: string | null
         }
         Insert: {
@@ -167,6 +168,7 @@ export type Database = {
           id?: string
           notes?: string | null
           quantity?: number
+          return_date?: string | null
           status?: string | null
         }
         Update: {
@@ -178,6 +180,7 @@ export type Database = {
           id?: string
           notes?: string | null
           quantity?: number
+          return_date?: string | null
           status?: string | null
         }
         Relationships: [
@@ -581,6 +584,7 @@ export type Database = {
         Row: {
           ca_number: string | null
           created_at: string
+          data_devolucao: string | null
           data_entrega: string
           data_validade: string | null
           epi_id: string
@@ -592,6 +596,7 @@ export type Database = {
         Insert: {
           ca_number?: string | null
           created_at?: string
+          data_devolucao?: string | null
           data_entrega?: string
           data_validade?: string | null
           epi_id: string
@@ -603,6 +608,7 @@ export type Database = {
         Update: {
           ca_number?: string | null
           created_at?: string
+          data_devolucao?: string | null
           data_entrega?: string
           data_validade?: string | null
           epi_id?: string

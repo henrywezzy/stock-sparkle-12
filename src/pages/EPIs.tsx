@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Search, Edit, Trash2, HardHat, AlertTriangle, CheckCircle, Clock, FileText } from "lucide-react";
+import { Plus, Search, Edit, Trash2, HardHat, AlertTriangle, CheckCircle, Clock, FileText, Eye } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEPIs, EPI } from "@/hooks/useEPIs";
 import { useEPIDeliveries, EPIDelivery } from "@/hooks/useEPIDeliveries";
 import { useEmployees } from "@/hooks/useEmployees";
-import { useTermosEntrega } from "@/hooks/useTermosEntrega";
+import { useTermosEntrega, TermoEntrega } from "@/hooks/useTermosEntrega";
 import { useAuth } from "@/contexts/AuthContext";
 import { DeliveryTermDialog } from "@/components/epis/DeliveryTermDialog";
+import { TermoViewDialog } from "@/components/epis/TermoViewDialog";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +44,8 @@ export default function EPIs() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeliveryDialogOpen, setIsDeliveryDialogOpen] = useState(false);
   const [isTermoDialogOpen, setIsTermoDialogOpen] = useState(false);
+  const [selectedTermo, setSelectedTermo] = useState<TermoEntrega | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 
   // Form state for new EPI
   const [newEPI, setNewEPI] = useState({
@@ -314,11 +317,22 @@ export default function EPIs() {
         <TabsContent value="termos" className="space-y-4">
           <DataTable 
             columns={[
-              { key: "numero", header: "Número", render: (t: any) => t.numero },
-              { key: "employee", header: "Funcionário", render: (t: any) => t.employees?.name || '-' },
-              { key: "date", header: "Data", render: (t: any) => format(new Date(t.data_emissao), "dd/MM/yyyy", { locale: ptBR }) },
-              { key: "status", header: "Status", render: (t: any) => (
+              { key: "numero", header: "Número", render: (t: TermoEntrega) => t.numero },
+              { key: "employee", header: "Funcionário", render: (t: TermoEntrega) => t.employees?.name || '-' },
+              { key: "date", header: "Data", render: (t: TermoEntrega) => format(new Date(t.data_emissao), "dd/MM/yyyy", { locale: ptBR }) },
+              { key: "items", header: "Itens", render: (t: TermoEntrega) => `${t.termo_epis?.length || 0} EPIs` },
+              { key: "status", header: "Status", render: (t: TermoEntrega) => (
                 <Badge variant={t.status === 'pendente' ? 'secondary' : 'default'}>{t.status}</Badge>
+              )},
+              { key: "actions", header: "Ações", render: (t: TermoEntrega) => (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8"
+                  onClick={() => { setSelectedTermo(t); setIsViewDialogOpen(true); }}
+                >
+                  <Eye className="w-4 h-4" />
+                </Button>
               )},
             ]} 
             data={termos} 
@@ -434,6 +448,13 @@ export default function EPIs() {
 
       {/* Delivery Term Dialog */}
       <DeliveryTermDialog open={isTermoDialogOpen} onOpenChange={setIsTermoDialogOpen} />
+
+      {/* View Termo Dialog */}
+      <TermoViewDialog 
+        open={isViewDialogOpen} 
+        onOpenChange={setIsViewDialogOpen} 
+        termo={selectedTermo}
+      />
     </div>
   );
 }
