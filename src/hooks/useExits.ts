@@ -12,8 +12,10 @@ export interface Exit {
   notes: string | null;
   exit_date: string;
   created_at: string;
+  requisition_id: string | null;
   products?: { name: string; sku: string | null } | null;
   employees?: { name: string; department: string | null } | null;
+  requisitions?: { id: string; status: string } | null;
 }
 
 export interface ExitFormData {
@@ -38,7 +40,8 @@ export const useExits = () => {
         .select(`
           *,
           products (name, sku),
-          employees (name, department)
+          employees (name, department),
+          requisitions (id, status)
         `)
         .order('exit_date', { ascending: false });
 

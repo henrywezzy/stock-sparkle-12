@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, Archive, CheckCircle, AlertTriangle, ClipboardCheck, Loader2, Save, RotateCcw } from "lucide-react";
+import { Plus, Search, Archive, CheckCircle, AlertTriangle, ClipboardCheck, Loader2, Save, RotateCcw, History, Calendar, User, BarChart3 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useProducts, Product } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
+import { useInventoryReports } from "@/hooks/useInventoryReports";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,9 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface InventoryCount {
   productId: string;
@@ -38,6 +42,7 @@ interface InventoryCount {
 export default function Inventory() {
   const { products, isLoading, updateProduct } = useProducts();
   const { categories } = useCategories();
+  const { addReport, getRecentReports, getReportStats } = useInventoryReports();
   
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -47,6 +52,10 @@ export default function Inventory() {
   const [responsible, setResponsible] = useState("");
   const [isInventoryActive, setIsInventoryActive] = useState(false);
   const [counts, setCounts] = useState<Record<string, number | null>>({});
+  const [activeTab, setActiveTab] = useState("inventory");
+
+  const recentReports = getRecentReports(10);
+  const reportStats = getReportStats();
 
   // Filtrar produtos
   const filteredProducts = useMemo(() => {
@@ -113,6 +122,26 @@ export default function Inventory() {
         quantity: counts[p.id] as number,
       }));
 
+    const divergences = filteredProducts.filter(p => {
+      const physicalQty = counts[p.id];
+      return physicalQty !== null && physicalQty !== p.quantity;
+    }).length;
+
+    // Registrar relatório
+    addReport({
+      date: new Date().toISOString(),
+      type: inventoryType || 'complete',
+      categoryName: inventoryType === 'category' 
+        ? categories.find(c => c.id === selectedCategory)?.name 
+        : undefined,
+      responsible,
+      totalItems: filteredProducts.length,
+      countedItems: Object.values(counts).filter(v => v !== null).length,
+      divergences,
+      adjustments: adjustments.length,
+      status: 'completed',
+    });
+
     if (adjustments.length === 0) {
       toast({ title: "Inventário finalizado", description: "Nenhum ajuste necessário." });
     } else {
@@ -134,6 +163,20 @@ export default function Inventory() {
   };
 
   const cancelInventory = () => {
+    // Registrar cancelamento
+    addReport({
+      date: new Date().toISOString(),
+      type: inventoryType || 'complete',
+      categoryName: inventoryType === 'category' 
+        ? categories.find(c => c.id === selectedCategory)?.name 
+        : undefined,
+      responsible,
+      totalItems: filteredProducts.length,
+      countedItems: Object.values(counts).filter(v => v !== null).length,
+      divergences: 0,
+      adjustments: 0,
+      status: 'cancelled',
+    });
     setIsInventoryActive(false);
     setCounts({});
     setResponsible("");
@@ -393,36 +436,163 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar produtos..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-secondary/50 border-border/50"
-          />
-        </div>
-        {!isInventoryActive && (
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as categorias</SelectItem>
-              {categories.map((cat) => (
-                <SelectItem key={cat.id} value={cat.id}>
-                  {cat.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
+      {/* Tabs for Inventory and Reports */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="bg-secondary/50">
+          <TabsTrigger value="inventory" className="flex items-center gap-2">
+            <ClipboardCheck className="w-4 h-4" />
+            Contagem
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="flex items-center gap-2">
+            <History className="w-4 h-4" />
+            Relatórios
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Table */}
-      <DataTable columns={columns} data={filteredProducts} />
+        <TabsContent value="inventory" className="space-y-4">
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar produtos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-secondary/50 border-border/50"
+              />
+            </div>
+            {!isInventoryActive && (
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as categorias</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {/* Table */}
+          <DataTable columns={columns} data={filteredProducts} />
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-6">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="glass rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <ClipboardCheck className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Realizados</p>
+                  <p className="text-xl font-bold">{reportStats.completedReports}</p>
+                </div>
+              </div>
+            </div>
+            <div className="glass rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-warning" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Divergências</p>
+                  <p className="text-xl font-bold">{reportStats.totalDivergences}</p>
+                </div>
+              </div>
+            </div>
+            <div className="glass rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
+                  <CheckCircle className="w-5 h-5 text-success" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Ajustes</p>
+                  <p className="text-xl font-bold">{reportStats.totalAdjustments}</p>
+                </div>
+              </div>
+            </div>
+            <div className="glass rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-destructive" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Taxa Média</p>
+                  <p className="text-xl font-bold">{reportStats.avgDivergenceRate}%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Reports List */}
+          <div className="glass rounded-xl overflow-hidden">
+            <div className="p-4 border-b border-border">
+              <h3 className="font-semibold">Últimos Inventários</h3>
+              <p className="text-sm text-muted-foreground">Histórico dos últimos 10 inventários realizados</p>
+            </div>
+            
+            {recentReports.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>Nenhum inventário realizado ainda</p>
+                <p className="text-sm">Inicie um novo inventário para ver o histórico aqui</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {recentReports.map((report) => (
+                  <div key={report.id} className="p-4 hover:bg-secondary/30 transition-colors">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge className={report.status === 'completed' ? 'bg-success/20 text-success' : 'bg-muted text-muted-foreground'}>
+                            {report.status === 'completed' ? 'Concluído' : 'Cancelado'}
+                          </Badge>
+                          <Badge variant="outline">
+                            {report.type === 'complete' ? 'Completo' : `Categoria: ${report.categoryName}`}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {format(new Date(report.date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <User className="w-3.5 h-3.5" />
+                            {report.responsible}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex gap-6 text-right">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Conferidos</p>
+                          <p className="font-semibold">{report.countedItems}/{report.totalItems}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Divergências</p>
+                          <p className={`font-semibold ${report.divergences > 0 ? 'text-warning' : 'text-success'}`}>
+                            {report.divergences}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Ajustes</p>
+                          <p className="font-semibold">{report.adjustments}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
