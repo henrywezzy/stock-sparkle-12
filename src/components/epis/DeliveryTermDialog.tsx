@@ -254,29 +254,36 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
     doc.text(`Cargo: ${createdTermo.employees?.position || '-'}`, 18, 79);
     doc.text(`Setor: ${createdTermo.employees?.department || '-'}`, pageWidth / 2 + 10, 79);
 
-    // EPIs table
+    // EPIs table with empty rows for manual additions
+    const epiRows = createdTermo.termo_epis?.map(item => [
+      item.epis?.name || '-',
+      item.ca_number || '-',
+      item.tamanho || '-',
+      item.quantidade.toString(),
+      format(new Date(item.data_entrega), 'dd/MM/yyyy'),
+      '___/___/______',
+      item.data_validade ? format(new Date(item.data_validade), 'dd/MM/yyyy') : '-',
+    ]) || [];
+
+    // Add 5 empty rows for manual additions
+    for (let i = 0; i < 5; i++) {
+      epiRows.push(['', '', '', '', '___/___/______', '___/___/______', '___/___/______']);
+    }
+
     autoTable(doc, {
       startY: 92,
-      head: [['Item', 'CA', 'Tam.', 'Qtd', 'Entrega', 'Validade', 'Devolução']],
-      body: createdTermo.termo_epis?.map(item => [
-        item.epis?.name || '-',
-        item.ca_number || '-',
-        item.tamanho || '-',
-        item.quantidade.toString(),
-        format(new Date(item.data_entrega), 'dd/MM/yyyy'),
-        item.data_validade ? format(new Date(item.data_validade), 'dd/MM/yyyy') : '-',
-        '___/___/______',
-      ]) || [],
+      head: [['Item', 'CA', 'Tam.', 'Qtd', 'Entrega', 'Devolução', 'Validade']],
+      body: epiRows,
       headStyles: { fillColor: [80, 80, 80], fontSize: 9 },
-      bodyStyles: { fontSize: 9 },
+      bodyStyles: { fontSize: 9, minCellHeight: 8 },
       columnStyles: {
         0: { cellWidth: 45 },
         1: { cellWidth: 20, halign: 'center' },
         2: { cellWidth: 15, halign: 'center' },
         3: { cellWidth: 12, halign: 'center' },
         4: { cellWidth: 25, halign: 'center' },
-        5: { cellWidth: 25, halign: 'center' },
-        6: { cellWidth: 30, halign: 'center' },
+        5: { cellWidth: 28, halign: 'center' },
+        6: { cellWidth: 27, halign: 'center' },
       },
     });
 
@@ -391,28 +398,35 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
     doc.text(`Cargo: ${createdTermo.employees?.position || '-'}`, 18, 79);
     doc.text(`Setor: ${createdTermo.employees?.department || '-'}`, pageWidth / 2 + 10, 79);
 
+    // EPIs table for second page with empty rows
+    const epiRows2 = createdTermo.termo_epis?.map(item => [
+      item.epis?.name || '-',
+      item.ca_number || '-',
+      item.tamanho || '-',
+      item.quantidade.toString(),
+      format(new Date(item.data_entrega), 'dd/MM/yyyy'),
+      '___/___/______',
+      item.data_validade ? format(new Date(item.data_validade), 'dd/MM/yyyy') : '-',
+    ]) || [];
+
+    for (let i = 0; i < 5; i++) {
+      epiRows2.push(['', '', '', '', '___/___/______', '___/___/______', '___/___/______']);
+    }
+
     autoTable(doc, {
       startY: 92,
-      head: [['Item', 'CA', 'Tam.', 'Qtd', 'Entrega', 'Validade', 'Devolução']],
-      body: createdTermo.termo_epis?.map(item => [
-        item.epis?.name || '-',
-        item.ca_number || '-',
-        item.tamanho || '-',
-        item.quantidade.toString(),
-        format(new Date(item.data_entrega), 'dd/MM/yyyy'),
-        item.data_validade ? format(new Date(item.data_validade), 'dd/MM/yyyy') : '-',
-        '___/___/______',
-      ]) || [],
+      head: [['Item', 'CA', 'Tam.', 'Qtd', 'Entrega', 'Devolução', 'Validade']],
+      body: epiRows2,
       headStyles: { fillColor: [80, 80, 80], fontSize: 9 },
-      bodyStyles: { fontSize: 9 },
+      bodyStyles: { fontSize: 9, minCellHeight: 8 },
       columnStyles: {
         0: { cellWidth: 45 },
         1: { cellWidth: 20, halign: 'center' },
         2: { cellWidth: 15, halign: 'center' },
         3: { cellWidth: 12, halign: 'center' },
         4: { cellWidth: 25, halign: 'center' },
-        5: { cellWidth: 25, halign: 'center' },
-        6: { cellWidth: 30, halign: 'center' },
+        5: { cellWidth: 28, halign: 'center' },
+        6: { cellWidth: 27, halign: 'center' },
       },
     });
 
