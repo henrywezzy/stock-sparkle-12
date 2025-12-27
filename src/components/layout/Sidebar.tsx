@@ -39,7 +39,7 @@ interface MenuItem {
   children?: { title: string; icon: React.ElementType; path: string }[];
 }
 
-const menuItems: MenuItem[] = [
+const allMenuItems: MenuItem[] = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/" },
   { title: "Produtos", icon: Package, path: "/produtos" },
   { title: "Categorias", icon: Tags, path: "/categorias" },
@@ -62,6 +62,13 @@ const menuItems: MenuItem[] = [
   { title: "Configurações", icon: Settings, path: "/configuracoes" },
 ];
 
+// Menu items for visualizador role (limited access)
+const visualizadorMenuItems: MenuItem[] = [
+  { title: "Dashboard", icon: LayoutDashboard, path: "/" },
+  { title: "Produtos", icon: Package, path: "/produtos" },
+  { title: "Configurações", icon: Settings, path: "/configuracoes" },
+];
+
 interface SidebarProps {
   mobileOpen: boolean;
   onMobileClose: () => void;
@@ -72,6 +79,9 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const [openMenus, setOpenMenus] = useState<string[]>(["Gestão de Pessoas"]);
   const location = useLocation();
   const { signOut, userRole, user } = useAuth();
+
+  // Select menu items based on user role
+  const menuItems = userRole === 'visualizador' ? visualizadorMenuItems : allMenuItems;
 
   // Close mobile sidebar on route change
   useEffect(() => {

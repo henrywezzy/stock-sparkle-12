@@ -67,6 +67,7 @@ interface UserWithRole {
   email: string;
   full_name: string | null;
   role: string;
+  approved: boolean;
 }
 
 const COLOR_PALETTES: { id: ColorPalette; name: string; primary: string }[] = [
@@ -137,7 +138,7 @@ export default function Settings() {
     enabled: !!user,
   });
 
-  const { data: usersWithRoles = [], isLoading: usersLoading } = useQuery({
+  const { data: usersWithRoles = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery({
     queryKey: ['users-with-roles'],
     queryFn: async () => {
       const { data: profiles, error: profilesError } = await supabase
@@ -146,14 +147,18 @@ export default function Settings() {
       if (profilesError) throw profilesError;
       const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
-        .select('user_id, role');
+        .select('user_id, role, approved');
       if (rolesError) throw rolesError;
-      return profiles.map(profile => ({
-        id: profile.user_id,
-        email: profile.email || '',
-        full_name: profile.full_name,
-        role: roles.find(r => r.user_id === profile.user_id)?.role || 'visualizador',
-      })) as UserWithRole[];
+      return profiles.map(profile => {
+        const userRole = roles.find(r => r.user_id === profile.user_id);
+        return {
+          id: profile.user_id,
+          email: profile.email || '',
+          full_name: profile.full_name,
+          role: userRole?.role || 'visualizador',
+          approved: userRole?.approved ?? false,
+        };
+      }) as UserWithRole[];
     },
     enabled: isAdmin,
   });
@@ -193,14 +198,54 @@ export default function Settings() {
     },
   });
 
+  const approveUser = useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase
+        .from('user_roles')
+        .update({ approved: true })
+        .eq('user_id', userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      toast({ title: "Usuário aprovado", description: "O usuário agora pode acessar o sistema." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao aprovar usuário", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const revokeApproval = useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase
+        .from('user_roles')
+        .update({ approved: false })
+        .eq('user_id', userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      toast({ title: "Acesso revogado", description: "O usuário não pode mais acessar o sistema." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao revogar acesso", description: error.message, variant: "destructive" });
+    },
+  });
+
   const deleteUser = useMutation({
     mutationFn: async (userId: string) => {
-      // Delete user role first
+      // Delete user role first (this also removes their access)
       const { error: roleError } = await supabase
         .from('user_roles')
         .delete()
         .eq('user_id', userId);
       if (roleError) throw roleError;
+
+      // Delete notification settings
+      await supabase
+        .from('notification_settings')
+        .delete()
+        .eq('user_id', userId);
 
       // Delete profile
       const { error: profileError } = await supabase
@@ -208,17 +253,15 @@ export default function Settings() {
         .delete()
         .eq('user_id', userId);
       if (profileError) throw profileError;
-
-      // Note: The actual auth.users deletion requires admin API access
-      // The user data will be cleaned but auth record remains
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
-      toast({ title: "Usuário removido", description: "O acesso do usuário foi revogado." });
+      refetchUsers();
+      toast({ title: "Usuário removido", description: "Os dados do usuário foram removidos do sistema." });
       setDeleteUserId(null);
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao remover usuário", description: error.message, variant: "destructive" });
+      setDeleteUserId(null);
     },
   });
 
@@ -438,14 +481,62 @@ export default function Settings() {
                 </div>
                 <div>
                   <h3 className="font-semibold">Usuários e Permissões</h3>
-                  <p className="text-sm text-muted-foreground">Gerencie os acessos ao sistema</p>
+                  <p className="text-sm text-muted-foreground">Gerencie os acessos e aprovações ao sistema</p>
                 </div>
               </div>
+
+              {/* Pending Approvals Section */}
+              {usersWithRoles.filter(u => !u.approved && u.id !== user?.id).length > 0 && (
+                <div className="border border-warning/50 bg-warning/10 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-warning" />
+                    <h4 className="font-medium text-warning">Aprovações Pendentes</h4>
+                  </div>
+                  <div className="space-y-2">
+                    {usersWithRoles.filter(u => !u.approved && u.id !== user?.id).map((userItem) => (
+                      <div key={userItem.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg bg-background/50 gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-warning/20 flex items-center justify-center">
+                            <UserX className="w-4 h-4 text-warning" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{userItem.full_name || 'Sem nome'}</p>
+                            <p className="text-sm text-muted-foreground">{userItem.email}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-success border-success hover:bg-success/10"
+                            onClick={() => approveUser.mutate(userItem.id)}
+                            disabled={approveUser.isPending}
+                          >
+                            <UserCheck className="w-4 h-4 mr-1" />
+                            Aprovar
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteUser(userItem.id, userItem.full_name || userItem.email)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Remover
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {usersLoading ? (
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
               ) : (
                 <div className="space-y-3">
-                  {usersWithRoles.map((userItem) => (
+                  <h4 className="font-medium text-sm text-muted-foreground">Usuários Ativos</h4>
+                  {usersWithRoles.filter(u => u.approved || u.id === user?.id).map((userItem) => (
                     <div key={userItem.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg bg-secondary/50 gap-3">
                       <div className="flex items-center gap-3">
                         {getRoleIcon(userItem.role)}
@@ -470,8 +561,19 @@ export default function Settings() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              className="h-8 w-8 text-warning hover:text-warning hover:bg-warning/10"
+                              onClick={() => revokeApproval.mutate(userItem.id)}
+                              title="Revogar acesso"
+                              disabled={revokeApproval.isPending}
+                            >
+                              <UserX className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                               onClick={() => handleDeleteUser(userItem.id, userItem.full_name || userItem.email)}
+                              title="Remover usuário"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>

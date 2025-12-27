@@ -16,6 +16,7 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
       ? `${companySettings.address}${companySettings.city ? ` - ${companySettings.city}` : ''}${companySettings.state ? `/${companySettings.state}` : ''}`
       : "Rua Exemplo, 123 - Centro - Cidade/UF",
     phone: companySettings?.phone || "(00) 0000-0000",
+    email: companySettings?.email || "",
     logo_url: companySettings?.logo_url,
   };
 
@@ -27,156 +28,14 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
     return format(new Date(date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
   };
 
-  const TermContent = ({ via }: { via: string }) => (
-    <div className="bg-white text-black p-8 mb-4 print:mb-0 print:p-6" style={{ fontFamily: 'Arial, sans-serif' }}>
-      {/* Header */}
-      <div className="border-b-2 border-black pb-4 mb-6">
-        <div className="flex justify-between items-start">
-          <div className="flex items-start gap-4">
-            {company.logo_url && (
-              <img src={company.logo_url} alt="Logo" className="w-16 h-16 object-contain" />
-            )}
-            <div>
-              <h1 className="text-xl font-bold">{company.name}</h1>
-              <p className="text-sm">CNPJ: {company.cnpj}</p>
-              <p className="text-sm">{company.address}</p>
-              <p className="text-sm">Tel: {company.phone}</p>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-sm">Data: {formatDate(termo.data_emissao)}</p>
-            <p className="text-sm font-bold">Nº {termo.numero}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Title */}
-      <div className="text-center mb-6">
-        <h2 className="text-lg font-bold uppercase">Termo de Responsabilidade e Recebimento</h2>
-        <p className="text-sm">Equipamentos de Proteção Individual (EPIs)</p>
-      </div>
-
-      {/* Employee Info */}
-      <div className="border border-black p-4 mb-6">
-        <h3 className="font-bold mb-2 text-sm uppercase bg-gray-200 -mx-4 -mt-4 px-4 py-2">Dados do Colaborador</h3>
-        <div className="grid grid-cols-2 gap-2 text-sm mt-4">
-          <p><strong>Nome:</strong> {termo.employees?.name}</p>
-          <p><strong>Matrícula:</strong> {termo.employees?.registration_number || '-'}</p>
-          <p><strong>Cargo:</strong> {termo.employees?.position || '-'}</p>
-          <p><strong>Setor:</strong> {termo.employees?.department || '-'}</p>
-        </div>
-      </div>
-
-      {/* EPIs Table */}
-      <div className="mb-6">
-        <h3 className="font-bold mb-2 text-sm uppercase">EPIs Entregues</h3>
-        <table className="w-full border-collapse border border-black text-sm">
-          <thead>
-            <tr className="bg-gray-200">
-              <th className="border border-black px-2 py-1 text-left">Item</th>
-              <th className="border border-black px-2 py-1 text-center">CA</th>
-              <th className="border border-black px-2 py-1 text-center">Tam.</th>
-              <th className="border border-black px-2 py-1 text-center">Qtd</th>
-              <th className="border border-black px-2 py-1 text-center">Entrega</th>
-              <th className="border border-black px-2 py-1 text-center">Devolução</th>
-              <th className="border border-black px-2 py-1 text-center">Validade</th>
-            </tr>
-          </thead>
-          <tbody>
-            {termo.termo_epis?.map((item, index) => (
-              <tr key={item.id || index}>
-                <td className="border border-black px-2 py-1">{item.epis?.name || '-'}</td>
-                <td className="border border-black px-2 py-1 text-center">{item.ca_number || item.epis?.ca_number || '-'}</td>
-                <td className="border border-black px-2 py-1 text-center">{item.tamanho || '-'}</td>
-                <td className="border border-black px-2 py-1 text-center">{item.quantidade}</td>
-                <td className="border border-black px-2 py-1 text-center">{formatDate(item.data_entrega)}</td>
-                <td className="border border-black px-2 py-1 text-center">{item.data_devolucao ? formatDate(item.data_devolucao) : '___/___/______'}</td>
-                <td className="border border-black px-2 py-1 text-center">{item.data_validade ? formatDate(item.data_validade) : '-'}</td>
-              </tr>
-            ))}
-            {/* Empty rows for manual additions */}
-            {[...Array(5)].map((_, index) => (
-              <tr key={`empty-${index}`}>
-                <td className="border border-black px-2 py-1 h-8">&nbsp;</td>
-                <td className="border border-black px-2 py-1 text-center">&nbsp;</td>
-                <td className="border border-black px-2 py-1 text-center">&nbsp;</td>
-                <td className="border border-black px-2 py-1 text-center">&nbsp;</td>
-                <td className="border border-black px-2 py-1 text-center">___/___/______</td>
-                <td className="border border-black px-2 py-1 text-center">___/___/______</td>
-                <td className="border border-black px-2 py-1 text-center">___/___/______</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Terms */}
-      <div className="mb-6 text-xs border border-black p-3">
-        <p className="mb-2">
-          Declaro que recebi os Equipamentos de Proteção Individual (EPIs) discriminados acima, 
-          em perfeito estado de conservação e adequados às minhas medidas.
-        </p>
-        <p className="font-bold mb-1">COMPROMETO-ME A:</p>
-        <ul className="list-disc list-inside mb-2 space-y-0.5">
-          <li>Utilizar os EPIs durante todo o período de trabalho</li>
-          <li>Guardar e conservar em local adequado</li>
-          <li>Comunicar qualquer alteração que os torne impróprios</li>
-          <li>Responsabilizar-me pela guarda e conservação</li>
-          <li>Devolver em caso de desligamento</li>
-          <li>Ressarcir em caso de dano ou perda por negligência</li>
-        </ul>
-        <p className="font-bold">
-          ESTOU CIENTE DE QUE: O não uso dos EPIs constitui ato faltoso, 
-          sujeitando-me às penalidades previstas na NR-06 e CLT Art. 158.
-        </p>
-      </div>
-
-      {/* Observations */}
-      {termo.observacoes && (
-        <div className="mb-6 text-sm">
-          <p><strong>Observações:</strong> {termo.observacoes}</p>
-        </div>
-      )}
-
-      {/* Signatures */}
-      <div className="mt-8">
-        <p className="text-center text-sm mb-8">
-          {formatDateExtended(termo.data_emissao)}
-        </p>
-        <div className="grid grid-cols-2 gap-8">
-          <div className="text-center">
-            <div className="border-t border-black pt-2 mx-4">
-              <p className="font-bold text-sm">{termo.employees?.name}</p>
-              <p className="text-xs">Matrícula: {termo.employees?.registration_number || '-'}</p>
-              <p className="text-xs uppercase mt-1">Assinatura do Colaborador</p>
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="border-t border-black pt-2 mx-4">
-              <p className="font-bold text-sm">{termo.responsavel_nome || 'Responsável'}</p>
-              <p className="text-xs">Almoxarifado</p>
-              <p className="text-xs uppercase mt-1">Assinatura do Responsável</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="mt-6 pt-4 border-t border-gray-400 text-xs text-gray-600 flex justify-between">
-        <span>{via}</span>
-        <span>Gerado em: {format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
-      </div>
-    </div>
-  );
-
   return (
     <div className="print-container">
       <style>
         {`
           @media print {
             @page {
-              size: A4;
-              margin: 0.5cm;
+              size: A4 portrait;
+              margin: 10mm 15mm;
             }
             body * {
               visibility: hidden;
@@ -190,9 +49,6 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
               top: 0;
               width: 100%;
             }
-            .page-break {
-              page-break-before: always;
-            }
             .no-print {
               display: none !important;
             }
@@ -200,14 +56,170 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
         `}
       </style>
       
-      {/* Via do Colaborador */}
-      <TermContent via="VIA DO COLABORADOR" />
-      
-      {/* Page break for second copy */}
-      <div className="page-break" />
-      
-      {/* Via da Empresa */}
-      <TermContent via="VIA DA EMPRESA - ARQUIVO" />
+      <div className="bg-white text-black" style={{ fontFamily: 'Arial, sans-serif', fontSize: '11px', lineHeight: '1.3' }}>
+        {/* Header */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '15px' }}>
+          <tbody>
+            <tr>
+              <td style={{ width: '70px', verticalAlign: 'top' }}>
+                {company.logo_url ? (
+                  <img src={company.logo_url} alt="Logo" style={{ width: '60px', height: '60px', objectFit: 'contain' }} />
+                ) : (
+                  <div style={{ width: '60px', height: '60px', border: '1px solid #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', color: '#999' }}>LOGO</div>
+                )}
+              </td>
+              <td style={{ verticalAlign: 'top', paddingLeft: '10px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '2px' }}>{company.name}</div>
+                <div>CNPJ: {company.cnpj}</div>
+                <div>{company.address}</div>
+                <div>Tel: {company.phone}{company.email ? ` | E-mail: ${company.email}` : ''}</div>
+              </td>
+              <td style={{ textAlign: 'right', verticalAlign: 'top', width: '150px' }}>
+                <div style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '10px', marginBottom: '4px' }}>TERMO Nº</div>
+                  <div style={{ fontSize: '16px', fontWeight: 'bold' }}>{termo.numero}</div>
+                  <div style={{ fontSize: '9px', marginTop: '4px' }}>{formatDate(termo.data_emissao)}</div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Title */}
+        <div style={{ textAlign: 'center', marginBottom: '15px', borderTop: '2px solid #000', borderBottom: '2px solid #000', padding: '8px 0' }}>
+          <div style={{ fontSize: '13px', fontWeight: 'bold', letterSpacing: '1px' }}>TERMO DE RESPONSABILIDADE</div>
+          <div style={{ fontSize: '11px' }}>RECEBIMENTO DE EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL - EPI</div>
+        </div>
+
+        {/* Employee Info */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '15px', border: '1px solid #000' }}>
+          <tbody>
+            <tr style={{ backgroundColor: '#f0f0f0' }}>
+              <td colSpan={4} style={{ fontWeight: 'bold', padding: '5px 8px', borderBottom: '1px solid #000', fontSize: '10px' }}>IDENTIFICAÇÃO DO COLABORADOR</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '5px 8px', borderRight: '1px solid #000', width: '15%', fontWeight: 'bold' }}>Nome:</td>
+              <td style={{ padding: '5px 8px', borderRight: '1px solid #000', width: '35%' }}>{termo.employees?.name}</td>
+              <td style={{ padding: '5px 8px', borderRight: '1px solid #000', width: '15%', fontWeight: 'bold' }}>Matrícula:</td>
+              <td style={{ padding: '5px 8px', width: '35%' }}>{termo.employees?.registration_number || '-'}</td>
+            </tr>
+            <tr style={{ borderTop: '1px solid #000' }}>
+              <td style={{ padding: '5px 8px', borderRight: '1px solid #000', fontWeight: 'bold' }}>Cargo:</td>
+              <td style={{ padding: '5px 8px', borderRight: '1px solid #000' }}>{termo.employees?.position || '-'}</td>
+              <td style={{ padding: '5px 8px', borderRight: '1px solid #000', fontWeight: 'bold' }}>Setor:</td>
+              <td style={{ padding: '5px 8px' }}>{termo.employees?.department || '-'}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* EPIs Table */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '15px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ backgroundColor: '#f0f0f0' }}>
+              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'left', fontSize: '10px', width: '30%' }}>DESCRIÇÃO DO EPI</th>
+              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', fontSize: '10px', width: '12%' }}>Nº C.A.</th>
+              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', fontSize: '10px', width: '8%' }}>TAM.</th>
+              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', fontSize: '10px', width: '6%' }}>QTD</th>
+              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', fontSize: '10px', width: '14%' }}>ENTREGA</th>
+              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', fontSize: '10px', width: '14%' }}>DEVOLUÇÃO</th>
+              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', fontSize: '10px', width: '16%' }}>ASS. RECEB.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {termo.termo_epis?.map((item, index) => (
+              <tr key={item.id || index}>
+                <td style={{ border: '1px solid #000', padding: '5px 4px' }}>{item.epis?.name || '-'}</td>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>{item.ca_number || item.epis?.ca_number || '-'}</td>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>{item.tamanho || '-'}</td>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>{item.quantidade}</td>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>{formatDate(item.data_entrega)}</td>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>{item.data_devolucao ? formatDate(item.data_devolucao) : '____/____/______'}</td>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}></td>
+              </tr>
+            ))}
+            {/* Empty rows for manual additions - adjust count based on existing items */}
+            {[...Array(Math.max(3, 8 - (termo.termo_epis?.length || 0)))].map((_, index) => (
+              <tr key={`empty-${index}`}>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', height: '22px' }}>&nbsp;</td>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>&nbsp;</td>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>&nbsp;</td>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>&nbsp;</td>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>____/____/______</td>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>____/____/______</td>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>&nbsp;</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Terms */}
+        <div style={{ border: '1px solid #000', padding: '10px', marginBottom: '15px', fontSize: '10px', textAlign: 'justify' }}>
+          <p style={{ marginBottom: '8px' }}>
+            Declaro ter recebido gratuitamente os Equipamentos de Proteção Individual - EPIs acima relacionados, em perfeito estado de conservação e funcionamento, 
+            comprometendo-me a:
+          </p>
+          <p style={{ marginBottom: '4px', paddingLeft: '10px' }}>
+            <strong>1.</strong> Usar o EPI apenas para a finalidade a que se destina, durante toda a jornada de trabalho;
+          </p>
+          <p style={{ marginBottom: '4px', paddingLeft: '10px' }}>
+            <strong>2.</strong> Responsabilizar-me pela guarda e conservação do EPI;
+          </p>
+          <p style={{ marginBottom: '4px', paddingLeft: '10px' }}>
+            <strong>3.</strong> Comunicar ao empregador qualquer alteração que o torne impróprio para uso;
+          </p>
+          <p style={{ marginBottom: '4px', paddingLeft: '10px' }}>
+            <strong>4.</strong> Cumprir as determinações do empregador sobre o uso adequado;
+          </p>
+          <p style={{ marginBottom: '8px', paddingLeft: '10px' }}>
+            <strong>5.</strong> Devolver o EPI ao empregador quando solicitado ou em caso de rescisão do contrato de trabalho.
+          </p>
+          <p style={{ fontWeight: 'bold' }}>
+            Estou ciente de que o não uso do EPI constitui ato faltoso, podendo acarretar sanções disciplinares conforme NR-06 e Art. 158 da CLT.
+          </p>
+        </div>
+
+        {/* Observations */}
+        {termo.observacoes && (
+          <div style={{ marginBottom: '15px', fontSize: '10px' }}>
+            <strong>Observações:</strong> {termo.observacoes}
+          </div>
+        )}
+
+        {/* Date and Signatures */}
+        <div style={{ marginTop: '20px' }}>
+          <p style={{ textAlign: 'center', marginBottom: '30px', fontSize: '10px' }}>
+            Local e data: ______________________________________________, {formatDateExtended(termo.data_emissao)}
+          </p>
+          
+          <table style={{ width: '100%', marginTop: '30px' }}>
+            <tbody>
+              <tr>
+                <td style={{ width: '45%', textAlign: 'center', paddingTop: '30px' }}>
+                  <div style={{ borderTop: '1px solid #000', paddingTop: '5px', margin: '0 20px' }}>
+                    <div style={{ fontWeight: 'bold' }}>{termo.employees?.name}</div>
+                    <div style={{ fontSize: '9px' }}>Matrícula: {termo.employees?.registration_number || '-'}</div>
+                    <div style={{ fontSize: '9px', marginTop: '2px' }}>COLABORADOR</div>
+                  </div>
+                </td>
+                <td style={{ width: '10%' }}></td>
+                <td style={{ width: '45%', textAlign: 'center', paddingTop: '30px' }}>
+                  <div style={{ borderTop: '1px solid #000', paddingTop: '5px', margin: '0 20px' }}>
+                    <div style={{ fontWeight: 'bold' }}>{termo.responsavel_nome || 'Responsável'}</div>
+                    <div style={{ fontSize: '9px' }}>Almoxarifado / Segurança do Trabalho</div>
+                    <div style={{ fontSize: '9px', marginTop: '2px' }}>RESPONSÁVEL PELA ENTREGA</div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer */}
+        <div style={{ marginTop: '20px', paddingTop: '10px', borderTop: '1px solid #ccc', fontSize: '8px', color: '#666', display: 'flex', justifyContent: 'space-between' }}>
+          <span>Documento gerado eletronicamente em {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+          <span>Ref: {termo.numero}</span>
+        </div>
+      </div>
     </div>
   );
 }
