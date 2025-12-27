@@ -577,6 +577,98 @@ export type Database = {
         }
         Relationships: []
       }
+      termo_epis: {
+        Row: {
+          ca_number: string | null
+          created_at: string
+          data_entrega: string
+          data_validade: string | null
+          epi_id: string
+          id: string
+          quantidade: number | null
+          tamanho: string | null
+          termo_id: string
+        }
+        Insert: {
+          ca_number?: string | null
+          created_at?: string
+          data_entrega?: string
+          data_validade?: string | null
+          epi_id: string
+          id?: string
+          quantidade?: number | null
+          tamanho?: string | null
+          termo_id: string
+        }
+        Update: {
+          ca_number?: string | null
+          created_at?: string
+          data_entrega?: string
+          data_validade?: string | null
+          epi_id?: string
+          id?: string
+          quantidade?: number | null
+          tamanho?: string | null
+          termo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "termo_epis_epi_id_fkey"
+            columns: ["epi_id"]
+            isOneToOne: false
+            referencedRelation: "epis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "termo_epis_termo_id_fkey"
+            columns: ["termo_id"]
+            isOneToOne: false
+            referencedRelation: "termos_entrega"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      termos_entrega: {
+        Row: {
+          created_at: string
+          data_emissao: string
+          employee_id: string
+          id: string
+          numero: string
+          observacoes: string | null
+          responsavel_nome: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string
+          data_emissao?: string
+          employee_id: string
+          id?: string
+          numero: string
+          observacoes?: string | null
+          responsavel_nome?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string
+          data_emissao?: string
+          employee_id?: string
+          id?: string
+          numero?: string
+          observacoes?: string | null
+          responsavel_nome?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "termos_entrega_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string

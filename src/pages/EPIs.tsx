@@ -1,19 +1,23 @@
 import { useState } from "react";
-import { Plus, Search, Filter, Edit, Trash2, HardHat, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { Plus, Search, Edit, Trash2, HardHat, AlertTriangle, CheckCircle, Clock, FileText } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { epis, epiDeliveries, EPI, EPIDelivery } from "@/data/mockData";
+import { useEPIs, EPI } from "@/hooks/useEPIs";
+import { useEPIDeliveries, EPIDelivery } from "@/hooks/useEPIDeliveries";
+import { useEmployees } from "@/hooks/useEmployees";
+import { useTermosEntrega } from "@/hooks/useTermosEntrega";
+import { useAuth } from "@/contexts/AuthContext";
+import { DeliveryTermDialog } from "@/components/epis/DeliveryTermDialog";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -25,17 +29,62 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export default function EPIs() {
+  const { epis, isLoading, createEPI, deleteEPI, stats: epiStats } = useEPIs();
+  const { deliveries, stats: deliveryStats, createDelivery } = useEPIDeliveries();
+  const { employees } = useEmployees();
+  const { termos } = useTermosEntrega();
+  const { canEdit, canDelete } = useAuth();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeliveryDialogOpen, setIsDeliveryDialogOpen] = useState(false);
+  const [isTermoDialogOpen, setIsTermoDialogOpen] = useState(false);
+
+  // Form state for new EPI
+  const [newEPI, setNewEPI] = useState({
+    name: "",
+    category: "",
+    ca_number: "",
+    default_validity_days: 365,
+    quantity: 0,
+    min_quantity: 5,
+  });
+
+  // Form state for delivery
+  const [newDelivery, setNewDelivery] = useState({
+    employee_id: "",
+    epi_id: "",
+    quantity: 1,
+    delivery_date: new Date().toISOString().split("T")[0],
+  });
 
   const filteredEPIs = epis.filter((e) =>
     e.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleCreateEPI = async () => {
+    if (!newEPI.name) {
+      toast({ title: "Nome é obrigatório", variant: "destructive" });
+      return;
+    }
+    await createEPI.mutateAsync(newEPI);
+    setIsDialogOpen(false);
+    setNewEPI({ name: "", category: "", ca_number: "", default_validity_days: 365, quantity: 0, min_quantity: 5 });
+  };
+
+  const handleCreateDelivery = async () => {
+    if (!newDelivery.employee_id || !newDelivery.epi_id) {
+      toast({ title: "Selecione funcionário e EPI", variant: "destructive" });
+      return;
+    }
+    await createDelivery.mutateAsync(newDelivery);
+    setIsDeliveryDialogOpen(false);
+    setNewDelivery({ employee_id: "", epi_id: "", quantity: 1, delivery_date: new Date().toISOString().split("T")[0] });
+  };
 
   const epiColumns = [
     {
@@ -48,18 +97,18 @@ export default function EPIs() {
           </div>
           <div>
             <p className="font-medium">{epi.name}</p>
-            <p className="text-sm text-muted-foreground">CA: {epi.ca}</p>
+            <p className="text-sm text-muted-foreground">CA: {epi.ca_number || '-'}</p>
           </div>
         </div>
       ),
     },
-    { key: "category", header: "Categoria" },
+    { key: "category", header: "Categoria", render: (epi: EPI) => epi.category || '-' },
     {
-      key: "stock",
+      key: "quantity",
       header: "Estoque",
       render: (epi: EPI) => (
         <div>
-          <span className="font-medium">{epi.stock}</span>
+          <span className="font-medium">{epi.quantity}</span>
           <span className="text-muted-foreground ml-1">un</span>
         </div>
       ),
@@ -69,37 +118,42 @@ export default function EPIs() {
       header: "Status",
       render: (epi: EPI) => (
         <Badge
-          variant={epi.stock <= epi.minStock ? "destructive" : "default"}
+          variant={epi.quantity <= (epi.min_quantity || 5) ? "destructive" : "default"}
           className={
-            epi.stock <= epi.minStock
+            epi.quantity <= (epi.min_quantity || 5)
               ? "bg-destructive/20 text-destructive"
               : "bg-success/20 text-success"
           }
         >
-          {epi.stock <= epi.minStock ? "Estoque Baixo" : "Normal"}
+          {epi.quantity <= (epi.min_quantity || 5) ? "Estoque Baixo" : "Normal"}
         </Badge>
       ),
     },
     {
       key: "validity",
       header: "Validade (dias)",
-      render: (epi: EPI) => <span>{epi.validityDays}</span>,
+      render: (epi: EPI) => <span>{epi.default_validity_days || 365}</span>,
     },
     {
       key: "actions",
       header: "Ações",
       render: (epi: EPI) => (
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-            <Edit className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          {canEdit && (
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+              <Edit className="w-4 h-4" />
+            </Button>
+          )}
+          {canDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              onClick={() => deleteEPI.mutate(epi.id)}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       ),
     },
@@ -110,7 +164,7 @@ export default function EPIs() {
       key: "employee",
       header: "Funcionário",
       render: (delivery: EPIDelivery) => (
-        <span className="font-medium">{delivery.employeeName}</span>
+        <span className="font-medium">{delivery.employees?.name || '-'}</span>
       ),
     },
     {
@@ -119,7 +173,7 @@ export default function EPIs() {
       render: (delivery: EPIDelivery) => (
         <div className="flex items-center gap-2">
           <HardHat className="w-4 h-4 text-primary" />
-          <span>{delivery.epiName}</span>
+          <span>{delivery.epis?.name || '-'}</span>
         </div>
       ),
     },
@@ -127,26 +181,26 @@ export default function EPIs() {
       key: "deliveryDate",
       header: "Data Entrega",
       render: (delivery: EPIDelivery) => (
-        <span>{format(new Date(delivery.deliveryDate), "dd/MM/yyyy", { locale: ptBR })}</span>
+        <span>{format(new Date(delivery.delivery_date), "dd/MM/yyyy", { locale: ptBR })}</span>
       ),
     },
     {
       key: "expiryDate",
       header: "Vencimento",
       render: (delivery: EPIDelivery) => (
-        <span>{format(new Date(delivery.expiryDate), "dd/MM/yyyy", { locale: ptBR })}</span>
+        <span>{delivery.expiry_date ? format(new Date(delivery.expiry_date), "dd/MM/yyyy", { locale: ptBR }) : '-'}</span>
       ),
     },
     {
       key: "status",
       header: "Status",
       render: (delivery: EPIDelivery) => {
-        const statusConfig = {
+        const statusConfig: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
           in_use: { label: "Em uso", color: "bg-success/20 text-success", icon: CheckCircle },
           returned: { label: "Devolvido", color: "bg-muted text-muted-foreground", icon: Clock },
           expired: { label: "Vencido", color: "bg-destructive/20 text-destructive", icon: AlertTriangle },
         };
-        const config = statusConfig[delivery.status];
+        const config = statusConfig[delivery.status || 'in_use'];
         const Icon = config.icon;
         return (
           <Badge className={config.color}>
@@ -157,6 +211,10 @@ export default function EPIs() {
       },
     },
   ];
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-64">Carregando...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -169,147 +227,22 @@ export default function EPIs() {
           { label: "EPIs" },
         ]}
         actions={
-          <div className="flex gap-2">
-            <Dialog open={isDeliveryDialogOpen} onOpenChange={setIsDeliveryDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nova Entrega
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="glass border-border">
-                <DialogHeader>
-                  <DialogTitle>Registrar Entrega de EPI</DialogTitle>
-                  <DialogDescription>
-                    Vincule um EPI a um funcionário
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label>Funcionário</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o funcionário" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="carlos">Carlos Mendes</SelectItem>
-                        <SelectItem value="roberto">Roberto Alves</SelectItem>
-                        <SelectItem value="fernando">Fernando Dias</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>EPI</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o EPI" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {epis.map((epi) => (
-                          <SelectItem key={epi.id} value={epi.id}>
-                            {epi.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label>Data de Entrega</Label>
-                      <Input type="date" defaultValue={new Date().toISOString().split("T")[0]} />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Quantidade</Label>
-                      <Input type="number" defaultValue="1" />
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsDeliveryDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button
-                    className="gradient-primary text-primary-foreground"
-                    onClick={() => {
-                      toast({ title: "Entrega registrada!", description: "EPI entregue com sucesso." });
-                      setIsDeliveryDialogOpen(false);
-                    }}
-                  >
-                    Registrar
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="gradient-primary text-primary-foreground glow-sm">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Novo EPI
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="glass border-border">
-                <DialogHeader>
-                  <DialogTitle>Cadastrar Novo EPI</DialogTitle>
-                  <DialogDescription>
-                    Preencha as informações do EPI
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Nome do EPI</Label>
-                    <Input id="name" placeholder="Ex: Capacete de Segurança" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="category">Categoria</Label>
-                      <Select>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cabeca">Proteção da Cabeça</SelectItem>
-                          <SelectItem value="maos">Proteção das Mãos</SelectItem>
-                          <SelectItem value="visual">Proteção Visual</SelectItem>
-                          <SelectItem value="auditiva">Proteção Auditiva</SelectItem>
-                          <SelectItem value="pes">Proteção dos Pés</SelectItem>
-                          <SelectItem value="respiratoria">Proteção Respiratória</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="ca">CA (Certificado)</Label>
-                      <Input id="ca" placeholder="00000" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="validity">Validade (dias)</Label>
-                      <Input id="validity" type="number" placeholder="365" />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="stock">Estoque Inicial</Label>
-                      <Input id="stock" type="number" placeholder="0" />
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button
-                    className="gradient-primary text-primary-foreground"
-                    onClick={() => {
-                      toast({ title: "EPI cadastrado!", description: "O EPI foi adicionado com sucesso." });
-                      setIsDialogOpen(false);
-                    }}
-                  >
-                    Cadastrar
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+          canEdit ? (
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsTermoDialogOpen(true)}>
+                <FileText className="w-4 h-4 mr-2" />
+                Termo de Entrega
+              </Button>
+              <Button variant="outline" onClick={() => setIsDeliveryDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Nova Entrega
+              </Button>
+              <Button className="gradient-primary text-primary-foreground glow-sm" onClick={() => setIsDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Novo EPI
+              </Button>
+            </div>
+          ) : undefined
         }
       />
 
@@ -321,7 +254,7 @@ export default function EPIs() {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Total de EPIs</p>
-            <p className="text-2xl font-bold">{epis.length}</p>
+            <p className="text-2xl font-bold">{epiStats.total}</p>
           </div>
         </div>
         <div className="glass rounded-xl p-4 flex items-center gap-4">
@@ -330,7 +263,7 @@ export default function EPIs() {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Em Uso</p>
-            <p className="text-2xl font-bold">{epiDeliveries.filter((d) => d.status === "in_use").length}</p>
+            <p className="text-2xl font-bold">{deliveryStats.inUse}</p>
           </div>
         </div>
         <div className="glass rounded-xl p-4 flex items-center gap-4">
@@ -339,7 +272,7 @@ export default function EPIs() {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Vencendo (30d)</p>
-            <p className="text-2xl font-bold">12</p>
+            <p className="text-2xl font-bold">{deliveryStats.expiringSoon}</p>
           </div>
         </div>
         <div className="glass rounded-xl p-4 flex items-center gap-4">
@@ -348,7 +281,7 @@ export default function EPIs() {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Vencidos</p>
-            <p className="text-2xl font-bold">{epiDeliveries.filter((d) => d.status === "expired").length}</p>
+            <p className="text-2xl font-bold">{deliveryStats.expired}</p>
           </div>
         </div>
       </div>
@@ -358,6 +291,7 @@ export default function EPIs() {
         <TabsList className="bg-secondary/50">
           <TabsTrigger value="inventory">Inventário de EPIs</TabsTrigger>
           <TabsTrigger value="deliveries">Entregas</TabsTrigger>
+          <TabsTrigger value="termos">Termos ({termos.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="inventory" className="space-y-4">
@@ -374,9 +308,132 @@ export default function EPIs() {
         </TabsContent>
 
         <TabsContent value="deliveries" className="space-y-4">
-          <DataTable columns={deliveryColumns} data={epiDeliveries} />
+          <DataTable columns={deliveryColumns} data={deliveries} />
+        </TabsContent>
+
+        <TabsContent value="termos" className="space-y-4">
+          <DataTable 
+            columns={[
+              { key: "numero", header: "Número", render: (t: any) => t.numero },
+              { key: "employee", header: "Funcionário", render: (t: any) => t.employees?.name || '-' },
+              { key: "date", header: "Data", render: (t: any) => format(new Date(t.data_emissao), "dd/MM/yyyy", { locale: ptBR }) },
+              { key: "status", header: "Status", render: (t: any) => (
+                <Badge variant={t.status === 'pendente' ? 'secondary' : 'default'}>{t.status}</Badge>
+              )},
+            ]} 
+            data={termos} 
+          />
         </TabsContent>
       </Tabs>
+
+      {/* New EPI Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="glass border-border">
+          <DialogHeader>
+            <DialogTitle>Cadastrar Novo EPI</DialogTitle>
+            <DialogDescription>Preencha as informações do EPI</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Nome do EPI *</Label>
+              <Input value={newEPI.name} onChange={(e) => setNewEPI({ ...newEPI, name: e.target.value })} placeholder="Ex: Capacete de Segurança" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Categoria</Label>
+                <Select value={newEPI.category} onValueChange={(v) => setNewEPI({ ...newEPI, category: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Proteção da Cabeça">Proteção da Cabeça</SelectItem>
+                    <SelectItem value="Proteção das Mãos">Proteção das Mãos</SelectItem>
+                    <SelectItem value="Proteção Visual">Proteção Visual</SelectItem>
+                    <SelectItem value="Proteção Auditiva">Proteção Auditiva</SelectItem>
+                    <SelectItem value="Proteção dos Pés">Proteção dos Pés</SelectItem>
+                    <SelectItem value="Proteção Respiratória">Proteção Respiratória</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>CA (Certificado)</Label>
+                <Input value={newEPI.ca_number} onChange={(e) => setNewEPI({ ...newEPI, ca_number: e.target.value })} placeholder="00000" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label>Validade (dias)</Label>
+                <Input type="number" value={newEPI.default_validity_days} onChange={(e) => setNewEPI({ ...newEPI, default_validity_days: parseInt(e.target.value) || 365 })} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Estoque Inicial</Label>
+                <Input type="number" value={newEPI.quantity} onChange={(e) => setNewEPI({ ...newEPI, quantity: parseInt(e.target.value) || 0 })} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Estoque Mínimo</Label>
+                <Input type="number" value={newEPI.min_quantity} onChange={(e) => setNewEPI({ ...newEPI, min_quantity: parseInt(e.target.value) || 5 })} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreateEPI} disabled={createEPI.isPending}>
+              {createEPI.isPending ? "Salvando..." : "Cadastrar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Delivery Dialog */}
+      <Dialog open={isDeliveryDialogOpen} onOpenChange={setIsDeliveryDialogOpen}>
+        <DialogContent className="glass border-border">
+          <DialogHeader>
+            <DialogTitle>Registrar Entrega de EPI</DialogTitle>
+            <DialogDescription>Vincule um EPI a um funcionário</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Funcionário</Label>
+              <Select value={newDelivery.employee_id} onValueChange={(v) => setNewDelivery({ ...newDelivery, employee_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione o funcionário" /></SelectTrigger>
+                <SelectContent>
+                  {employees.filter(e => e.status === 'active').map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>EPI</Label>
+              <Select value={newDelivery.epi_id} onValueChange={(v) => setNewDelivery({ ...newDelivery, epi_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione o EPI" /></SelectTrigger>
+                <SelectContent>
+                  {epis.filter(e => e.quantity > 0).map((epi) => (
+                    <SelectItem key={epi.id} value={epi.id}>{epi.name} (Estoque: {epi.quantity})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Data de Entrega</Label>
+                <Input type="date" value={newDelivery.delivery_date} onChange={(e) => setNewDelivery({ ...newDelivery, delivery_date: e.target.value })} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Quantidade</Label>
+                <Input type="number" min={1} value={newDelivery.quantity} onChange={(e) => setNewDelivery({ ...newDelivery, quantity: parseInt(e.target.value) || 1 })} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeliveryDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreateDelivery} disabled={createDelivery.isPending}>
+              {createDelivery.isPending ? "Registrando..." : "Registrar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delivery Term Dialog */}
+      <DeliveryTermDialog open={isTermoDialogOpen} onOpenChange={setIsTermoDialogOpen} />
     </div>
   );
 }
