@@ -34,32 +34,6 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
 
   return (
     <div className="print-container">
-      <style>
-        {`
-          @media print {
-            @page {
-              size: A4 portrait;
-              margin: 8mm 10mm;
-            }
-            body * {
-              visibility: hidden;
-            }
-            .print-container, .print-container * {
-              visibility: visible;
-            }
-            .print-container {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
-            }
-            .no-print {
-              display: none !important;
-            }
-          }
-        `}
-      </style>
-      
       <div className="bg-white text-black" style={{ fontFamily: 'Arial, sans-serif', fontSize: '9px', lineHeight: '1.15' }}>
         {/* Header */}
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}>
@@ -119,7 +93,7 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
 
         {/* Declaration */}
         <div style={{ border: '1px solid #000', padding: '6px', marginBottom: '8px', fontSize: '8px', textAlign: 'justify', backgroundColor: '#fafafa' }}>
-          <p style={{ marginBottom: '4px' }}>
+          <p style={{ marginBottom: '4px', margin: 0 }}>
             Declaro, para todos os fins legais, ter recebido <strong>gratuitamente</strong> da empresa acima identificada, em <strong>perfeito estado de conservação e funcionamento</strong>, os Equipamentos de Proteção Individual (EPI) e Uniformes abaixo discriminados, os quais são adequados aos riscos das atividades desenvolvidas em minha função na <strong>indústria metalmecânica</strong>.
           </p>
         </div>
@@ -168,17 +142,17 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
         </table>
 
         {/* Obligations Section */}
-        <div style={{ border: '1px solid #000', marginBottom: '8px' }}>
+        <div className="obligations-section" style={{ border: '1px solid #000', marginBottom: '8px' }}>
           {/* Employee Obligations */}
           <div style={{ borderBottom: '1px solid #000', padding: '5px' }}>
             <div style={{ fontWeight: 'bold', fontSize: '8px', backgroundColor: '#e8e8e8', margin: '-5px -5px 4px -5px', padding: '3px 5px' }}>OBRIGAÇÕES DO COLABORADOR (NR-06, item 6.7)</div>
             <div style={{ fontSize: '7px', lineHeight: '1.3' }}>
-              <p style={{ marginBottom: '2px', paddingLeft: '6px' }}><strong>a)</strong> Utilizar o EPI apenas para a finalidade a que se destina, durante toda a jornada de trabalho;</p>
-              <p style={{ marginBottom: '2px', paddingLeft: '6px' }}><strong>b)</strong> Responsabilizar-se pela guarda e conservação do EPI que lhe foi confiado;</p>
-              <p style={{ marginBottom: '2px', paddingLeft: '6px' }}><strong>c)</strong> Comunicar imediatamente ao empregador qualquer alteração que torne o EPI impróprio para uso;</p>
-              <p style={{ marginBottom: '2px', paddingLeft: '6px' }}><strong>d)</strong> Cumprir as determinações do empregador sobre o uso adequado do EPI;</p>
-              <p style={{ marginBottom: '2px', paddingLeft: '6px' }}><strong>e)</strong> Devolver o EPI ao empregador quando solicitado ou em caso de rescisão do contrato de trabalho;</p>
-              <p style={{ paddingLeft: '6px' }}><strong>f)</strong> Submeter-se ao treinamento sobre uso correto, guarda e conservação do EPI.</p>
+              <p style={{ marginBottom: '2px', paddingLeft: '6px', margin: '0 0 2px 0' }}><strong>a)</strong> Utilizar o EPI apenas para a finalidade a que se destina, durante toda a jornada de trabalho;</p>
+              <p style={{ marginBottom: '2px', paddingLeft: '6px', margin: '0 0 2px 0' }}><strong>b)</strong> Responsabilizar-se pela guarda e conservação do EPI que lhe foi confiado;</p>
+              <p style={{ marginBottom: '2px', paddingLeft: '6px', margin: '0 0 2px 0' }}><strong>c)</strong> Comunicar imediatamente ao empregador qualquer alteração que torne o EPI impróprio para uso;</p>
+              <p style={{ marginBottom: '2px', paddingLeft: '6px', margin: '0 0 2px 0' }}><strong>d)</strong> Cumprir as determinações do empregador sobre o uso adequado do EPI;</p>
+              <p style={{ marginBottom: '2px', paddingLeft: '6px', margin: '0 0 2px 0' }}><strong>e)</strong> Devolver o EPI ao empregador quando solicitado ou em caso de rescisão do contrato de trabalho;</p>
+              <p style={{ paddingLeft: '6px', margin: 0 }}><strong>f)</strong> Submeter-se ao treinamento sobre uso correto, guarda e conservação do EPI.</p>
             </div>
           </div>
 
@@ -186,11 +160,11 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
           <div style={{ borderBottom: '1px solid #000', padding: '5px' }}>
             <div style={{ fontWeight: 'bold', fontSize: '8px', backgroundColor: '#e8e8e8', margin: '-5px -5px 4px -5px', padding: '3px 5px' }}>RESPONSABILIDADES DO EMPREGADOR (NR-06, item 6.6)</div>
             <div style={{ fontSize: '7px', lineHeight: '1.3' }}>
-              <p style={{ marginBottom: '2px', paddingLeft: '6px' }}><strong>a)</strong> Adquirir o EPI adequado ao risco de cada atividade;</p>
-              <p style={{ marginBottom: '2px', paddingLeft: '6px' }}><strong>b)</strong> Exigir seu uso e fornecer ao trabalhador somente EPI aprovado pelo órgão nacional competente;</p>
-              <p style={{ marginBottom: '2px', paddingLeft: '6px' }}><strong>c)</strong> Orientar e treinar o trabalhador sobre o uso adequado, guarda e conservação;</p>
-              <p style={{ marginBottom: '2px', paddingLeft: '6px' }}><strong>d)</strong> Substituir imediatamente quando danificado ou extraviado;</p>
-              <p style={{ paddingLeft: '6px' }}><strong>e)</strong> Higienizar e realizar manutenção periódica, quando aplicável.</p>
+              <p style={{ marginBottom: '2px', paddingLeft: '6px', margin: '0 0 2px 0' }}><strong>a)</strong> Adquirir o EPI adequado ao risco de cada atividade;</p>
+              <p style={{ marginBottom: '2px', paddingLeft: '6px', margin: '0 0 2px 0' }}><strong>b)</strong> Exigir seu uso e fornecer ao trabalhador somente EPI aprovado pelo órgão nacional competente;</p>
+              <p style={{ marginBottom: '2px', paddingLeft: '6px', margin: '0 0 2px 0' }}><strong>c)</strong> Orientar e treinar o trabalhador sobre o uso adequado, guarda e conservação;</p>
+              <p style={{ marginBottom: '2px', paddingLeft: '6px', margin: '0 0 2px 0' }}><strong>d)</strong> Substituir imediatamente quando danificado ou extraviado;</p>
+              <p style={{ paddingLeft: '6px', margin: 0 }}><strong>e)</strong> Higienizar e realizar manutenção periódica, quando aplicável.</p>
             </div>
           </div>
 
@@ -198,10 +172,10 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
           <div style={{ borderBottom: '1px solid #000', padding: '5px' }}>
             <div style={{ fontWeight: 'bold', fontSize: '8px', backgroundColor: '#e8e8e8', margin: '-5px -5px 4px -5px', padding: '3px 5px' }}>POLÍTICA DE USO, CONSERVAÇÃO, TROCA E DEVOLUÇÃO</div>
             <div style={{ fontSize: '7px', lineHeight: '1.3' }}>
-              <p style={{ marginBottom: '2px', paddingLeft: '6px' }}>• A troca será realizada mediante apresentação do EPI danificado ou desgastado pelo uso normal;</p>
-              <p style={{ marginBottom: '2px', paddingLeft: '6px' }}>• EPIs danificados por mau uso, negligência ou extravio poderão ser descontados conforme Art. 462 da CLT;</p>
-              <p style={{ marginBottom: '2px', paddingLeft: '6px' }}>• Uniformes são de uso exclusivo nas dependências da empresa e em serviço externo autorizado;</p>
-              <p style={{ paddingLeft: '6px' }}>• A devolução é obrigatória na rescisão contratual, afastamento ou quando solicitado pela empresa.</p>
+              <p style={{ marginBottom: '2px', paddingLeft: '6px', margin: '0 0 2px 0' }}>• A troca será realizada mediante apresentação do EPI danificado ou desgastado pelo uso normal;</p>
+              <p style={{ marginBottom: '2px', paddingLeft: '6px', margin: '0 0 2px 0' }}>• EPIs danificados por mau uso, negligência ou extravio poderão ser descontados conforme Art. 462 da CLT;</p>
+              <p style={{ marginBottom: '2px', paddingLeft: '6px', margin: '0 0 2px 0' }}>• Uniformes são de uso exclusivo nas dependências da empresa e em serviço externo autorizado;</p>
+              <p style={{ paddingLeft: '6px', margin: 0 }}>• A devolução é obrigatória na rescisão contratual, afastamento ou quando solicitado pela empresa.</p>
             </div>
           </div>
 
@@ -209,10 +183,10 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
           <div style={{ padding: '5px', backgroundColor: '#fff8e1' }}>
             <div style={{ fontWeight: 'bold', fontSize: '8px', backgroundColor: '#e8e8e8', margin: '-5px -5px 4px -5px', padding: '3px 5px' }}>CONSEQUÊNCIAS DO NÃO USO OU USO INADEQUADO</div>
             <div style={{ fontSize: '7px', lineHeight: '1.3' }}>
-              <p style={{ marginBottom: '2px' }}>
+              <p style={{ marginBottom: '2px', margin: '0 0 2px 0' }}>
                 Conforme <strong>NR-06 (item 6.7.1)</strong> e <strong>Art. 158, parágrafo único, da CLT</strong>, constitui <strong>ato faltoso</strong> a recusa injustificada do empregado em usar o EPI fornecido pelo empregador.
               </p>
-              <p style={{ marginBottom: '0' }}>
+              <p style={{ margin: 0 }}>
                 O descumprimento das obrigações aqui assumidas poderá acarretar as seguintes <strong>sanções disciplinares progressivas</strong>: advertência verbal, advertência escrita, suspensão e dispensa por justa causa, conforme a gravidade e reincidência.
               </p>
             </div>
@@ -228,13 +202,13 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
 
         {/* Final Declaration */}
         <div style={{ border: '1px solid #000', padding: '5px', marginBottom: '10px', fontSize: '7px', textAlign: 'justify', backgroundColor: '#f5f5f5' }}>
-          <p style={{ marginBottom: '0' }}>
+          <p style={{ margin: 0 }}>
             Declaro ter recebido treinamento sobre o uso correto, guarda e conservação dos EPIs acima relacionados, estando ciente de que o não cumprimento das normas de segurança constitui ato faltoso sujeito às penalidades previstas em lei. Este termo é válido para auditorias, fiscalizações trabalhistas e controle interno de estoque.
           </p>
         </div>
 
         {/* Date and Signatures */}
-        <div style={{ marginTop: '10px' }}>
+        <div className="signature-section" style={{ marginTop: '10px' }}>
           <p style={{ textAlign: 'center', marginBottom: '20px', fontSize: '8px' }}>
             Local e data: ______________________________________________, {formatDateExtended(termo.data_emissao)}
           </p>
