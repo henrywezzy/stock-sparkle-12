@@ -28,12 +28,16 @@ export function useTheme() {
     // Apply theme to document
     const root = document.documentElement;
     
-    // Remove all theme classes
-    root.classList.remove("dark", "light");
+    // Remove all theme and palette classes
+    root.classList.remove("dark", "light", "palette-cyan", "palette-violet", "palette-emerald", "palette-rose", "palette-amber", "palette-blue");
+    
+    // Add theme mode class
     root.classList.add(theme.mode);
     
-    // Apply palette
-    root.setAttribute("data-palette", theme.palette);
+    // Add palette class (cyan is default, no class needed)
+    if (theme.palette !== "cyan") {
+      root.classList.add(`palette-${theme.palette}`);
+    }
   }, [theme]);
 
   const setMode = (mode: ThemeMode) => {
