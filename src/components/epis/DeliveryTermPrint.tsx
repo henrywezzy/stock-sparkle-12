@@ -35,7 +35,7 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
           @media print {
             @page {
               size: A4 portrait;
-              margin: 10mm 15mm;
+              margin: 8mm 10mm;
             }
             body * {
               visibility: hidden;
@@ -56,29 +56,29 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
         `}
       </style>
       
-      <div className="bg-white text-black" style={{ fontFamily: 'Arial, sans-serif', fontSize: '11px', lineHeight: '1.3' }}>
+      <div className="bg-white text-black" style={{ fontFamily: 'Arial, sans-serif', fontSize: '10px', lineHeight: '1.2' }}>
         {/* Header */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '15px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '10px' }}>
           <tbody>
             <tr>
-              <td style={{ width: '70px', verticalAlign: 'top' }}>
+              <td style={{ width: '60px', verticalAlign: 'top' }}>
                 {company.logo_url ? (
-                  <img src={company.logo_url} alt="Logo" style={{ width: '60px', height: '60px', objectFit: 'contain' }} />
+                  <img src={company.logo_url} alt="Logo" style={{ width: '50px', height: '50px', objectFit: 'contain' }} />
                 ) : (
-                  <div style={{ width: '60px', height: '60px', border: '1px solid #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', color: '#999' }}>LOGO</div>
+                  <div style={{ width: '50px', height: '50px', border: '1px solid #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '7px', color: '#999' }}>LOGO</div>
                 )}
               </td>
-              <td style={{ verticalAlign: 'top', paddingLeft: '10px' }}>
-                <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '2px' }}>{company.name}</div>
-                <div>CNPJ: {company.cnpj}</div>
-                <div>{company.address}</div>
-                <div>Tel: {company.phone}{company.email ? ` | E-mail: ${company.email}` : ''}</div>
+              <td style={{ verticalAlign: 'top', paddingLeft: '8px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '2px' }}>{company.name}</div>
+                <div style={{ fontSize: '9px' }}>CNPJ: {company.cnpj}</div>
+                <div style={{ fontSize: '9px' }}>{company.address}</div>
+                <div style={{ fontSize: '9px' }}>Tel: {company.phone}{company.email ? ` | ${company.email}` : ''}</div>
               </td>
-              <td style={{ textAlign: 'right', verticalAlign: 'top', width: '150px' }}>
-                <div style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '10px', marginBottom: '4px' }}>TERMO Nº</div>
-                  <div style={{ fontSize: '16px', fontWeight: 'bold' }}>{termo.numero}</div>
-                  <div style={{ fontSize: '9px', marginTop: '4px' }}>{formatDate(termo.data_emissao)}</div>
+              <td style={{ textAlign: 'right', verticalAlign: 'top', width: '120px' }}>
+                <div style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '9px', marginBottom: '2px' }}>TERMO Nº</div>
+                  <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{termo.numero}</div>
+                  <div style={{ fontSize: '8px', marginTop: '2px' }}>{formatDate(termo.data_emissao)}</div>
                 </div>
               </td>
             </tr>
@@ -86,91 +86,90 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
         </table>
 
         {/* Title */}
-        <div style={{ textAlign: 'center', marginBottom: '15px', borderTop: '2px solid #000', borderBottom: '2px solid #000', padding: '8px 0' }}>
-          <div style={{ fontSize: '13px', fontWeight: 'bold', letterSpacing: '1px' }}>TERMO DE RESPONSABILIDADE</div>
-          <div style={{ fontSize: '11px' }}>RECEBIMENTO DE EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL - EPI</div>
+        <div style={{ textAlign: 'center', marginBottom: '10px', borderTop: '2px solid #000', borderBottom: '2px solid #000', padding: '6px 0' }}>
+          <div style={{ fontSize: '11px', fontWeight: 'bold', letterSpacing: '0.5px' }}>TERMO DE RESPONSABILIDADE</div>
+          <div style={{ fontSize: '10px' }}>RECEBIMENTO DE EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL - EPI E UNIFORME</div>
         </div>
 
         {/* Employee Info */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '15px', border: '1px solid #000' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '10px', border: '1px solid #000' }}>
           <tbody>
             <tr style={{ backgroundColor: '#f0f0f0' }}>
-              <td colSpan={4} style={{ fontWeight: 'bold', padding: '5px 8px', borderBottom: '1px solid #000', fontSize: '10px' }}>IDENTIFICAÇÃO DO COLABORADOR</td>
+              <td colSpan={4} style={{ fontWeight: 'bold', padding: '4px 6px', borderBottom: '1px solid #000', fontSize: '9px' }}>IDENTIFICAÇÃO DO COLABORADOR</td>
             </tr>
             <tr>
-              <td style={{ padding: '5px 8px', borderRight: '1px solid #000', width: '15%', fontWeight: 'bold' }}>Nome:</td>
-              <td style={{ padding: '5px 8px', borderRight: '1px solid #000', width: '35%' }}>{termo.employees?.name}</td>
-              <td style={{ padding: '5px 8px', borderRight: '1px solid #000', width: '15%', fontWeight: 'bold' }}>Matrícula:</td>
-              <td style={{ padding: '5px 8px', width: '35%' }}>{termo.employees?.registration_number || '-'}</td>
+              <td style={{ padding: '4px 6px', borderRight: '1px solid #000', width: '12%', fontWeight: 'bold', fontSize: '9px' }}>Nome:</td>
+              <td style={{ padding: '4px 6px', borderRight: '1px solid #000', width: '38%', fontSize: '9px' }}>{termo.employees?.name}</td>
+              <td style={{ padding: '4px 6px', borderRight: '1px solid #000', width: '12%', fontWeight: 'bold', fontSize: '9px' }}>Matrícula:</td>
+              <td style={{ padding: '4px 6px', width: '38%', fontSize: '9px' }}>{termo.employees?.registration_number || '-'}</td>
             </tr>
             <tr style={{ borderTop: '1px solid #000' }}>
-              <td style={{ padding: '5px 8px', borderRight: '1px solid #000', fontWeight: 'bold' }}>Cargo:</td>
-              <td style={{ padding: '5px 8px', borderRight: '1px solid #000' }}>{termo.employees?.position || '-'}</td>
-              <td style={{ padding: '5px 8px', borderRight: '1px solid #000', fontWeight: 'bold' }}>Setor:</td>
-              <td style={{ padding: '5px 8px' }}>{termo.employees?.department || '-'}</td>
+              <td style={{ padding: '4px 6px', borderRight: '1px solid #000', fontWeight: 'bold', fontSize: '9px' }}>Cargo:</td>
+              <td style={{ padding: '4px 6px', borderRight: '1px solid #000', fontSize: '9px' }}>{termo.employees?.position || '-'}</td>
+              <td style={{ padding: '4px 6px', borderRight: '1px solid #000', fontWeight: 'bold', fontSize: '9px' }}>Setor:</td>
+              <td style={{ padding: '4px 6px', fontSize: '9px' }}>{termo.employees?.department || '-'}</td>
             </tr>
           </tbody>
         </table>
 
         {/* EPIs Table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '15px', border: '1px solid #000' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '10px', border: '1px solid #000' }}>
           <thead>
             <tr style={{ backgroundColor: '#f0f0f0' }}>
-              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'left', fontSize: '10px', width: '30%' }}>DESCRIÇÃO DO EPI</th>
-              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', fontSize: '10px', width: '12%' }}>Nº C.A.</th>
-              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', fontSize: '10px', width: '8%' }}>TAM.</th>
-              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', fontSize: '10px', width: '6%' }}>QTD</th>
-              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', fontSize: '10px', width: '14%' }}>ENTREGA</th>
-              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', fontSize: '10px', width: '14%' }}>DEVOLUÇÃO</th>
-              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', fontSize: '10px', width: '16%' }}>ASS. RECEB.</th>
+              <th style={{ border: '1px solid #000', padding: '4px 3px', textAlign: 'left', fontSize: '9px', width: '32%' }}>DESCRIÇÃO DO EPI/UNIFORME</th>
+              <th style={{ border: '1px solid #000', padding: '4px 3px', textAlign: 'center', fontSize: '9px', width: '10%' }}>Nº C.A.</th>
+              <th style={{ border: '1px solid #000', padding: '4px 3px', textAlign: 'center', fontSize: '9px', width: '7%' }}>TAM.</th>
+              <th style={{ border: '1px solid #000', padding: '4px 3px', textAlign: 'center', fontSize: '9px', width: '5%' }}>QTD</th>
+              <th style={{ border: '1px solid #000', padding: '4px 3px', textAlign: 'center', fontSize: '9px', width: '12%' }}>ENTREGA</th>
+              <th style={{ border: '1px solid #000', padding: '4px 3px', textAlign: 'center', fontSize: '9px', width: '12%' }}>DEVOLUÇÃO</th>
+              <th style={{ border: '1px solid #000', padding: '4px 3px', textAlign: 'center', fontSize: '9px', width: '22%' }}>ASS. RECEB.</th>
             </tr>
           </thead>
           <tbody>
             {termo.termo_epis?.map((item, index) => (
               <tr key={item.id || index}>
-                <td style={{ border: '1px solid #000', padding: '5px 4px' }}>{item.epis?.name || '-'}</td>
-                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>{item.ca_number || item.epis?.ca_number || '-'}</td>
-                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>{item.tamanho || '-'}</td>
-                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>{item.quantidade}</td>
-                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>{formatDate(item.data_entrega)}</td>
-                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>{item.data_devolucao ? formatDate(item.data_devolucao) : '____/____/______'}</td>
-                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}></td>
+                <td style={{ border: '1px solid #000', padding: '3px', fontSize: '9px' }}>{item.epis?.name || '-'}</td>
+                <td style={{ border: '1px solid #000', padding: '3px', textAlign: 'center', fontSize: '9px' }}>{item.ca_number || item.epis?.ca_number || '-'}</td>
+                <td style={{ border: '1px solid #000', padding: '3px', textAlign: 'center', fontSize: '9px' }}>{item.tamanho || '-'}</td>
+                <td style={{ border: '1px solid #000', padding: '3px', textAlign: 'center', fontSize: '9px' }}>{item.quantidade}</td>
+                <td style={{ border: '1px solid #000', padding: '3px', textAlign: 'center', fontSize: '9px' }}>{formatDate(item.data_entrega)}</td>
+                <td style={{ border: '1px solid #000', padding: '3px', textAlign: 'center', fontSize: '9px' }}>{item.data_devolucao ? formatDate(item.data_devolucao) : '___/___/____'}</td>
+                <td style={{ border: '1px solid #000', padding: '3px', textAlign: 'center', fontSize: '9px' }}></td>
               </tr>
             ))}
-            {/* Empty rows for manual additions - adjust count based on existing items */}
-            {[...Array(Math.max(3, 8 - (termo.termo_epis?.length || 0)))].map((_, index) => (
+            {/* Empty rows for manual additions */}
+            {[...Array(Math.max(2, 6 - (termo.termo_epis?.length || 0)))].map((_, index) => (
               <tr key={`empty-${index}`}>
-                <td style={{ border: '1px solid #000', padding: '5px 4px', height: '22px' }}>&nbsp;</td>
-                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>&nbsp;</td>
-                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>&nbsp;</td>
-                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>&nbsp;</td>
-                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>____/____/______</td>
-                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>____/____/______</td>
-                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>&nbsp;</td>
+                <td style={{ border: '1px solid #000', padding: '3px', height: '18px', fontSize: '9px' }}>&nbsp;</td>
+                <td style={{ border: '1px solid #000', padding: '3px', textAlign: 'center', fontSize: '9px' }}>&nbsp;</td>
+                <td style={{ border: '1px solid #000', padding: '3px', textAlign: 'center', fontSize: '9px' }}>&nbsp;</td>
+                <td style={{ border: '1px solid #000', padding: '3px', textAlign: 'center', fontSize: '9px' }}>&nbsp;</td>
+                <td style={{ border: '1px solid #000', padding: '3px', textAlign: 'center', fontSize: '9px' }}>___/___/____</td>
+                <td style={{ border: '1px solid #000', padding: '3px', textAlign: 'center', fontSize: '9px' }}>___/___/____</td>
+                <td style={{ border: '1px solid #000', padding: '3px', textAlign: 'center', fontSize: '9px' }}>&nbsp;</td>
               </tr>
             ))}
           </tbody>
         </table>
 
         {/* Terms */}
-        <div style={{ border: '1px solid #000', padding: '10px', marginBottom: '15px', fontSize: '10px', textAlign: 'justify' }}>
-          <p style={{ marginBottom: '8px' }}>
-            Declaro ter recebido gratuitamente os Equipamentos de Proteção Individual - EPIs acima relacionados, em perfeito estado de conservação e funcionamento, 
-            comprometendo-me a:
+        <div style={{ border: '1px solid #000', padding: '8px', marginBottom: '10px', fontSize: '9px', textAlign: 'justify' }}>
+          <p style={{ marginBottom: '6px' }}>
+            Declaro ter recebido gratuitamente os Equipamentos de Proteção Individual - EPIs e Uniformes acima relacionados, em perfeito estado de conservação e funcionamento, comprometendo-me a:
           </p>
-          <p style={{ marginBottom: '4px', paddingLeft: '10px' }}>
+          <p style={{ marginBottom: '3px', paddingLeft: '8px' }}>
             <strong>1.</strong> Usar o EPI apenas para a finalidade a que se destina, durante toda a jornada de trabalho;
           </p>
-          <p style={{ marginBottom: '4px', paddingLeft: '10px' }}>
+          <p style={{ marginBottom: '3px', paddingLeft: '8px' }}>
             <strong>2.</strong> Responsabilizar-me pela guarda e conservação do EPI;
           </p>
-          <p style={{ marginBottom: '4px', paddingLeft: '10px' }}>
+          <p style={{ marginBottom: '3px', paddingLeft: '8px' }}>
             <strong>3.</strong> Comunicar ao empregador qualquer alteração que o torne impróprio para uso;
           </p>
-          <p style={{ marginBottom: '4px', paddingLeft: '10px' }}>
+          <p style={{ marginBottom: '3px', paddingLeft: '8px' }}>
             <strong>4.</strong> Cumprir as determinações do empregador sobre o uso adequado;
           </p>
-          <p style={{ marginBottom: '8px', paddingLeft: '10px' }}>
+          <p style={{ marginBottom: '6px', paddingLeft: '8px' }}>
             <strong>5.</strong> Devolver o EPI ao empregador quando solicitado ou em caso de rescisão do contrato de trabalho.
           </p>
           <p style={{ fontWeight: 'bold' }}>
@@ -180,33 +179,32 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
 
         {/* Observations */}
         {termo.observacoes && (
-          <div style={{ marginBottom: '15px', fontSize: '10px' }}>
+          <div style={{ marginBottom: '10px', fontSize: '9px' }}>
             <strong>Observações:</strong> {termo.observacoes}
           </div>
         )}
 
         {/* Date and Signatures */}
-        <div style={{ marginTop: '20px' }}>
-          <p style={{ textAlign: 'center', marginBottom: '30px', fontSize: '10px' }}>
+        <div style={{ marginTop: '15px' }}>
+          <p style={{ textAlign: 'center', marginBottom: '25px', fontSize: '9px' }}>
             Local e data: ______________________________________________, {formatDateExtended(termo.data_emissao)}
           </p>
           
-          <table style={{ width: '100%', marginTop: '30px' }}>
+          <table style={{ width: '100%', marginTop: '25px' }}>
             <tbody>
               <tr>
-                <td style={{ width: '45%', textAlign: 'center', paddingTop: '30px' }}>
-                  <div style={{ borderTop: '1px solid #000', paddingTop: '5px', margin: '0 20px' }}>
-                    <div style={{ fontWeight: 'bold' }}>{termo.employees?.name}</div>
-                    <div style={{ fontSize: '9px' }}>Matrícula: {termo.employees?.registration_number || '-'}</div>
-                    <div style={{ fontSize: '9px', marginTop: '2px' }}>COLABORADOR</div>
+                <td style={{ width: '45%', textAlign: 'center', paddingTop: '25px' }}>
+                  <div style={{ borderTop: '1px solid #000', paddingTop: '4px', margin: '0 15px' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '9px' }}>{termo.employees?.name}</div>
+                    <div style={{ fontSize: '8px' }}>Matrícula: {termo.employees?.registration_number || '-'}</div>
+                    <div style={{ fontSize: '8px', marginTop: '2px' }}>COLABORADOR</div>
                   </div>
                 </td>
                 <td style={{ width: '10%' }}></td>
-                <td style={{ width: '45%', textAlign: 'center', paddingTop: '30px' }}>
-                  <div style={{ borderTop: '1px solid #000', paddingTop: '5px', margin: '0 20px' }}>
-                    <div style={{ fontWeight: 'bold' }}>{termo.responsavel_nome || 'Responsável'}</div>
-                    <div style={{ fontSize: '9px' }}>Almoxarifado / Segurança do Trabalho</div>
-                    <div style={{ fontSize: '9px', marginTop: '2px' }}>RESPONSÁVEL PELA ENTREGA</div>
+                <td style={{ width: '45%', textAlign: 'center', paddingTop: '25px' }}>
+                  <div style={{ borderTop: '1px solid #000', paddingTop: '4px', margin: '0 15px' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '9px' }}>{termo.responsavel_nome || 'Responsável'}</div>
+                    <div style={{ fontSize: '8px', marginTop: '2px' }}>RESPONSÁVEL PELA ENTREGA</div>
                   </div>
                 </td>
               </tr>
@@ -215,8 +213,8 @@ export function DeliveryTermPrint({ termo, companySettings }: DeliveryTermPrintP
         </div>
 
         {/* Footer */}
-        <div style={{ marginTop: '20px', paddingTop: '10px', borderTop: '1px solid #ccc', fontSize: '8px', color: '#666', display: 'flex', justifyContent: 'space-between' }}>
-          <span>Documento gerado eletronicamente em {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+        <div style={{ marginTop: '15px', paddingTop: '8px', borderTop: '1px solid #ccc', fontSize: '7px', color: '#666', display: 'flex', justifyContent: 'space-between' }}>
+          <span>Documento gerado em {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
           <span>Ref: {termo.numero}</span>
         </div>
       </div>

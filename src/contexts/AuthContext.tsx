@@ -124,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       toast({
         title: "Login realizado com sucesso!",
-        description: "Bem-vindo ao sistema de almoxarifado.",
+        description: "Bem-vindo ao Stockly.",
       });
 
       return { error: null };

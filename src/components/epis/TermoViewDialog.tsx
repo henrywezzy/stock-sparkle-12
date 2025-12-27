@@ -43,284 +43,156 @@ export function TermoViewDialog({ open, onOpenChange, termo }: TermoViewDialogPr
   };
 
   const handleDownloadPDF = () => {
-    const doc = new jsPDF();
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+    
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
     
     // Company Header
-    doc.setFontSize(14);
+    doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(company.name, 14, 15);
-    doc.setFontSize(9);
+    doc.text(company.name, margin, 15);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text(`CNPJ: ${company.cnpj}`, 14, 21);
-    doc.text(company.address, 14, 26);
-    doc.text(`Tel: ${company.phone}`, 14, 31);
+    doc.text(`CNPJ: ${company.cnpj}`, margin, 20);
+    doc.text(company.address, margin, 24);
+    doc.text(`Tel: ${company.phone}`, margin, 28);
     
-    // Term number and date
-    doc.setFontSize(10);
-    doc.text(`Nº ${termo.numero}`, pageWidth - 14, 15, { align: "right" });
-    doc.text(`Data: ${format(new Date(termo.data_emissao), 'dd/MM/yyyy')}`, pageWidth - 14, 21, { align: "right" });
+    // Term number and date (right aligned)
+    doc.setFontSize(9);
+    doc.text(`Nº ${termo.numero}`, pageWidth - margin, 15, { align: "right" });
+    doc.text(`Data: ${format(new Date(termo.data_emissao), 'dd/MM/yyyy')}`, pageWidth - margin, 20, { align: "right" });
     
     // Separator line
     doc.setLineWidth(0.5);
-    doc.line(14, 36, pageWidth - 14, 36);
+    doc.line(margin, 33, pageWidth - margin, 33);
     
     // Title
-    doc.setFontSize(14);
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("TERMO DE RESPONSABILIDADE E RECEBIMENTO", pageWidth / 2, 46, { align: "center" });
-    doc.setFontSize(10);
+    doc.text("TERMO DE RESPONSABILIDADE E RECEBIMENTO", pageWidth / 2, 41, { align: "center" });
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text("Equipamentos de Proteção Individual (EPIs)", pageWidth / 2, 52, { align: "center" });
+    doc.text("Equipamentos de Proteção Individual - EPI e Uniforme", pageWidth / 2, 46, { align: "center" });
     
     // Employee box
     doc.setDrawColor(0);
     doc.setLineWidth(0.3);
-    doc.rect(14, 58, pageWidth - 28, 28);
+    doc.rect(margin, 51, pageWidth - (margin * 2), 22);
     doc.setFillColor(240, 240, 240);
-    doc.rect(14, 58, pageWidth - 28, 7, 'F');
+    doc.rect(margin, 51, pageWidth - (margin * 2), 6, 'F');
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("DADOS DO COLABORADOR", 18, 63);
+    doc.setFontSize(9);
+    doc.text("DADOS DO COLABORADOR", margin + 3, 55);
     
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(`Nome: ${termo.employees?.name || '-'}`, 18, 72);
-    doc.text(`Matrícula: ${termo.employees?.registration_number || '-'}`, pageWidth / 2 + 10, 72);
-    doc.text(`Cargo: ${termo.employees?.position || '-'}`, 18, 79);
-    doc.text(`Setor: ${termo.employees?.department || '-'}`, pageWidth / 2 + 10, 79);
+    doc.setFontSize(9);
+    doc.text(`Nome: ${termo.employees?.name || '-'}`, margin + 3, 62);
+    doc.text(`Matrícula: ${termo.employees?.registration_number || '-'}`, pageWidth / 2 + 5, 62);
+    doc.text(`Cargo: ${termo.employees?.position || '-'}`, margin + 3, 68);
+    doc.text(`Setor: ${termo.employees?.department || '-'}`, pageWidth / 2 + 5, 68);
 
-    // EPIs table with empty rows for manual additions
+    // EPIs table
     const epiRows = termo.termo_epis?.map(item => [
       item.epis?.name || '-',
       item.ca_number || '-',
       item.tamanho || '-',
       item.quantidade.toString(),
-      format(new Date(item.data_entrega), 'dd/MM/yyyy'),
-      item.data_devolucao ? format(new Date(item.data_devolucao), 'dd/MM/yyyy') : '___/___/______',
-      item.data_validade ? format(new Date(item.data_validade), 'dd/MM/yyyy') : '-',
+      format(new Date(item.data_entrega), 'dd/MM/yy'),
+      item.data_devolucao ? format(new Date(item.data_devolucao), 'dd/MM/yy') : '__/__/__',
+      '', // Signature column
     ]) || [];
 
-    // Add 5 empty rows for manual additions
-    for (let i = 0; i < 5; i++) {
-      epiRows.push(['', '', '', '', '___/___/______', '___/___/______', '___/___/______']);
+    // Add empty rows for manual additions (fewer rows to fit page)
+    const emptyRowsCount = Math.max(2, 5 - epiRows.length);
+    for (let i = 0; i < emptyRowsCount; i++) {
+      epiRows.push(['', '', '', '', '__/__/__', '__/__/__', '']);
     }
 
     autoTable(doc, {
-      startY: 92,
-      head: [['Item', 'CA', 'Tam.', 'Qtd', 'Entrega', 'Devolução', 'Validade']],
+      startY: 78,
+      head: [['EPI/Uniforme', 'CA', 'Tam', 'Qtd', 'Entrega', 'Devol.', 'Ass.']],
       body: epiRows,
-      headStyles: { fillColor: [80, 80, 80], fontSize: 9 },
-      bodyStyles: { fontSize: 9, minCellHeight: 8 },
+      headStyles: { fillColor: [80, 80, 80], fontSize: 8, cellPadding: 2 },
+      bodyStyles: { fontSize: 8, cellPadding: 2, minCellHeight: 6 },
       columnStyles: {
-        0: { cellWidth: 45 },
-        1: { cellWidth: 20, halign: 'center' },
-        2: { cellWidth: 15, halign: 'center' },
-        3: { cellWidth: 12, halign: 'center' },
-        4: { cellWidth: 25, halign: 'center' },
-        5: { cellWidth: 28, halign: 'center' },
-        6: { cellWidth: 27, halign: 'center' },
+        0: { cellWidth: 50 },
+        1: { cellWidth: 18, halign: 'center' },
+        2: { cellWidth: 12, halign: 'center' },
+        3: { cellWidth: 10, halign: 'center' },
+        4: { cellWidth: 20, halign: 'center' },
+        5: { cellWidth: 20, halign: 'center' },
+        6: { cellWidth: 30, halign: 'center' },
       },
+      margin: { left: margin, right: margin },
+      tableWidth: 'auto',
     });
 
     // Terms text box
-    let finalY = (doc as any).lastAutoTable.finalY + 8;
+    let finalY = (doc as any).lastAutoTable.finalY + 5;
+    
     doc.setDrawColor(0);
     doc.setLineWidth(0.3);
-    doc.rect(14, finalY, pageWidth - 28, 55);
+    doc.rect(margin, finalY, pageWidth - (margin * 2), 42);
     
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
-    const termsY = finalY + 6;
-    doc.text("Declaro que recebi os Equipamentos de Proteção Individual (EPIs) discriminados acima, em perfeito estado de", 18, termsY);
-    doc.text("conservação e adequados às minhas medidas.", 18, termsY + 4);
+    const termsY = finalY + 5;
+    
+    doc.text("Declaro que recebi os EPIs e Uniformes acima, em perfeito estado, comprometendo-me a:", margin + 3, termsY);
+    
+    doc.text("1. Usar durante toda a jornada de trabalho;", margin + 5, termsY + 5);
+    doc.text("2. Responsabilizar-me pela guarda e conservação;", margin + 5, termsY + 9);
+    doc.text("3. Comunicar qualquer alteração que os torne impróprios;", margin + 5, termsY + 13);
+    doc.text("4. Cumprir as determinações do empregador;", margin + 5, termsY + 17);
+    doc.text("5. Devolver em caso de desligamento ou quando solicitado;", margin + 5, termsY + 21);
+    doc.text("6. Ressarcir em caso de dano ou perda por negligência.", margin + 5, termsY + 25);
     
     doc.setFont("helvetica", "bold");
-    doc.text("COMPROMETO-ME A:", 18, termsY + 12);
-    doc.setFont("helvetica", "normal");
-    doc.text("• Utilizar os EPIs durante todo o período de trabalho", 22, termsY + 17);
-    doc.text("• Guardar e conservar em local adequado", 22, termsY + 21);
-    doc.text("• Comunicar qualquer alteração que os torne impróprios", 22, termsY + 25);
-    doc.text("• Responsabilizar-me pela guarda e conservação", 22, termsY + 29);
-    doc.text("• Devolver em caso de desligamento", 22, termsY + 33);
-    doc.text("• Ressarcir em caso de dano ou perda por negligência", 22, termsY + 37);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("ESTOU CIENTE DE QUE: O não uso dos EPIs constitui ato faltoso, sujeitando-me às penalidades previstas", 18, termsY + 45);
-    doc.text("na NR-06 e CLT Art. 158.", 18, termsY + 49);
+    doc.text("ESTOU CIENTE: O não uso constitui ato faltoso (NR-06 e CLT Art. 158).", margin + 3, termsY + 33);
 
+    finalY = finalY + 47;
+
+    // Observations
     if (termo.observacoes) {
-      finalY = finalY + 60;
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text(`Observações: ${termo.observacoes}`, 14, finalY);
-      finalY += 10;
-    } else {
-      finalY = finalY + 60;
+      doc.setFontSize(8);
+      doc.text(`Obs: ${termo.observacoes}`, margin, finalY);
+      finalY += 8;
     }
 
+    // Date line
     const dateExtended = format(new Date(termo.data_emissao), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Local e Data: _________________________, ${dateExtended}`, pageWidth / 2, finalY + 10, { align: "center" });
-
-    const sigY = finalY + 35;
-    doc.setLineWidth(0.3);
-    doc.line(25, sigY, 95, sigY);
-    doc.line(115, sigY, 185, sigY);
-    
     doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Local e Data: _________________________, ${dateExtended}`, pageWidth / 2, finalY + 5, { align: "center" });
+
+    // Signatures
+    const sigY = finalY + 25;
+    doc.setLineWidth(0.3);
+    doc.line(margin + 10, sigY, margin + 75, sigY);
+    doc.line(pageWidth - margin - 75, sigY, pageWidth - margin - 10, sigY);
+    
+    doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
-    doc.text(termo.employees?.name || 'Colaborador', 60, sigY + 5, { align: "center" });
-    doc.text(termo.responsavel_nome || 'Responsável', 150, sigY + 5, { align: "center" });
+    doc.text(termo.employees?.name || 'Colaborador', margin + 42.5, sigY + 4, { align: "center" });
+    doc.text(termo.responsavel_nome || 'Responsável', pageWidth - margin - 42.5, sigY + 4, { align: "center" });
     
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text(`Matrícula: ${termo.employees?.registration_number || '-'}`, 60, sigY + 10, { align: "center" });
-    doc.text("Almoxarifado", 150, sigY + 10, { align: "center" });
-    doc.text("ASSINATURA DO COLABORADOR", 60, sigY + 16, { align: "center" });
-    doc.text("ASSINATURA DO RESPONSÁVEL", 150, sigY + 16, { align: "center" });
-
     doc.setFontSize(7);
+    doc.text(`Mat: ${termo.employees?.registration_number || '-'}`, margin + 42.5, sigY + 8, { align: "center" });
+    doc.text("COLABORADOR", margin + 42.5, sigY + 12, { align: "center" });
+    doc.text("RESPONSÁVEL PELA ENTREGA", pageWidth - margin - 42.5, sigY + 8, { align: "center" });
+
+    // Footer
+    doc.setFontSize(6);
     doc.setTextColor(100);
-    doc.text("VIA DO COLABORADOR", 14, 285);
-    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, pageWidth - 14, 285, { align: "right" });
-
-    // Second page
-    doc.addPage();
-    
-    doc.setTextColor(0);
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text(company.name, 14, 15);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text(`CNPJ: ${company.cnpj}`, 14, 21);
-    doc.text(company.address, 14, 26);
-    doc.text(`Tel: ${company.phone}`, 14, 31);
-    
-    doc.setFontSize(10);
-    doc.text(`Nº ${termo.numero}`, pageWidth - 14, 15, { align: "right" });
-    doc.text(`Data: ${format(new Date(termo.data_emissao), 'dd/MM/yyyy')}`, pageWidth - 14, 21, { align: "right" });
-    
-    doc.setLineWidth(0.5);
-    doc.line(14, 36, pageWidth - 14, 36);
-    
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("TERMO DE RESPONSABILIDADE E RECEBIMENTO", pageWidth / 2, 46, { align: "center" });
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Equipamentos de Proteção Individual (EPIs)", pageWidth / 2, 52, { align: "center" });
-    
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.3);
-    doc.rect(14, 58, pageWidth - 28, 28);
-    doc.setFillColor(240, 240, 240);
-    doc.rect(14, 58, pageWidth - 28, 7, 'F');
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("DADOS DO COLABORADOR", 18, 63);
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(`Nome: ${termo.employees?.name || '-'}`, 18, 72);
-    doc.text(`Matrícula: ${termo.employees?.registration_number || '-'}`, pageWidth / 2 + 10, 72);
-    doc.text(`Cargo: ${termo.employees?.position || '-'}`, 18, 79);
-    doc.text(`Setor: ${termo.employees?.department || '-'}`, pageWidth / 2 + 10, 79);
-
-    // EPIs table for second page with empty rows
-    const epiRows2 = termo.termo_epis?.map(item => [
-      item.epis?.name || '-',
-      item.ca_number || '-',
-      item.tamanho || '-',
-      item.quantidade.toString(),
-      format(new Date(item.data_entrega), 'dd/MM/yyyy'),
-      item.data_devolucao ? format(new Date(item.data_devolucao), 'dd/MM/yyyy') : '___/___/______',
-      item.data_validade ? format(new Date(item.data_validade), 'dd/MM/yyyy') : '-',
-    ]) || [];
-
-    for (let i = 0; i < 5; i++) {
-      epiRows2.push(['', '', '', '', '___/___/______', '___/___/______', '___/___/______']);
-    }
-
-    autoTable(doc, {
-      startY: 92,
-      head: [['Item', 'CA', 'Tam.', 'Qtd', 'Entrega', 'Devolução', 'Validade']],
-      body: epiRows2,
-      headStyles: { fillColor: [80, 80, 80], fontSize: 9 },
-      bodyStyles: { fontSize: 9, minCellHeight: 8 },
-      columnStyles: {
-        0: { cellWidth: 45 },
-        1: { cellWidth: 20, halign: 'center' },
-        2: { cellWidth: 15, halign: 'center' },
-        3: { cellWidth: 12, halign: 'center' },
-        4: { cellWidth: 25, halign: 'center' },
-        5: { cellWidth: 28, halign: 'center' },
-        6: { cellWidth: 27, halign: 'center' },
-      },
-    });
-
-    finalY = (doc as any).lastAutoTable.finalY + 8;
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.3);
-    doc.rect(14, finalY, pageWidth - 28, 55);
-    
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    const termsY2 = finalY + 6;
-    doc.text("Declaro que recebi os Equipamentos de Proteção Individual (EPIs) discriminados acima, em perfeito estado de", 18, termsY2);
-    doc.text("conservação e adequados às minhas medidas.", 18, termsY2 + 4);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("COMPROMETO-ME A:", 18, termsY2 + 12);
-    doc.setFont("helvetica", "normal");
-    doc.text("• Utilizar os EPIs durante todo o período de trabalho", 22, termsY2 + 17);
-    doc.text("• Guardar e conservar em local adequado", 22, termsY2 + 21);
-    doc.text("• Comunicar qualquer alteração que os torne impróprios", 22, termsY2 + 25);
-    doc.text("• Responsabilizar-me pela guarda e conservação", 22, termsY2 + 29);
-    doc.text("• Devolver em caso de desligamento", 22, termsY2 + 33);
-    doc.text("• Ressarcir em caso de dano ou perda por negligência", 22, termsY2 + 37);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("ESTOU CIENTE DE QUE: O não uso dos EPIs constitui ato faltoso, sujeitando-me às penalidades previstas", 18, termsY2 + 45);
-    doc.text("na NR-06 e CLT Art. 158.", 18, termsY2 + 49);
-
-    if (termo.observacoes) {
-      finalY = finalY + 60;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text(`Observações: ${termo.observacoes}`, 14, finalY);
-      finalY += 10;
-    } else {
-      finalY = finalY + 60;
-    }
-
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Local e Data: _________________________, ${dateExtended}`, pageWidth / 2, finalY + 10, { align: "center" });
-
-    const sigY2 = finalY + 35;
-    doc.setLineWidth(0.3);
-    doc.line(25, sigY2, 95, sigY2);
-    doc.line(115, sigY2, 185, sigY2);
-    
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text(termo.employees?.name || 'Colaborador', 60, sigY2 + 5, { align: "center" });
-    doc.text(termo.responsavel_nome || 'Responsável', 150, sigY2 + 5, { align: "center" });
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text(`Matrícula: ${termo.employees?.registration_number || '-'}`, 60, sigY2 + 10, { align: "center" });
-    doc.text("Almoxarifado", 150, sigY2 + 10, { align: "center" });
-    doc.text("ASSINATURA DO COLABORADOR", 60, sigY2 + 16, { align: "center" });
-    doc.text("ASSINATURA DO RESPONSÁVEL", 150, sigY2 + 16, { align: "center" });
-
-    doc.setFontSize(7);
-    doc.setTextColor(100);
-    doc.text("VIA DA EMPRESA - ARQUIVO", 14, 285);
-    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, pageWidth - 14, 285, { align: "right" });
+    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")} | Ref: ${termo.numero}`, pageWidth / 2, pageHeight - 8, { align: "center" });
 
     doc.save(`termo-epi-${termo.employees?.registration_number || 'sem-matricula'}-${format(new Date(), 'yyyyMMdd')}.pdf`);
   };

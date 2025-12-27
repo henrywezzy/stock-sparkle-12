@@ -199,8 +199,8 @@ const Auth = () => {
             <Package className="h-8 w-8 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Almoxarifado</h1>
-            <p className="text-sm text-muted-foreground">Sistema de Gestão</p>
+            <h1 className="text-2xl font-bold text-foreground">Stockly</h1>
+            <p className="text-sm text-muted-foreground">Gestão de Almoxarifado</p>
           </div>
         </div>
 
