@@ -11,7 +11,7 @@ interface AuthContextType {
   userRole: AppRole | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null; emailConfirmation?: boolean }>;
   signOut: () => Promise<void>;
   canEdit: boolean;
   canDelete: boolean;
@@ -107,11 +107,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, fullName: string): Promise<{ error: Error | null; emailConfirmation?: boolean }> => {
     try {
       const redirectUrl = `${window.location.origin}/`;
 
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -139,12 +139,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error };
       }
 
+      // Check if email confirmation is required
+      const needsEmailConfirmation = data.user && !data.session;
+      
+      if (needsEmailConfirmation) {
+        toast({
+          title: "Verifique seu email",
+          description: "Enviamos um link de confirmação para o seu email.",
+        });
+        return { error: null, emailConfirmation: true };
+      }
+
       toast({
         title: "Cadastro realizado com sucesso!",
         description: "Você já pode acessar o sistema.",
       });
 
-      return { error: null };
+      return { error: null, emailConfirmation: false };
     } catch (error) {
       return { error: error as Error };
     }

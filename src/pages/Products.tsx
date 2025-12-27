@@ -225,9 +225,10 @@ export default function Products() {
           </Badge>
         ) : "—";
       case "quantity":
-        const isLowStock = product.quantity <= (product.min_quantity || 10);
+        const isCriticalStock = product.quantity === 0;
+        const isLowStock = product.quantity > 0 && product.quantity <= (product.min_quantity || 10);
         return (
-          <span className={`font-semibold ${isLowStock ? 'text-destructive' : 'text-foreground'}`}>
+          <span className={`font-semibold ${isCriticalStock ? 'text-destructive' : isLowStock ? 'text-warning' : 'text-foreground'}`}>
             {product.quantity}
           </span>
         );
@@ -242,16 +243,19 @@ export default function Products() {
       case "supplier":
         return product.suppliers?.name || "—";
       case "status":
-        const lowStock = product.quantity <= (product.min_quantity || 10);
+        const critical = product.quantity === 0;
+        const low = product.quantity > 0 && product.quantity <= (product.min_quantity || 10);
         return (
           <Badge
             className={
-              lowStock
+              critical
                 ? "bg-destructive/20 text-destructive"
+                : low
+                ? "bg-warning/20 text-warning"
                 : "bg-success/20 text-success"
             }
           >
-            {lowStock ? "Baixo" : "Normal"}
+            {critical ? "Crítico" : low ? "Baixo" : "Normal"}
           </Badge>
         );
       case "updated_at":

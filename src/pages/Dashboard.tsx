@@ -109,16 +109,16 @@ export default function Dashboard() {
       .slice(0, 6);
   }, [products]);
 
-  // Alertas de estoque
+  // Alertas de estoque - separar crítico e baixo
   const stockAlerts = useMemo(() => {
     return lowStockProducts.slice(0, 5).map((product) => {
-      const percentage = product.min_quantity 
-        ? (product.quantity / product.min_quantity) * 100 
-        : 0;
-      
       let status: "critical" | "warning" | "ok" = "ok";
-      if (percentage <= 25) status = "critical";
-      else if (percentage <= 75) status = "warning";
+      
+      if (product.quantity === 0) {
+        status = "critical";
+      } else if (product.quantity <= (product.min_quantity || 10)) {
+        status = "warning";
+      }
 
       return {
         product: product.name,
@@ -128,6 +128,17 @@ export default function Dashboard() {
       };
     });
   }, [lowStockProducts]);
+
+  // Contagem separada de estoque crítico e baixo
+  const criticalStockCount = useMemo(() => 
+    products.filter((p) => p.quantity === 0).length,
+    [products]
+  );
+  
+  const lowStockCount = useMemo(() => 
+    products.filter((p) => p.quantity > 0 && p.quantity <= (p.min_quantity || 10)).length,
+    [products]
+  );
 
   // Estatísticas de funcionários
   const employeeStats = useMemo(() => {
@@ -227,12 +238,27 @@ export default function Dashboard() {
           trend={{ value: currentMonthStats.exitsCount > 0 ? 5 : 0, isPositive: false }}
         />
         <StatCard
-          title="Estoque Baixo"
-          value={lowStockProducts.length}
+          title="Estoque Crítico"
+          value={criticalStockCount}
           icon={AlertTriangle}
-          className={lowStockProducts.length > 0 ? "border-warning/50" : ""}
+          className={criticalStockCount > 0 ? "border-destructive/50" : ""}
         />
       </div>
+
+      {/* Low Stock Alert Banner */}
+      {(criticalStockCount > 0 || lowStockCount > 0) && (
+        <div className={`rounded-xl p-4 flex items-center gap-3 ${criticalStockCount > 0 ? 'bg-destructive/10 border border-destructive/30' : 'bg-warning/10 border border-warning/30'}`}>
+          <AlertTriangle className={`w-5 h-5 ${criticalStockCount > 0 ? 'text-destructive' : 'text-warning'}`} />
+          <div>
+            <p className="font-medium">
+              {criticalStockCount > 0 && <span className="text-destructive">{criticalStockCount} produto(s) sem estoque (crítico)</span>}
+              {criticalStockCount > 0 && lowStockCount > 0 && " | "}
+              {lowStockCount > 0 && <span className="text-warning">{lowStockCount} produto(s) com estoque baixo</span>}
+            </p>
+            <p className="text-sm text-muted-foreground">Verifique a lista de alertas abaixo para mais detalhes</p>
+          </div>
+        </div>
+      )}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
