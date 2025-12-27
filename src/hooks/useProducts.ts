@@ -18,6 +18,7 @@ export interface Product {
   batch: string | null;
   expiry_date: string | null;
   status: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
   categories?: { name: string; color: string } | null;
@@ -51,6 +52,7 @@ export const useProducts = () => {
           categories (name, color),
           suppliers (name)
         `)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -113,21 +115,25 @@ export const useProducts = () => {
     },
   });
 
+  // Soft delete - apenas marca como deletado
   const deleteProduct = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('products').delete().eq('id', id);
+      const { error } = await supabase
+        .from('products')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       toast({
-        title: 'Produto excluído',
+        title: 'Produto removido',
         description: 'O produto foi removido com sucesso.',
       });
     },
     onError: (error: Error) => {
       toast({
-        title: 'Erro ao excluir produto',
+        title: 'Erro ao remover produto',
         description: error.message,
         variant: 'destructive',
       });

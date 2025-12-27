@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          changed_fields: string[] | null
+          created_at: string
+          id: string
+          ip_address: string | null
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string
+          table_name: string
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          changed_fields?: string[] | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id: string
+          table_name: string
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          changed_fields?: string[] | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string
+          table_name?: string
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           color: string | null
@@ -90,6 +132,7 @@ export type Database = {
         Row: {
           admission_date: string | null
           created_at: string
+          deleted_at: string | null
           department: string | null
           email: string | null
           id: string
@@ -104,6 +147,7 @@ export type Database = {
         Insert: {
           admission_date?: string | null
           created_at?: string
+          deleted_at?: string | null
           department?: string | null
           email?: string | null
           id?: string
@@ -118,6 +162,7 @@ export type Database = {
         Update: {
           admission_date?: string | null
           created_at?: string
+          deleted_at?: string | null
           department?: string | null
           email?: string | null
           id?: string
@@ -247,10 +292,12 @@ export type Database = {
       }
       epis: {
         Row: {
+          ca_expiry_date: string | null
           ca_number: string | null
           category: string | null
           created_at: string
           default_validity_days: number | null
+          deleted_at: string | null
           description: string | null
           id: string
           image_url: string | null
@@ -260,10 +307,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ca_expiry_date?: string | null
           ca_number?: string | null
           category?: string | null
           created_at?: string
           default_validity_days?: number | null
+          deleted_at?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
@@ -273,10 +322,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ca_expiry_date?: string | null
           ca_number?: string | null
           category?: string | null
           created_at?: string
           default_validity_days?: number | null
+          deleted_at?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
@@ -298,6 +349,7 @@ export type Database = {
           product_id: string
           quantity: number
           reason: string | null
+          requisition_id: string | null
         }
         Insert: {
           created_at?: string
@@ -309,6 +361,7 @@ export type Database = {
           product_id: string
           quantity: number
           reason?: string | null
+          requisition_id?: string | null
         }
         Update: {
           created_at?: string
@@ -320,6 +373,7 @@ export type Database = {
           product_id?: string
           quantity?: number
           reason?: string | null
+          requisition_id?: string | null
         }
         Relationships: [
           {
@@ -334,6 +388,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exits_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "requisitions"
             referencedColumns: ["id"]
           },
         ]
@@ -379,6 +440,7 @@ export type Database = {
           batch: string | null
           category_id: string | null
           created_at: string
+          deleted_at: string | null
           description: string | null
           expiry_date: string | null
           id: string
@@ -398,6 +460,7 @@ export type Database = {
           batch?: string | null
           category_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           expiry_date?: string | null
           id?: string
@@ -417,6 +480,7 @@ export type Database = {
           batch?: string | null
           category_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           expiry_date?: string | null
           id?: string
@@ -589,6 +653,7 @@ export type Database = {
           cnpj: string | null
           contact_name: string | null
           created_at: string
+          deleted_at: string | null
           email: string | null
           id: string
           name: string
@@ -603,6 +668,7 @@ export type Database = {
           cnpj?: string | null
           contact_name?: string | null
           created_at?: string
+          deleted_at?: string | null
           email?: string | null
           id?: string
           name: string
@@ -617,6 +683,7 @@ export type Database = {
           cnpj?: string | null
           contact_name?: string | null
           created_at?: string
+          deleted_at?: string | null
           email?: string | null
           id?: string
           name?: string

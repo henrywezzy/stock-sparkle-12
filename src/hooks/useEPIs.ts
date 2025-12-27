@@ -6,12 +6,14 @@ export interface EPI {
   id: string;
   name: string;
   ca_number: string | null;
+  ca_expiry_date: string | null;
   category: string | null;
   description: string | null;
   default_validity_days: number | null;
   quantity: number;
   min_quantity: number | null;
   image_url: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -19,6 +21,7 @@ export interface EPI {
 export interface EPIFormData {
   name: string;
   ca_number?: string;
+  ca_expiry_date?: string;
   category?: string;
   description?: string;
   default_validity_days?: number;
@@ -36,6 +39,7 @@ export const useEPIs = () => {
       const { data, error } = await supabase
         .from('epis')
         .select('*')
+        .is('deleted_at', null)
         .order('name', { ascending: true });
 
       if (error) throw error;
@@ -98,21 +102,25 @@ export const useEPIs = () => {
     },
   });
 
+  // Soft delete - apenas marca como deletado
   const deleteEPI = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('epis').delete().eq('id', id);
+      const { error } = await supabase
+        .from('epis')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['epis'] });
       toast({
-        title: 'EPI excluído',
+        title: 'EPI removido',
         description: 'O EPI foi removido com sucesso.',
       });
     },
     onError: (error: Error) => {
       toast({
-        title: 'Erro ao excluir EPI',
+        title: 'Erro ao remover EPI',
         description: error.message,
         variant: 'destructive',
       });
