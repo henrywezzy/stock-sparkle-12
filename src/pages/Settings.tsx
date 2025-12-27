@@ -80,11 +80,14 @@ const COLOR_PALETTES: { id: ColorPalette; name: string; primary: string }[] = [
 ];
 
 export default function Settings() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, userRole } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { settings: companySettings, updateSettings: updateCompanySettings, uploadLogo, isLoading: companyLoading } = useCompanySettings();
   const { theme, setMode, setPalette, isDark } = useTheme();
+  
+  const isViewer = userRole === 'visualizador';
+  const canEditCompany = isAdmin || userRole === 'almoxarife';
 
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [deleteUserName, setDeleteUserName] = useState<string>("");
@@ -353,14 +356,18 @@ export default function Settings() {
             <Building2 className="w-4 h-4" />
             <span className="hidden sm:inline">Empresa</span>
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="gap-2 text-xs sm:text-sm">
-            <Bell className="w-4 h-4" />
-            <span className="hidden sm:inline">Notificações</span>
-          </TabsTrigger>
-          <TabsTrigger value="stock" className="gap-2 text-xs sm:text-sm">
-            <Database className="w-4 h-4" />
-            <span className="hidden sm:inline">Estoque</span>
-          </TabsTrigger>
+          {!isViewer && (
+            <TabsTrigger value="notifications" className="gap-2 text-xs sm:text-sm">
+              <Bell className="w-4 h-4" />
+              <span className="hidden sm:inline">Notificações</span>
+            </TabsTrigger>
+          )}
+          {!isViewer && (
+            <TabsTrigger value="stock" className="gap-2 text-xs sm:text-sm">
+              <Database className="w-4 h-4" />
+              <span className="hidden sm:inline">Estoque</span>
+            </TabsTrigger>
+          )}
           {isAdmin && (
             <TabsTrigger value="users" className="gap-2 text-xs sm:text-sm">
               <Users className="w-4 h-4" />
@@ -381,7 +388,9 @@ export default function Settings() {
               </div>
               <div>
                 <h3 className="font-semibold">Dados da Empresa</h3>
-                <p className="text-sm text-muted-foreground">Informações que aparecerão nos documentos</p>
+                <p className="text-sm text-muted-foreground">
+                  {isViewer ? "Visualize as informações da empresa" : "Informações que aparecerão nos documentos"}
+                </p>
               </div>
             </div>
 
@@ -394,59 +403,102 @@ export default function Settings() {
                     <Building2 className="w-12 h-12 text-muted-foreground" />
                   )}
                 </div>
-                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleLogoUpload} />
-                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="w-4 h-4 mr-2" /> Enviar Logo
-                </Button>
+                {canEditCompany && (
+                  <>
+                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleLogoUpload} />
+                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                      <Upload className="w-4 h-4 mr-2" /> Enviar Logo
+                    </Button>
+                  </>
+                )}
               </div>
 
               <div className="flex-1 grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <Label>Nome da Empresa</Label>
-                  <Input value={companyForm.name} onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} />
+                  <Input 
+                    value={companyForm.name} 
+                    onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} 
+                    disabled={isViewer}
+                  />
                 </div>
                 <div>
                   <Label>CNPJ</Label>
-                  <Input value={companyForm.cnpj} onChange={(e) => setCompanyForm({ ...companyForm, cnpj: e.target.value })} placeholder="00.000.000/0001-00" />
+                  <Input 
+                    value={companyForm.cnpj} 
+                    onChange={(e) => setCompanyForm({ ...companyForm, cnpj: e.target.value })} 
+                    placeholder="00.000.000/0001-00" 
+                    disabled={isViewer}
+                  />
                 </div>
                 <div>
                   <Label>Telefone</Label>
-                  <Input value={companyForm.phone} onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })} placeholder="(00) 0000-0000" />
+                  <Input 
+                    value={companyForm.phone} 
+                    onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })} 
+                    placeholder="(00) 0000-0000" 
+                    disabled={isViewer}
+                  />
                 </div>
                 <div className="sm:col-span-2">
                   <Label>Email</Label>
-                  <Input type="email" value={companyForm.email} onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })} />
+                  <Input 
+                    type="email" 
+                    value={companyForm.email} 
+                    onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })} 
+                    disabled={isViewer}
+                  />
                 </div>
                 <div className="sm:col-span-2">
                   <Label>Endereço</Label>
-                  <Input value={companyForm.address} onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })} />
+                  <Input 
+                    value={companyForm.address} 
+                    onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })} 
+                    disabled={isViewer}
+                  />
                 </div>
                 <div>
                   <Label>Cidade</Label>
-                  <Input value={companyForm.city} onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })} />
+                  <Input 
+                    value={companyForm.city} 
+                    onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })} 
+                    disabled={isViewer}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label>Estado</Label>
-                    <Input value={companyForm.state} onChange={(e) => setCompanyForm({ ...companyForm, state: e.target.value })} maxLength={2} />
+                    <Input 
+                      value={companyForm.state} 
+                      onChange={(e) => setCompanyForm({ ...companyForm, state: e.target.value })} 
+                      maxLength={2} 
+                      disabled={isViewer}
+                    />
                   </div>
                   <div>
                     <Label>CEP</Label>
-                    <Input value={companyForm.zip_code} onChange={(e) => setCompanyForm({ ...companyForm, zip_code: e.target.value })} />
+                    <Input 
+                      value={companyForm.zip_code} 
+                      onChange={(e) => setCompanyForm({ ...companyForm, zip_code: e.target.value })} 
+                      disabled={isViewer}
+                    />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end pt-4 border-t border-border/50">
-              <Button onClick={handleSaveCompany} className="gradient-primary" disabled={updateCompanySettings.isPending}>
-                {updateCompanySettings.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                Salvar Empresa
-              </Button>
-            </div>
+            {canEditCompany && (
+              <div className="flex justify-end pt-4 border-t border-border/50">
+                <Button onClick={handleSaveCompany} className="gradient-primary" disabled={updateCompanySettings.isPending}>
+                  {updateCompanySettings.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  Salvar Empresa
+                </Button>
+              </div>
+            )}
           </div>
         </TabsContent>
 
+        {!isViewer && (
         <TabsContent value="notifications" className="space-y-4 sm:space-y-6">
           <div className="glass rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div className="flex items-center gap-3 pb-4 border-b border-border/50">
@@ -483,7 +535,9 @@ export default function Settings() {
             </div>
           </div>
         </TabsContent>
+        )}
 
+        {!isViewer && (
         <TabsContent value="stock" className="space-y-4 sm:space-y-6">
           <div className="glass rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div className="flex items-center gap-3 pb-4 border-b border-border/50">
@@ -509,6 +563,7 @@ export default function Settings() {
             </div>
           </div>
         </TabsContent>
+        )}
 
         {isAdmin && (
           <TabsContent value="users" className="space-y-4 sm:space-y-6">

@@ -51,148 +51,241 @@ export function TermoViewDialog({ open, onOpenChange, termo }: TermoViewDialogPr
     
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15;
+    const margin = 10;
+    let currentY = 10;
     
     // Company Header
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text(company.name, margin, 15);
-    doc.setFontSize(8);
+    doc.text(company.name, margin, currentY);
+    currentY += 4;
+    doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
-    doc.text(`CNPJ: ${company.cnpj}`, margin, 20);
-    doc.text(company.address, margin, 24);
-    doc.text(`Tel: ${company.phone}`, margin, 28);
+    doc.text(`CNPJ: ${company.cnpj}`, margin, currentY);
+    currentY += 3;
+    doc.text(company.address, margin, currentY);
+    currentY += 3;
+    doc.text(`Tel: ${company.phone}`, margin, currentY);
     
     // Term number and date (right aligned)
-    doc.setFontSize(9);
-    doc.text(`Nº ${termo.numero}`, pageWidth - margin, 15, { align: "right" });
-    doc.text(`Data: ${format(new Date(termo.data_emissao), 'dd/MM/yyyy')}`, pageWidth - margin, 20, { align: "right" });
+    doc.setFontSize(8);
+    doc.text(`Nº ${termo.numero}`, pageWidth - margin, 10, { align: "right" });
+    doc.text(`Data: ${format(new Date(termo.data_emissao), 'dd/MM/yyyy')}`, pageWidth - margin, 14, { align: "right" });
+    
+    currentY += 5;
     
     // Separator line
     doc.setLineWidth(0.5);
-    doc.line(margin, 33, pageWidth - margin, 33);
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+    currentY += 6;
     
     // Title
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text("TERMO DE RESPONSABILIDADE E RECEBIMENTO", pageWidth / 2, 41, { align: "center" });
-    doc.setFontSize(9);
+    doc.text("TERMO DE RESPONSABILIDADE E RECEBIMENTO", pageWidth / 2, currentY, { align: "center" });
+    currentY += 4;
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text("Equipamentos de Proteção Individual - EPI e Uniforme", pageWidth / 2, 46, { align: "center" });
+    doc.text("EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL - EPI E UNIFORME", pageWidth / 2, currentY, { align: "center" });
+    currentY += 3;
+    doc.setFontSize(6);
+    doc.text("Conforme NR-06 (Portaria SEPRT nº 915/2019) e Art. 158 da CLT", pageWidth / 2, currentY, { align: "center" });
+    currentY += 6;
     
     // Employee box
     doc.setDrawColor(0);
     doc.setLineWidth(0.3);
-    doc.rect(margin, 51, pageWidth - (margin * 2), 22);
-    doc.setFillColor(240, 240, 240);
-    doc.rect(margin, 51, pageWidth - (margin * 2), 6, 'F');
+    doc.rect(margin, currentY, pageWidth - (margin * 2), 18);
+    doc.setFillColor(232, 232, 232);
+    doc.rect(margin, currentY, pageWidth - (margin * 2), 5, 'F');
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("DADOS DO COLABORADOR", margin + 3, 55);
+    doc.setFontSize(7);
+    doc.text("IDENTIFICAÇÃO DO COLABORADOR", margin + 2, currentY + 3.5);
     
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(`Nome: ${termo.employees?.name || '-'}`, margin + 3, 62);
-    doc.text(`Matrícula: ${termo.employees?.registration_number || '-'}`, pageWidth / 2 + 5, 62);
-    doc.text(`Cargo: ${termo.employees?.position || '-'}`, margin + 3, 68);
-    doc.text(`Setor: ${termo.employees?.department || '-'}`, pageWidth / 2 + 5, 68);
+    doc.setFontSize(7);
+    doc.text(`Nome: ${termo.employees?.name || '-'}`, margin + 2, currentY + 9);
+    doc.text(`Matrícula: ${termo.employees?.registration_number || '-'}`, pageWidth / 2 + 5, currentY + 9);
+    doc.text(`Cargo: ${termo.employees?.position || '-'}`, margin + 2, currentY + 14);
+    doc.text(`Setor: ${termo.employees?.department || '-'}`, pageWidth / 2 + 5, currentY + 14);
+    currentY += 22;
+
+    // Declaration
+    doc.setDrawColor(0);
+    doc.setFillColor(250, 250, 250);
+    doc.rect(margin, currentY, pageWidth - (margin * 2), 12, 'FD');
+    doc.setFontSize(6);
+    doc.text(
+      "Declaro, para todos os fins legais, ter recebido gratuitamente da empresa acima identificada, em perfeito estado de conservação e funcionamento,",
+      margin + 2, currentY + 4
+    );
+    doc.text(
+      "os Equipamentos de Proteção Individual (EPI) e Uniformes abaixo discriminados, os quais são adequados aos riscos das atividades desenvolvidas",
+      margin + 2, currentY + 8
+    );
+    doc.text("em minha função na indústria metalmecânica.", margin + 2, currentY + 11);
+    currentY += 16;
 
     // EPIs table
     const epiRows = termo.termo_epis?.map(item => [
       item.epis?.name || '-',
-      item.ca_number || '-',
+      item.ca_number || item.epis?.ca_number || '-',
       item.tamanho || '-',
       item.quantidade.toString(),
       format(new Date(item.data_entrega), 'dd/MM/yy'),
-      item.data_devolucao ? format(new Date(item.data_devolucao), 'dd/MM/yy') : '__/__/__',
-      '', // Signature column
+      item.data_validade ? format(new Date(item.data_validade), 'dd/MM/yy') : '___/___/____',
+      item.data_devolucao ? format(new Date(item.data_devolucao), 'dd/MM/yy') : '___/___/____',
+      '',
     ]) || [];
 
-    // Add empty rows for manual additions (fewer rows to fit page)
-    const emptyRowsCount = Math.max(2, 5 - epiRows.length);
+    // Add empty rows for manual additions
+    const emptyRowsCount = Math.max(5, 8 - epiRows.length);
     for (let i = 0; i < emptyRowsCount; i++) {
-      epiRows.push(['', '', '', '', '__/__/__', '__/__/__', '']);
+      epiRows.push(['', '', '', '', '___/___/____', '___/___/____', '___/___/____', '']);
     }
 
     autoTable(doc, {
-      startY: 78,
-      head: [['EPI/Uniforme', 'CA', 'Tam', 'Qtd', 'Entrega', 'Devol.', 'Ass.']],
+      startY: currentY,
+      head: [['DESCRIÇÃO EPI/UNIFORME', 'Nº C.A.', 'TAM.', 'QTD', 'ENTREGA', 'VALIDADE', 'DEVOLUÇÃO', 'ASS.']],
       body: epiRows,
-      headStyles: { fillColor: [80, 80, 80], fontSize: 8, cellPadding: 2 },
-      bodyStyles: { fontSize: 8, cellPadding: 2, minCellHeight: 6 },
+      headStyles: { fillColor: [80, 80, 80], fontSize: 6, cellPadding: 1.5 },
+      bodyStyles: { fontSize: 6, cellPadding: 1.5, minCellHeight: 5 },
       columnStyles: {
-        0: { cellWidth: 50 },
+        0: { cellWidth: 42 },
         1: { cellWidth: 18, halign: 'center' },
         2: { cellWidth: 12, halign: 'center' },
         3: { cellWidth: 10, halign: 'center' },
-        4: { cellWidth: 20, halign: 'center' },
-        5: { cellWidth: 20, halign: 'center' },
-        6: { cellWidth: 30, halign: 'center' },
+        4: { cellWidth: 18, halign: 'center' },
+        5: { cellWidth: 18, halign: 'center' },
+        6: { cellWidth: 18, halign: 'center' },
+        7: { cellWidth: 24, halign: 'center' },
       },
       margin: { left: margin, right: margin },
       tableWidth: 'auto',
     });
 
-    // Terms text box
-    let finalY = (doc as any).lastAutoTable.finalY + 5;
-    
+    currentY = (doc as any).lastAutoTable.finalY + 3;
+
+    // Obligations Section
+    const obligationsBoxHeight = 68;
     doc.setDrawColor(0);
     doc.setLineWidth(0.3);
-    doc.rect(margin, finalY, pageWidth - (margin * 2), 42);
-    
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-    const termsY = finalY + 5;
-    
-    doc.text("Declaro que recebi os EPIs e Uniformes acima, em perfeito estado, comprometendo-me a:", margin + 3, termsY);
-    
-    doc.text("1. Usar durante toda a jornada de trabalho;", margin + 5, termsY + 5);
-    doc.text("2. Responsabilizar-me pela guarda e conservação;", margin + 5, termsY + 9);
-    doc.text("3. Comunicar qualquer alteração que os torne impróprios;", margin + 5, termsY + 13);
-    doc.text("4. Cumprir as determinações do empregador;", margin + 5, termsY + 17);
-    doc.text("5. Devolver em caso de desligamento ou quando solicitado;", margin + 5, termsY + 21);
-    doc.text("6. Ressarcir em caso de dano ou perda por negligência.", margin + 5, termsY + 25);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("ESTOU CIENTE: O não uso constitui ato faltoso (NR-06 e CLT Art. 158).", margin + 3, termsY + 33);
+    doc.rect(margin, currentY, pageWidth - (margin * 2), obligationsBoxHeight);
 
-    finalY = finalY + 47;
+    // Employee Obligations
+    doc.setFillColor(232, 232, 232);
+    doc.rect(margin, currentY, pageWidth - (margin * 2), 4, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6);
+    doc.text("OBRIGAÇÕES DO COLABORADOR (NR-06, item 6.7)", margin + 2, currentY + 2.8);
+    let oblY = currentY + 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(5.5);
+    doc.text("a) Utilizar o EPI apenas para a finalidade a que se destina, durante toda a jornada de trabalho;", margin + 4, oblY);
+    doc.text("b) Responsabilizar-se pela guarda e conservação do EPI que lhe foi confiado;", margin + 4, oblY + 3);
+    doc.text("c) Comunicar imediatamente ao empregador qualquer alteração que torne o EPI impróprio para uso;", margin + 4, oblY + 6);
+    doc.text("d) Cumprir as determinações do empregador sobre o uso adequado do EPI;", margin + 4, oblY + 9);
+    doc.text("e) Devolver o EPI ao empregador quando solicitado ou em caso de rescisão do contrato de trabalho;", margin + 4, oblY + 12);
+    doc.text("f) Submeter-se ao treinamento sobre uso correto, guarda e conservação do EPI.", margin + 4, oblY + 15);
+
+    // Employer Obligations
+    let empY = oblY + 20;
+    doc.setFillColor(232, 232, 232);
+    doc.rect(margin, empY - 2.5, pageWidth - (margin * 2), 4, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.text("RESPONSABILIDADES DO EMPREGADOR (NR-06, item 6.6)", margin + 2, empY);
+    empY += 3;
+    doc.setFont("helvetica", "normal");
+    doc.text("a) Adquirir o EPI adequado ao risco de cada atividade;", margin + 4, empY);
+    doc.text("b) Exigir seu uso e fornecer ao trabalhador somente EPI aprovado pelo órgão nacional competente;", margin + 4, empY + 3);
+    doc.text("c) Orientar e treinar o trabalhador sobre o uso adequado, guarda e conservação;", margin + 4, empY + 6);
+    doc.text("d) Substituir imediatamente quando danificado ou extraviado;", margin + 4, empY + 9);
+    doc.text("e) Higienizar e realizar manutenção periódica, quando aplicável.", margin + 4, empY + 12);
+
+    // Policy
+    let polY = empY + 17;
+    doc.setFillColor(232, 232, 232);
+    doc.rect(margin, polY - 2.5, pageWidth - (margin * 2), 4, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.text("POLÍTICA DE USO, CONSERVAÇÃO, TROCA E DEVOLUÇÃO", margin + 2, polY);
+    polY += 3;
+    doc.setFont("helvetica", "normal");
+    doc.text("• A troca será realizada mediante apresentação do EPI danificado ou desgastado pelo uso normal;", margin + 4, polY);
+    doc.text("• EPIs danificados por mau uso, negligência ou extravio poderão ser descontados conforme Art. 462 da CLT;", margin + 4, polY + 3);
+    doc.text("• Uniformes são de uso exclusivo nas dependências da empresa e em serviço externo autorizado;", margin + 4, polY + 6);
+    doc.text("• A devolução é obrigatória na rescisão contratual, afastamento ou quando solicitado pela empresa.", margin + 4, polY + 9);
+
+    currentY += obligationsBoxHeight + 2;
+
+    // Consequences box
+    doc.setFillColor(255, 248, 225);
+    doc.rect(margin, currentY, pageWidth - (margin * 2), 14, 'FD');
+    doc.setFillColor(232, 232, 232);
+    doc.rect(margin, currentY, pageWidth - (margin * 2), 4, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6);
+    doc.text("CONSEQUÊNCIAS DO NÃO USO OU USO INADEQUADO", margin + 2, currentY + 2.8);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(5.5);
+    doc.text(
+      "Conforme NR-06 (item 6.7.1) e Art. 158, parágrafo único, da CLT, constitui ato faltoso a recusa injustificada do empregado em usar o EPI fornecido.",
+      margin + 2, currentY + 7
+    );
+    doc.text(
+      "O descumprimento poderá acarretar sanções disciplinares progressivas: advertência verbal, advertência escrita, suspensão e dispensa por justa causa.",
+      margin + 2, currentY + 10.5
+    );
+    currentY += 17;
 
     // Observations
     if (termo.observacoes) {
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.text(`Obs: ${termo.observacoes}`, margin, finalY);
-      finalY += 8;
+      doc.setFontSize(6);
+      doc.text(`Observações: ${termo.observacoes}`, margin, currentY);
+      currentY += 5;
     }
+
+    // Final Declaration
+    doc.setFillColor(245, 245, 245);
+    doc.rect(margin, currentY, pageWidth - (margin * 2), 10, 'FD');
+    doc.setFontSize(5.5);
+    doc.text(
+      "Declaro ter recebido treinamento sobre o uso correto, guarda e conservação dos EPIs acima relacionados, estando ciente de que o não cumprimento",
+      margin + 2, currentY + 3
+    );
+    doc.text(
+      "das normas de segurança constitui ato faltoso sujeito às penalidades previstas em lei. Este termo é válido para auditorias e fiscalizações trabalhistas.",
+      margin + 2, currentY + 6.5
+    );
+    currentY += 14;
 
     // Date line
     const dateExtended = format(new Date(termo.data_emissao), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
-    doc.setFontSize(9);
+    doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
-    doc.text(`Local e Data: _________________________, ${dateExtended}`, pageWidth / 2, finalY + 5, { align: "center" });
+    doc.text(`Local e Data: ______________________________________________, ${dateExtended}`, pageWidth / 2, currentY, { align: "center" });
+    currentY += 15;
 
     // Signatures
-    const sigY = finalY + 25;
     doc.setLineWidth(0.3);
-    doc.line(margin + 10, sigY, margin + 75, sigY);
-    doc.line(pageWidth - margin - 75, sigY, pageWidth - margin - 10, sigY);
+    doc.line(margin + 10, currentY, margin + 75, currentY);
+    doc.line(pageWidth - margin - 75, currentY, pageWidth - margin - 10, currentY);
     
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setFont("helvetica", "bold");
-    doc.text(termo.employees?.name || 'Colaborador', margin + 42.5, sigY + 4, { align: "center" });
-    doc.text(termo.responsavel_nome || 'Responsável', pageWidth - margin - 42.5, sigY + 4, { align: "center" });
+    doc.text(termo.employees?.name || 'Colaborador', margin + 42.5, currentY + 4, { align: "center" });
+    doc.text(termo.responsavel_nome || 'Responsável', pageWidth - margin - 42.5, currentY + 4, { align: "center" });
     
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.text(`Mat: ${termo.employees?.registration_number || '-'}`, margin + 42.5, sigY + 8, { align: "center" });
-    doc.text("COLABORADOR", margin + 42.5, sigY + 12, { align: "center" });
-    doc.text("RESPONSÁVEL PELA ENTREGA", pageWidth - margin - 42.5, sigY + 8, { align: "center" });
+    doc.setFontSize(6);
+    doc.text(`Matrícula: ${termo.employees?.registration_number || '-'}`, margin + 42.5, currentY + 7, { align: "center" });
+    doc.text("COLABORADOR", margin + 42.5, currentY + 10, { align: "center" });
+    doc.text("RESPONSÁVEL PELA ENTREGA / ALMOXARIFADO", pageWidth - margin - 42.5, currentY + 7, { align: "center" });
 
     // Footer
-    doc.setFontSize(6);
+    doc.setFontSize(5);
     doc.setTextColor(100);
-    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")} | Ref: ${termo.numero}`, pageWidth / 2, pageHeight - 8, { align: "center" });
+    doc.text(`Documento gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")} | Válido para auditorias e fiscalizações | Ref: ${termo.numero}`, pageWidth / 2, pageHeight - 6, { align: "center" });
 
     doc.save(`termo-epi-${termo.employees?.registration_number || 'sem-matricula'}-${format(new Date(), 'yyyyMMdd')}.pdf`);
   };
