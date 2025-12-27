@@ -76,8 +76,8 @@ export function DeliveryTermPrint({ termo, companyInfo }: DeliveryTermPrintProps
               <th className="border border-black px-2 py-1 text-center">Tam.</th>
               <th className="border border-black px-2 py-1 text-center">Qtd</th>
               <th className="border border-black px-2 py-1 text-center">Entrega</th>
-              <th className="border border-black px-2 py-1 text-center">Validade</th>
               <th className="border border-black px-2 py-1 text-center">Devolução</th>
+              <th className="border border-black px-2 py-1 text-center">Validade</th>
             </tr>
           </thead>
           <tbody>
@@ -88,8 +88,20 @@ export function DeliveryTermPrint({ termo, companyInfo }: DeliveryTermPrintProps
                 <td className="border border-black px-2 py-1 text-center">{item.tamanho || '-'}</td>
                 <td className="border border-black px-2 py-1 text-center">{item.quantidade}</td>
                 <td className="border border-black px-2 py-1 text-center">{formatDate(item.data_entrega)}</td>
-                <td className="border border-black px-2 py-1 text-center">{item.data_validade ? formatDate(item.data_validade) : '-'}</td>
                 <td className="border border-black px-2 py-1 text-center">{item.data_devolucao ? formatDate(item.data_devolucao) : '___/___/______'}</td>
+                <td className="border border-black px-2 py-1 text-center">{item.data_validade ? formatDate(item.data_validade) : '-'}</td>
+              </tr>
+            ))}
+            {/* Empty rows for manual additions */}
+            {[...Array(5)].map((_, index) => (
+              <tr key={`empty-${index}`}>
+                <td className="border border-black px-2 py-1 h-8">&nbsp;</td>
+                <td className="border border-black px-2 py-1 text-center">&nbsp;</td>
+                <td className="border border-black px-2 py-1 text-center">&nbsp;</td>
+                <td className="border border-black px-2 py-1 text-center">&nbsp;</td>
+                <td className="border border-black px-2 py-1 text-center">___/___/______</td>
+                <td className="border border-black px-2 py-1 text-center">___/___/______</td>
+                <td className="border border-black px-2 py-1 text-center">___/___/______</td>
               </tr>
             ))}
           </tbody>

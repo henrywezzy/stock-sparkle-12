@@ -27,6 +27,7 @@ import {
 import { useProducts } from "@/hooks/useProducts";
 import { useEntries } from "@/hooks/useEntries";
 import { useSuppliers } from "@/hooks/useSuppliers";
+import { useEPIs } from "@/hooks/useEPIs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColumnPreferences } from "@/hooks/useColumnPreferences";
 import { ColumnSettings } from "@/components/ui/column-settings";
@@ -56,6 +57,7 @@ import { cn } from "@/lib/utils";
 
 // Colunas padrão para a tabela
 const DEFAULT_COLUMNS = [
+  { key: "type", label: "Tipo", visible: true },
   { key: "status", label: "Status", visible: true },
   { key: "sku", label: "ID (SKU)", visible: true },
   { key: "product", label: "Produto", visible: true },
@@ -68,6 +70,7 @@ const DEFAULT_COLUMNS = [
 ];
 
 interface PurchaseSuggestion {
+  type: 'product' | 'epi';
   product: {
     id: string;
     name: string;
@@ -92,6 +95,7 @@ export default function Purchases() {
   const { products, isLoading: loadingProducts } = useProducts();
   const { entries } = useEntries();
   const { suppliers } = useSuppliers();
+  const { epis, isLoading: loadingEPIs } = useEPIs();
   const { canEdit } = useAuth();
   const { toast } = useToast();
 
@@ -105,6 +109,7 @@ export default function Purchases() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "critical" | "low">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "product" | "epi">("all");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -115,21 +120,20 @@ export default function Purchases() {
   const [purchasePrice, setPurchasePrice] = useState<string>("");
   const [purchaseSupplierId, setPurchaseSupplierId] = useState<string>("");
 
-  // Gerar sugestões de compra baseado em produtos com estoque baixo/crítico
+  // Gerar sugestões de compra baseado em produtos e EPIs com estoque baixo/crítico
   const purchaseSuggestions = useMemo(() => {
     const suggestions: PurchaseSuggestion[] = [];
 
+    // Add products with low stock
     products.forEach((product) => {
       const minQty = product.min_quantity || 10;
       const maxQty = product.max_quantity || 100;
       
-      // Verificar se está com estoque baixo ou crítico
-      const isCritical = product.quantity <= minQty * 0.5; // 50% ou menos do mínimo
+      const isCritical = product.quantity <= minQty * 0.5;
       const isLow = product.quantity <= minQty && !isCritical;
       
       if (!isCritical && !isLow) return;
 
-      // Buscar últimas compras deste produto
       const productEntries = entries
         .filter((entry) => entry.product_id === product.id && entry.unit_price)
         .slice(0, 5)
@@ -141,13 +145,11 @@ export default function Purchases() {
           supplier_id: entry.supplier_id,
         }));
 
-      // Calcular quantidade sugerida para atingir o estoque mínimo
       const suggestedQuantity = Math.max(minQty - product.quantity, 0);
-      
-      // Só adicionar se realmente precisar comprar algo
       if (suggestedQuantity <= 0) return;
 
       suggestions.push({
+        type: 'product',
         product: {
           id: product.id,
           name: product.name,
@@ -163,13 +165,42 @@ export default function Purchases() {
       });
     });
 
-    // Ordenar: críticos primeiro
+    // Add EPIs with low stock
+    epis.forEach((epi) => {
+      const minQty = epi.min_quantity || 5;
+      
+      const isCritical = epi.quantity <= minQty * 0.5;
+      const isLow = epi.quantity <= minQty && !isCritical;
+      
+      if (!isCritical && !isLow) return;
+
+      const suggestedQuantity = Math.max(minQty - epi.quantity, 0);
+      if (suggestedQuantity <= 0) return;
+
+      suggestions.push({
+        type: 'epi',
+        product: {
+          id: epi.id,
+          name: epi.name,
+          sku: epi.ca_number,
+          quantity: epi.quantity,
+          min_quantity: minQty,
+          max_quantity: null,
+          supplier_id: null,
+        },
+        status: isCritical ? 'critical' : 'low',
+        suggestedQuantity,
+        lastPurchases: [],
+      });
+    });
+
+    // Sort: critical first, then by quantity
     return suggestions.sort((a, b) => {
       if (a.status === 'critical' && b.status !== 'critical') return -1;
       if (a.status !== 'critical' && b.status === 'critical') return 1;
       return a.product.quantity - b.product.quantity;
     });
-  }, [products, entries]);
+  }, [products, entries, epis]);
 
   // Filtrar sugestões
   const filteredSuggestions = useMemo(() => {
@@ -181,9 +212,12 @@ export default function Purchases() {
       const matchesStatus =
         statusFilter === "all" || suggestion.status === statusFilter;
 
-      return matchesSearch && matchesStatus;
+      const matchesType =
+        typeFilter === "all" || suggestion.type === typeFilter;
+
+      return matchesSearch && matchesStatus && matchesType;
     });
-  }, [purchaseSuggestions, searchTerm, statusFilter]);
+  }, [purchaseSuggestions, searchTerm, statusFilter, typeFilter]);
 
   const toggleRow = (productId: string) => {
     setExpandedRow(expandedRow === productId ? null : productId);
@@ -263,6 +297,7 @@ export default function Purchases() {
   const clearFilters = () => {
     setSearchTerm("");
     setStatusFilter("all");
+    setTypeFilter("all");
   };
 
   const getSupplierName = (supplierId: string | null) => {
@@ -284,6 +319,20 @@ export default function Purchases() {
     const bestPrice = getBestPrice(suggestion.lastPurchases);
 
     switch (columnKey) {
+      case "type":
+        return (
+          <Badge
+            variant="outline"
+            className={cn(
+              "font-medium",
+              suggestion.type === 'epi' 
+                ? "bg-primary/20 text-primary border-primary/30" 
+                : "bg-secondary text-secondary-foreground"
+            )}
+          >
+            {suggestion.type === 'epi' ? 'EPI' : 'Produto'}
+          </Badge>
+        );
       case "status":
         return (
           <Badge
@@ -374,7 +423,7 @@ export default function Purchases() {
     }
   };
 
-  if (loadingProducts) {
+  if (loadingProducts || loadingEPIs) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -384,6 +433,8 @@ export default function Purchases() {
 
   const criticalCount = purchaseSuggestions.filter((s) => s.status === 'critical').length;
   const lowCount = purchaseSuggestions.filter((s) => s.status === 'low').length;
+  const epiCount = purchaseSuggestions.filter((s) => s.type === 'epi').length;
+  const productCount = purchaseSuggestions.filter((s) => s.type === 'product').length;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -472,7 +523,7 @@ export default function Purchases() {
             )}
           >
             <AlertTriangle className="w-4 h-4 mr-2" />
-            Críticos
+            Críticos ({criticalCount})
           </Button>
           <Button
             variant={statusFilter === "low" ? "secondary" : "outline"}
@@ -483,7 +534,32 @@ export default function Purchases() {
             )}
           >
             <TrendingDown className="w-4 h-4 mr-2" />
-            Baixos
+            Baixos ({lowCount})
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={typeFilter === "all" ? "default" : "outline"}
+            onClick={() => setTypeFilter("all")}
+            size="sm"
+          >
+            Todos os Tipos
+          </Button>
+          <Button
+            variant={typeFilter === "product" ? "secondary" : "outline"}
+            onClick={() => setTypeFilter("product")}
+            size="sm"
+          >
+            <Package className="w-4 h-4 mr-2" />
+            Produtos ({productCount})
+          </Button>
+          <Button
+            variant={typeFilter === "epi" ? "secondary" : "outline"}
+            onClick={() => setTypeFilter("epi")}
+            size="sm"
+            className={typeFilter === "epi" ? "bg-primary/20 text-primary" : ""}
+          >
+            EPIs ({epiCount})
           </Button>
         </div>
       </div>

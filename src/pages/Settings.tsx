@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Settings as SettingsIcon,
@@ -13,6 +13,9 @@ import {
   Crown,
   UserCog,
   Eye,
+  Upload,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -31,6 +34,9 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useTheme, ColorPalette } from "@/hooks/useTheme";
+import { cn } from "@/lib/utils";
 
 interface NotificationSettings {
   id: string;
@@ -49,9 +55,21 @@ interface UserWithRole {
   role: string;
 }
 
+const COLOR_PALETTES: { id: ColorPalette; name: string; primary: string }[] = [
+  { id: "cyan", name: "Ciano", primary: "hsl(199, 89%, 48%)" },
+  { id: "violet", name: "Violeta", primary: "hsl(270, 76%, 60%)" },
+  { id: "emerald", name: "Esmeralda", primary: "hsl(160, 84%, 39%)" },
+  { id: "rose", name: "Rosa", primary: "hsl(350, 89%, 60%)" },
+  { id: "amber", name: "Âmbar", primary: "hsl(38, 92%, 50%)" },
+  { id: "blue", name: "Azul", primary: "hsl(217, 91%, 60%)" },
+];
+
 export default function Settings() {
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { settings: companySettings, updateSettings: updateCompanySettings, uploadLogo, isLoading: companyLoading } = useCompanySettings();
+  const { theme, setMode, setPalette, isDark } = useTheme();
 
   const [localSettings, setLocalSettings] = useState<Partial<NotificationSettings>>({
     email_low_stock: true,
@@ -61,7 +79,32 @@ export default function Settings() {
     epi_expiry_days: 30,
   });
 
-  // Fetch notification settings
+  const [companyForm, setCompanyForm] = useState({
+    name: "",
+    cnpj: "",
+    address: "",
+    city: "",
+    state: "",
+    zip_code: "",
+    phone: "",
+    email: "",
+  });
+
+  useEffect(() => {
+    if (companySettings) {
+      setCompanyForm({
+        name: companySettings.name || "",
+        cnpj: companySettings.cnpj || "",
+        address: companySettings.address || "",
+        city: companySettings.city || "",
+        state: companySettings.state || "",
+        zip_code: companySettings.zip_code || "",
+        phone: companySettings.phone || "",
+        email: companySettings.email || "",
+      });
+    }
+  }, [companySettings]);
+
   const { data: settings, isLoading: settingsLoading } = useQuery({
     queryKey: ['notification-settings', user?.id],
     queryFn: async () => {
@@ -71,29 +114,23 @@ export default function Settings() {
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
-
       if (error) throw error;
       return data as NotificationSettings | null;
     },
     enabled: !!user,
   });
 
-  // Fetch users with roles (admin only)
   const { data: usersWithRoles = [], isLoading: usersLoading } = useQuery({
     queryKey: ['users-with-roles'],
     queryFn: async () => {
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('user_id, full_name, email');
-
       if (profilesError) throw profilesError;
-
       const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
-
       if (rolesError) throw rolesError;
-
       return profiles.map(profile => ({
         id: profile.user_id,
         email: profile.email || '',
@@ -104,72 +141,62 @@ export default function Settings() {
     enabled: isAdmin,
   });
 
-  // Update local state when settings are loaded
   useEffect(() => {
-    if (settings) {
-      setLocalSettings(settings);
-    }
+    if (settings) setLocalSettings(settings);
   }, [settings]);
 
-  // Save notification settings
   const saveSettings = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Usuário não autenticado');
-
       const { error } = await supabase
         .from('notification_settings')
-        .upsert({
-          user_id: user.id,
-          ...localSettings,
-          updated_at: new Date().toISOString(),
-        });
-
+        .upsert({ user_id: user.id, ...localSettings, updated_at: new Date().toISOString() });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notification-settings'] });
-      toast({ title: "Configurações salvas!", description: "Suas alterações foram salvas com sucesso." });
+      toast({ title: "Configurações salvas!" });
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
     },
   });
 
-  // Update user role (admin only)
   const updateUserRole = useMutation({
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: "admin" | "almoxarife" | "visualizador" }) => {
-      const { error } = await supabase
-        .from('user_roles')
-        .update({ role: newRole })
-        .eq('user_id', userId);
-
+      const { error } = await supabase.from('user_roles').update({ role: newRole }).eq('user_id', userId);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
-      toast({ title: "Permissão atualizada", description: "A permissão do usuário foi alterada." });
+      toast({ title: "Permissão atualizada" });
     },
     onError: (error: Error) => {
-      toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
     },
   });
 
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const logoUrl = await uploadLogo(file);
+    if (logoUrl) {
+      updateCompanySettings.mutate({ logo_url: logoUrl });
+    }
+  };
+
+  const handleSaveCompany = () => {
+    updateCompanySettings.mutate(companyForm);
+  };
+
   const getRoleBadge = (role: string) => {
-    const styles = {
+    const styles: Record<string, string> = {
       admin: "bg-primary/20 text-primary",
       almoxarife: "bg-success/20 text-success",
       visualizador: "bg-muted text-muted-foreground",
     };
-    const labels = {
-      admin: "Administrador",
-      almoxarife: "Almoxarife",
-      visualizador: "Visualizador",
-    };
-    return (
-      <Badge className={styles[role as keyof typeof styles] || styles.visualizador}>
-        {labels[role as keyof typeof labels] || role}
-      </Badge>
-    );
+    const labels: Record<string, string> = { admin: "Administrador", almoxarife: "Almoxarife", visualizador: "Visualizador" };
+    return <Badge className={styles[role] || styles.visualizador}>{labels[role] || role}</Badge>;
   };
 
   const getRoleIcon = (role: string) => {
@@ -188,8 +215,12 @@ export default function Settings() {
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Configurações" }]}
       />
 
-      <Tabs defaultValue="notifications" className="space-y-4 sm:space-y-6">
+      <Tabs defaultValue="company" className="space-y-4 sm:space-y-6">
         <TabsList className="bg-secondary/50 flex-wrap h-auto gap-1 p-1 w-full sm:w-auto">
+          <TabsTrigger value="company" className="gap-2 text-xs sm:text-sm">
+            <Building2 className="w-4 h-4" />
+            <span className="hidden sm:inline">Empresa</span>
+          </TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2 text-xs sm:text-sm">
             <Bell className="w-4 h-4" />
             <span className="hidden sm:inline">Notificações</span>
@@ -210,6 +241,80 @@ export default function Settings() {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="company" className="space-y-4 sm:space-y-6">
+          <div className="glass rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
+            <div className="flex items-center gap-3 pb-4 border-b border-border/50">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Building2 className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Dados da Empresa</h3>
+                <p className="text-sm text-muted-foreground">Informações que aparecerão nos documentos</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-6">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-32 h-32 rounded-xl border-2 border-dashed border-border flex items-center justify-center bg-muted/50 overflow-hidden">
+                  {companySettings?.logo_url ? (
+                    <img src={companySettings.logo_url} alt="Logo" className="w-full h-full object-contain" />
+                  ) : (
+                    <Building2 className="w-12 h-12 text-muted-foreground" />
+                  )}
+                </div>
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleLogoUpload} />
+                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="w-4 h-4 mr-2" /> Enviar Logo
+                </Button>
+              </div>
+
+              <div className="flex-1 grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <Label>Nome da Empresa</Label>
+                  <Input value={companyForm.name} onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} />
+                </div>
+                <div>
+                  <Label>CNPJ</Label>
+                  <Input value={companyForm.cnpj} onChange={(e) => setCompanyForm({ ...companyForm, cnpj: e.target.value })} placeholder="00.000.000/0001-00" />
+                </div>
+                <div>
+                  <Label>Telefone</Label>
+                  <Input value={companyForm.phone} onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })} placeholder="(00) 0000-0000" />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Email</Label>
+                  <Input type="email" value={companyForm.email} onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })} />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Endereço</Label>
+                  <Input value={companyForm.address} onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Cidade</Label>
+                  <Input value={companyForm.city} onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Estado</Label>
+                    <Input value={companyForm.state} onChange={(e) => setCompanyForm({ ...companyForm, state: e.target.value })} maxLength={2} />
+                  </div>
+                  <div>
+                    <Label>CEP</Label>
+                    <Input value={companyForm.zip_code} onChange={(e) => setCompanyForm({ ...companyForm, zip_code: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-border/50">
+              <Button onClick={handleSaveCompany} className="gradient-primary" disabled={updateCompanySettings.isPending}>
+                {updateCompanySettings.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Salvar Empresa
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+
         <TabsContent value="notifications" className="space-y-4 sm:space-y-6">
           <div className="glass rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div className="flex items-center gap-3 pb-4 border-b border-border/50">
@@ -221,37 +326,27 @@ export default function Settings() {
                 <p className="text-sm text-muted-foreground">Gerencie as notificações do sistema</p>
               </div>
             </div>
-
             <div className="space-y-4 max-w-xl">
               <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
                 <div className="flex-1 mr-4">
-                  <p className="font-medium text-sm sm:text-base">Alerta de Estoque Baixo</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Notificar quando o estoque atingir o mínimo</p>
+                  <p className="font-medium">Alerta de Estoque Baixo</p>
+                  <p className="text-sm text-muted-foreground">Notificar quando o estoque atingir o mínimo</p>
                 </div>
-                <Switch
-                  checked={localSettings.email_low_stock}
-                  onCheckedChange={(checked) => setLocalSettings({ ...localSettings, email_low_stock: checked })}
-                />
+                <Switch checked={localSettings.email_low_stock} onCheckedChange={(checked) => setLocalSettings({ ...localSettings, email_low_stock: checked })} />
               </div>
               <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
                 <div className="flex-1 mr-4">
-                  <p className="font-medium text-sm sm:text-base">Alerta de EPIs Vencendo</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Notificar 30, 15 e 7 dias antes</p>
+                  <p className="font-medium">Alerta de EPIs Vencendo</p>
+                  <p className="text-sm text-muted-foreground">Notificar 30, 15 e 7 dias antes</p>
                 </div>
-                <Switch
-                  checked={localSettings.email_epi_expiring}
-                  onCheckedChange={(checked) => setLocalSettings({ ...localSettings, email_epi_expiring: checked })}
-                />
+                <Switch checked={localSettings.email_epi_expiring} onCheckedChange={(checked) => setLocalSettings({ ...localSettings, email_epi_expiring: checked })} />
               </div>
               <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
                 <div className="flex-1 mr-4">
-                  <p className="font-medium text-sm sm:text-base">Novas Requisições</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Notificar sobre novas solicitações</p>
+                  <p className="font-medium">Novas Requisições</p>
+                  <p className="text-sm text-muted-foreground">Notificar sobre novas solicitações</p>
                 </div>
-                <Switch
-                  checked={localSettings.email_new_requisition}
-                  onCheckedChange={(checked) => setLocalSettings({ ...localSettings, email_new_requisition: checked })}
-                />
+                <Switch checked={localSettings.email_new_requisition} onCheckedChange={(checked) => setLocalSettings({ ...localSettings, email_new_requisition: checked })} />
               </div>
             </div>
           </div>
@@ -268,29 +363,16 @@ export default function Settings() {
                 <p className="text-sm text-muted-foreground">Configure as regras do almoxarifado</p>
               </div>
             </div>
-
             <div className="grid gap-4 max-w-xl">
               <div className="grid gap-2">
                 <Label>Limite para Alerta de Estoque Baixo</Label>
-                <Input
-                  type="number"
-                  value={localSettings.low_stock_threshold || 10}
-                  onChange={(e) => setLocalSettings({ ...localSettings, low_stock_threshold: parseInt(e.target.value) || 10 })}
-                />
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Alertar quando o estoque estiver abaixo desta quantidade
-                </p>
+                <Input type="number" value={localSettings.low_stock_threshold || 10} onChange={(e) => setLocalSettings({ ...localSettings, low_stock_threshold: parseInt(e.target.value) || 10 })} />
+                <p className="text-sm text-muted-foreground">Alertar quando o estoque estiver abaixo desta quantidade</p>
               </div>
               <div className="grid gap-2">
                 <Label>Dias para Alerta de EPI</Label>
-                <Input
-                  type="number"
-                  value={localSettings.epi_expiry_days || 30}
-                  onChange={(e) => setLocalSettings({ ...localSettings, epi_expiry_days: parseInt(e.target.value) || 30 })}
-                />
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Alertar quando faltarem X dias para o EPI vencer
-                </p>
+                <Input type="number" value={localSettings.epi_expiry_days || 30} onChange={(e) => setLocalSettings({ ...localSettings, epi_expiry_days: parseInt(e.target.value) || 30 })} />
+                <p className="text-sm text-muted-foreground">Alertar quando faltarem X dias para o EPI vencer</p>
               </div>
             </div>
           </div>
@@ -308,36 +390,25 @@ export default function Settings() {
                   <p className="text-sm text-muted-foreground">Gerencie os acessos ao sistema</p>
                 </div>
               </div>
-
               {usersLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                </div>
+                <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
               ) : (
                 <div className="space-y-3">
                   {usersWithRoles.map((userItem) => (
-                    <div
-                      key={userItem.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg bg-secondary/50 gap-3"
-                    >
+                    <div key={userItem.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg bg-secondary/50 gap-3">
                       <div className="flex items-center gap-3">
                         {getRoleIcon(userItem.role)}
                         <div>
-                          <p className="font-medium text-sm sm:text-base">{userItem.full_name || 'Sem nome'}</p>
-                          <p className="text-xs sm:text-sm text-muted-foreground">{userItem.email}</p>
+                          <p className="font-medium">{userItem.full_name || 'Sem nome'}</p>
+                          <p className="text-sm text-muted-foreground">{userItem.email}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="flex items-center gap-3">
                         {userItem.id === user?.id ? (
                           <Badge variant="outline">Você</Badge>
                         ) : (
-                          <Select
-                            value={userItem.role}
-                            onValueChange={(newRole: "admin" | "almoxarife" | "visualizador") => updateUserRole.mutate({ userId: userItem.id, newRole })}
-                          >
-                            <SelectTrigger className="w-[140px] sm:w-[160px]">
-                              <SelectValue />
-                            </SelectTrigger>
+                          <Select value={userItem.role} onValueChange={(newRole: "admin" | "almoxarife" | "visualizador") => updateUserRole.mutate({ userId: userItem.id, newRole })}>
+                            <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="admin">Administrador</SelectItem>
                               <SelectItem value="almoxarife">Almoxarife</SelectItem>
@@ -351,15 +422,6 @@ export default function Settings() {
                   ))}
                 </div>
               )}
-
-              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                <h4 className="font-medium mb-2 text-sm sm:text-base">Níveis de Acesso</h4>
-                <ul className="text-xs sm:text-sm text-muted-foreground space-y-1">
-                  <li><strong>Administrador:</strong> Acesso total, pode gerenciar usuários e excluir dados</li>
-                  <li><strong>Almoxarife:</strong> Pode adicionar e editar produtos, entradas, saídas e funcionários</li>
-                  <li><strong>Visualizador:</strong> Apenas visualização dos dados</li>
-                </ul>
-              </div>
             </div>
           </TabsContent>
         )}
@@ -376,12 +438,36 @@ export default function Settings() {
               </div>
             </div>
 
-            <div className="space-y-4 max-w-xl">
-              <div className="grid gap-2">
-                <Label>Tema</Label>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  O sistema usa o tema escuro por padrão para melhor visualização em ambientes industriais.
-                </p>
+            <div className="space-y-6 max-w-xl">
+              <div className="space-y-3">
+                <Label>Modo de Exibição</Label>
+                <div className="flex gap-3">
+                  <Button variant={isDark ? "default" : "outline"} onClick={() => setMode("dark")} className="flex-1">
+                    <Moon className="w-4 h-4 mr-2" /> Escuro
+                  </Button>
+                  <Button variant={!isDark ? "default" : "outline"} onClick={() => setMode("light")} className="flex-1">
+                    <Sun className="w-4 h-4 mr-2" /> Claro
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label>Paleta de Cores</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  {COLOR_PALETTES.map((palette) => (
+                    <button
+                      key={palette.id}
+                      onClick={() => setPalette(palette.id)}
+                      className={cn(
+                        "p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-2",
+                        theme.palette === palette.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
+                      )}
+                    >
+                      <div className="w-8 h-8 rounded-full" style={{ backgroundColor: palette.primary }} />
+                      <span className="text-xs font-medium">{palette.name}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -389,16 +475,8 @@ export default function Settings() {
       </Tabs>
 
       <div className="flex justify-end">
-        <Button
-          onClick={() => saveSettings.mutate()}
-          className="gradient-primary text-primary-foreground glow-sm w-full sm:w-auto"
-          disabled={saveSettings.isPending}
-        >
-          {saveSettings.isPending ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <Save className="w-4 h-4 mr-2" />
-          )}
+        <Button onClick={() => saveSettings.mutate()} className="gradient-primary text-primary-foreground glow-sm w-full sm:w-auto" disabled={saveSettings.isPending}>
+          {saveSettings.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
           Salvar Alterações
         </Button>
       </div>
