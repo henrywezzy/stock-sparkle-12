@@ -137,8 +137,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const redirectUrl = `${window.location.origin}/`;
 
+      // Check if email already exists by attempting to sign in first
+      // This helps detect if user is already registered when Supabase doesn't return clear error
+      const { data: existingUsers } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', email.toLowerCase().trim())
+        .limit(1);
+
+      if (existingUsers && existingUsers.length > 0) {
+        toast({
+          title: "Email já cadastrado",
+          description: "Este email já está registrado no sistema. Tente fazer login.",
+          variant: "destructive",
+        });
+        return { error: new Error("Email já cadastrado") };
+      }
+
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: email.toLowerCase().trim(),
         password,
         options: {
           emailRedirectTo: redirectUrl,
@@ -149,9 +166,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        if (error.message.includes('already registered')) {
+        if (error.message.includes('already registered') || error.message.includes('User already registered')) {
           toast({
-            title: "Usuário já cadastrado",
+            title: "Email já cadastrado",
             description: "Este email já está registrado. Tente fazer login.",
             variant: "destructive",
           });
@@ -163,6 +180,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
         }
         return { error };
+      }
+
+      // Additional check: if user exists but session returned (auto-confirm enabled)
+      // This means user might already exist
+      if (data.user && data.user.identities?.length === 0) {
+        toast({
+          title: "Email já cadastrado",
+          description: "Este email já está registrado. Tente fazer login.",
+          variant: "destructive",
+        });
+        return { error: new Error("Email já cadastrado") };
       }
 
       // Send notification to admins about new user registration
