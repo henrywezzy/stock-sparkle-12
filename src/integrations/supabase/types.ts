@@ -438,6 +438,7 @@ export type Database = {
       products: {
         Row: {
           batch: string | null
+          brand: string | null
           category_id: string | null
           created_at: string
           deleted_at: string | null
@@ -458,6 +459,7 @@ export type Database = {
         }
         Insert: {
           batch?: string | null
+          brand?: string | null
           category_id?: string | null
           created_at?: string
           deleted_at?: string | null
@@ -478,6 +480,7 @@ export type Database = {
         }
         Update: {
           batch?: string | null
+          brand?: string | null
           category_id?: string | null
           created_at?: string
           deleted_at?: string | null

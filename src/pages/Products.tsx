@@ -91,11 +91,14 @@ export default function Products() {
 
   const [formData, setFormData] = useState<ProductFormData>({
     name: "",
+    brand: "",
     quantity: 0,
     min_quantity: 10,
     unit: "un",
     price: 0,
   });
+  
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -122,12 +125,14 @@ export default function Products() {
   const resetForm = () => {
     setFormData({
       name: "",
+      brand: "",
       quantity: 0,
       min_quantity: 10,
       unit: "un",
       price: 0,
     });
     setEditingProduct(null);
+    setFormErrors({});
   };
 
   const handleOpenDialog = (product?: Product) => {
@@ -136,6 +141,7 @@ export default function Products() {
       setFormData({
         name: product.name,
         sku: product.sku || "",
+        brand: product.brand || "",
         category_id: product.category_id || undefined,
         supplier_id: product.supplier_id || undefined,
         quantity: product.quantity,
@@ -148,19 +154,51 @@ export default function Products() {
     } else {
       resetForm();
     }
+    setFormErrors({});
     setIsDialogOpen(true);
   };
 
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    
+    if (!formData.name.trim()) {
+      errors.name = "Nome é obrigatório";
+    }
+    
+    if (formData.quantity === undefined || formData.quantity === null || isNaN(formData.quantity)) {
+      errors.quantity = "Quantidade é obrigatória e deve ser um número";
+    }
+    
+    if (formData.min_quantity === undefined || formData.min_quantity === null || isNaN(formData.min_quantity)) {
+      errors.min_quantity = "Estoque mínimo é obrigatório e deve ser um número";
+    }
+    
+    if (formData.price === undefined || formData.price === null || formData.price <= 0) {
+      errors.price = "Preço é obrigatório e deve ser maior que zero";
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async () => {
-    if (!formData.name) return;
+    if (!validateForm()) return;
+
+    // Don't send SKU on create (it's auto-generated or not editable)
+    const dataToSend = { ...formData };
+    if (!editingProduct) {
+      delete dataToSend.sku;
+    }
 
     if (editingProduct) {
+      // Remove sku from update as it should not be editable
+      const { sku, ...updateData } = dataToSend;
       await updateProduct.mutateAsync({
         id: editingProduct.id,
-        ...formData,
+        ...updateData,
       });
     } else {
-      await createProduct.mutateAsync(formData);
+      await createProduct.mutateAsync(dataToSend);
     }
 
     setIsDialogOpen(false);
@@ -450,14 +488,27 @@ export default function Products() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="sku">SKU</Label>
+                <Label htmlFor="sku">SKU (ID)</Label>
                 <Input
                   id="sku"
-                  value={formData.sku || ""}
-                  onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                  placeholder="PRD000"
+                  value={formData.sku || (editingProduct ? "" : "Gerado automaticamente")}
+                  disabled
+                  readOnly
+                  className="bg-muted cursor-not-allowed"
+                  placeholder="Gerado automaticamente"
                 />
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="brand">Marca</Label>
+                <Input
+                  id="brand"
+                  value={formData.brand || ""}
+                  onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                  placeholder="Ex: Gedore, Starrett..."
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="category">Categoria</Label>
                 <Select
@@ -476,18 +527,68 @@ export default function Products() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="supplier">Fornecedor</Label>
+                <Select
+                  value={formData.supplier_id}
+                  onValueChange={(value) => setFormData({ ...formData, supplier_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suppliers.map((sup) => (
+                      <SelectItem key={sup.id} value={sup.id}>
+                        {sup.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="quantity">Quantidade</Label>
+                <Label htmlFor="quantity">Estoque Atual *</Label>
                 <Input
                   id="quantity"
                   type="number"
-                  value={formData.quantity || ""}
-                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value === "" ? 0 : parseInt(e.target.value) })}
+                  min="0"
+                  value={formData.quantity ?? ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "" || /^\d+$/.test(value)) {
+                      setFormData({ ...formData, quantity: value === "" ? 0 : parseInt(value) });
+                    }
+                  }}
                   placeholder="0"
+                  className={formErrors.quantity ? "border-destructive" : ""}
                 />
+                {formErrors.quantity && (
+                  <span className="text-xs text-destructive">{formErrors.quantity}</span>
+                )}
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="minStock">Estoque Mínimo *</Label>
+                <Input
+                  id="minStock"
+                  type="number"
+                  min="0"
+                  value={formData.min_quantity ?? ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "" || /^\d+$/.test(value)) {
+                      setFormData({ ...formData, min_quantity: value === "" ? 0 : parseInt(value) });
+                    }
+                  }}
+                  placeholder="10"
+                  className={formErrors.min_quantity ? "border-destructive" : ""}
+                />
+                {formErrors.min_quantity && (
+                  <span className="text-xs text-destructive">{formErrors.min_quantity}</span>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="unit">Unidade</Label>
                 <Select
@@ -513,55 +614,27 @@ export default function Products() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="minStock">Estoque Mínimo</Label>
-                <Input
-                  id="minStock"
-                  type="number"
-                  value={formData.min_quantity || ""}
-                  onChange={(e) => setFormData({ ...formData, min_quantity: e.target.value === "" ? 10 : parseInt(e.target.value) })}
-                  placeholder="10"
-                />
-              </div>
               <div className="grid gap-2">
                 <Label htmlFor="price">Preço Unitário *</Label>
                 <CurrencyInput
                   id="price"
                   value={formData.price || 0}
                   onChange={(value) => setFormData({ ...formData, price: value })}
+                  className={formErrors.price ? "border-destructive" : ""}
                 />
+                {formErrors.price && (
+                  <span className="text-xs text-destructive">{formErrors.price}</span>
+                )}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="location">Localização</Label>
-                <Input
-                  id="location"
-                  value={formData.location || ""}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Ex: A1-P1"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="supplier">Fornecedor</Label>
-                <Select
-                  value={formData.supplier_id}
-                  onValueChange={(value) => setFormData({ ...formData, supplier_id: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map((sup) => (
-                      <SelectItem key={sup.id} value={sup.id}>
-                        {sup.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid gap-2">
+              <Label htmlFor="location">Localização</Label>
+              <Input
+                id="location"
+                value={formData.location || ""}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                placeholder="Ex: A1-P1"
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="description">Descrição</Label>

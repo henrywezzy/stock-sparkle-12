@@ -6,6 +6,7 @@ export interface Product {
   id: string;
   name: string;
   sku: string | null;
+  brand: string | null;
   category_id: string | null;
   supplier_id: string | null;
   quantity: number;
@@ -28,6 +29,7 @@ export interface Product {
 export interface ProductFormData {
   name: string;
   sku?: string;
+  brand?: string;
   category_id?: string;
   supplier_id?: string;
   quantity: number;
