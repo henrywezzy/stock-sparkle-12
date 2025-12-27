@@ -165,6 +165,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error };
       }
 
+      // Send notification to admins about new user registration
+      try {
+        await supabase.functions.invoke('send-notification-email', {
+          body: {
+            type: 'new_user_registration',
+            userEmail: email,
+            userName: fullName,
+          },
+        });
+        console.log('Admin notification sent successfully');
+      } catch (notifyError) {
+        console.error('Failed to send admin notification:', notifyError);
+        // Don't fail the signup if notification fails
+      }
+
       // Check if email confirmation is required
       const needsEmailConfirmation = data.user && !data.session;
       
