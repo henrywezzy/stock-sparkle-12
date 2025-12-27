@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { TermoEntrega } from "@/hooks/useTermosEntrega";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { DeliveryTermPrint } from "./DeliveryTermPrint";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -24,8 +25,18 @@ interface TermoViewDialogProps {
 
 export function TermoViewDialog({ open, onOpenChange, termo }: TermoViewDialogProps) {
   const printRef = useRef<HTMLDivElement>(null);
+  const { settings: companySettings } = useCompanySettings();
 
   if (!termo) return null;
+
+  const company = {
+    name: companySettings?.name || "Empresa XYZ Ltda",
+    cnpj: companySettings?.cnpj || "00.000.000/0001-00",
+    address: companySettings?.address 
+      ? `${companySettings.address}${companySettings.city ? ` - ${companySettings.city}` : ''}${companySettings.state ? `/${companySettings.state}` : ''}`
+      : "Rua Exemplo, 123 - Centro - Cidade/UF",
+    phone: companySettings?.phone || "(00) 0000-0000",
+  };
 
   const handlePrint = () => {
     window.print();
@@ -38,12 +49,12 @@ export function TermoViewDialog({ open, onOpenChange, termo }: TermoViewDialogPr
     // Company Header
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("Empresa XYZ Ltda", 14, 15);
+    doc.text(company.name, 14, 15);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text("CNPJ: 00.000.000/0001-00", 14, 21);
-    doc.text("Rua Exemplo, 123 - Centro - Cidade/UF", 14, 26);
-    doc.text("Tel: (00) 0000-0000", 14, 31);
+    doc.text(`CNPJ: ${company.cnpj}`, 14, 21);
+    doc.text(company.address, 14, 26);
+    doc.text(`Tel: ${company.phone}`, 14, 31);
     
     // Term number and date
     doc.setFontSize(10);
@@ -181,12 +192,12 @@ export function TermoViewDialog({ open, onOpenChange, termo }: TermoViewDialogPr
     doc.setTextColor(0);
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("Empresa XYZ Ltda", 14, 15);
+    doc.text(company.name, 14, 15);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text("CNPJ: 00.000.000/0001-00", 14, 21);
-    doc.text("Rua Exemplo, 123 - Centro - Cidade/UF", 14, 26);
-    doc.text("Tel: (00) 0000-0000", 14, 31);
+    doc.text(`CNPJ: ${company.cnpj}`, 14, 21);
+    doc.text(company.address, 14, 26);
+    doc.text(`Tel: ${company.phone}`, 14, 31);
     
     doc.setFontSize(10);
     doc.text(`Nº ${termo.numero}`, pageWidth - 14, 15, { align: "right" });
@@ -333,7 +344,7 @@ export function TermoViewDialog({ open, onOpenChange, termo }: TermoViewDialogPr
         </DialogHeader>
 
         <div ref={printRef}>
-          <DeliveryTermPrint termo={termo} />
+          <DeliveryTermPrint termo={termo} companySettings={companySettings} />
         </div>
 
         <DialogFooter className="no-print gap-2">

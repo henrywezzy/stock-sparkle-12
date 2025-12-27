@@ -24,6 +24,7 @@ import {
 import { useEmployees } from "@/hooks/useEmployees";
 import { useEPIs, EPI } from "@/hooks/useEPIs";
 import { useTermosEntrega, TermoEntrega } from "@/hooks/useTermosEntrega";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { DeliveryTermPrint } from "./DeliveryTermPrint";
@@ -49,6 +50,7 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
   const { employees } = useEmployees();
   const { epis } = useEPIs();
   const { createTermo } = useTermosEntrega();
+  const { settings: companySettings } = useCompanySettings();
   const { user } = useAuth();
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -57,6 +59,15 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
   const [observacoes, setObservacoes] = useState("");
   const [epiItems, setEpiItems] = useState<EPIItem[]>([]);
   const [createdTermo, setCreatedTermo] = useState<TermoEntrega | null>(null);
+
+  const company = {
+    name: companySettings?.name || "Empresa XYZ Ltda",
+    cnpj: companySettings?.cnpj || "00.000.000/0001-00",
+    address: companySettings?.address 
+      ? `${companySettings.address}${companySettings.city ? ` - ${companySettings.city}` : ''}${companySettings.state ? `/${companySettings.state}` : ''}`
+      : "Rua Exemplo, 123 - Centro - Cidade/UF",
+    phone: companySettings?.phone || "(00) 0000-0000",
+  };
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -213,12 +224,12 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
     // Company Header
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("Empresa XYZ Ltda", 14, 15);
+    doc.text(company.name, 14, 15);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text("CNPJ: 00.000.000/0001-00", 14, 21);
-    doc.text("Rua Exemplo, 123 - Centro - Cidade/UF", 14, 26);
-    doc.text("Tel: (00) 0000-0000", 14, 31);
+    doc.text(`CNPJ: ${company.cnpj}`, 14, 21);
+    doc.text(company.address, 14, 26);
+    doc.text(`Tel: ${company.phone}`, 14, 31);
     
     // Term number and date
     doc.setFontSize(10);
@@ -361,12 +372,12 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
     doc.setTextColor(0);
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("Empresa XYZ Ltda", 14, 15);
+    doc.text(company.name, 14, 15);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text("CNPJ: 00.000.000/0001-00", 14, 21);
-    doc.text("Rua Exemplo, 123 - Centro - Cidade/UF", 14, 26);
-    doc.text("Tel: (00) 0000-0000", 14, 31);
+    doc.text(`CNPJ: ${company.cnpj}`, 14, 21);
+    doc.text(company.address, 14, 26);
+    doc.text(`Tel: ${company.phone}`, 14, 31);
     
     doc.setFontSize(10);
     doc.text(`Nº ${createdTermo.numero}`, pageWidth - 14, 15, { align: "right" });
@@ -639,7 +650,7 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
             </DialogHeader>
 
             <div ref={printRef}>
-              {createdTermo && <DeliveryTermPrint termo={createdTermo} />}
+              {createdTermo && <DeliveryTermPrint termo={createdTermo} companySettings={companySettings} />}
             </div>
 
             <DialogFooter className="no-print gap-2">
