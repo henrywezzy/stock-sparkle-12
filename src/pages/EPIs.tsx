@@ -321,9 +321,6 @@ export default function EPIs() {
               { key: "employee", header: "Funcionário", render: (t: TermoEntrega) => t.employees?.name || '-' },
               { key: "date", header: "Data", render: (t: TermoEntrega) => format(new Date(t.data_emissao), "dd/MM/yyyy", { locale: ptBR }) },
               { key: "items", header: "Itens", render: (t: TermoEntrega) => `${t.termo_epis?.length || 0} EPIs` },
-              { key: "status", header: "Status", render: (t: TermoEntrega) => (
-                <Badge variant={t.status === 'pendente' ? 'secondary' : 'default'}>{t.status}</Badge>
-              )},
               { key: "actions", header: "Ações", render: (t: TermoEntrega) => (
                 <Button 
                   variant="ghost" 

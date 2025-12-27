@@ -97,7 +97,6 @@ export const useTermosEntrega = () => {
           employee_id: termo.employee_id,
           responsavel_nome: termo.responsavel_nome,
           observacoes: termo.observacoes,
-          status: 'pendente',
         }])
         .select()
         .single();
@@ -167,34 +166,6 @@ export const useTermosEntrega = () => {
     },
   });
 
-  const updateTermoStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { data, error } = await supabase
-        .from('termos_entrega')
-        .update({ status })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['termos_entrega'] });
-      toast({
-        title: 'Status atualizado',
-        description: 'O status do termo foi atualizado.',
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Erro ao atualizar',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-
   const deleteTermo = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('termos_entrega').delete().eq('id', id);
@@ -229,7 +200,6 @@ export const useTermosEntrega = () => {
     isLoading,
     error,
     createTermo,
-    updateTermoStatus,
     deleteTermo,
     getTermoById,
     getTermosByEmployee,
