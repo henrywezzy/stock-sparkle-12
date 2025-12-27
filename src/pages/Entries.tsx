@@ -841,9 +841,13 @@ export default function Entries() {
                   type="number"
                   min="1"
                   value={formData.quantity || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })
-                  }
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "" || /^\d+$/.test(value)) {
+                      setFormData({ ...formData, quantity: value === "" ? 0 : parseInt(value) });
+                    }
+                  }}
+                  placeholder="Quantidade"
                 />
               </div>
               <div className="grid gap-2">
