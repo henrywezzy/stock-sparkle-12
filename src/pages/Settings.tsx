@@ -16,6 +16,10 @@ import {
   Upload,
   Sun,
   Moon,
+  Trash2,
+  UserCheck,
+  UserX,
+  AlertTriangle,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -37,6 +41,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useTheme, ColorPalette } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface NotificationSettings {
   id: string;
@@ -70,6 +84,9 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { settings: companySettings, updateSettings: updateCompanySettings, uploadLogo, isLoading: companyLoading } = useCompanySettings();
   const { theme, setMode, setPalette, isDark } = useTheme();
+
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [deleteUserName, setDeleteUserName] = useState<string>("");
 
   const [localSettings, setLocalSettings] = useState<Partial<NotificationSettings>>({
     email_low_stock: true,
@@ -175,6 +192,40 @@ export default function Settings() {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     },
   });
+
+  const deleteUser = useMutation({
+    mutationFn: async (userId: string) => {
+      // Delete user role first
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+      if (roleError) throw roleError;
+
+      // Delete profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('user_id', userId);
+      if (profileError) throw profileError;
+
+      // Note: The actual auth.users deletion requires admin API access
+      // The user data will be cleaned but auth record remains
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      toast({ title: "Usuário removido", description: "O acesso do usuário foi revogado." });
+      setDeleteUserId(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao remover usuário", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleDeleteUser = (userId: string, userName: string) => {
+    setDeleteUserId(userId);
+    setDeleteUserName(userName);
+  };
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -403,18 +454,28 @@ export default function Settings() {
                           <p className="text-sm text-muted-foreground">{userItem.email}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                         {userItem.id === user?.id ? (
                           <Badge variant="outline">Você</Badge>
                         ) : (
-                          <Select value={userItem.role} onValueChange={(newRole: "admin" | "almoxarife" | "visualizador") => updateUserRole.mutate({ userId: userItem.id, newRole })}>
-                            <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="admin">Administrador</SelectItem>
-                              <SelectItem value="almoxarife">Almoxarife</SelectItem>
-                              <SelectItem value="visualizador">Visualizador</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <>
+                            <Select value={userItem.role} onValueChange={(newRole: "admin" | "almoxarife" | "visualizador") => updateUserRole.mutate({ userId: userItem.id, newRole })}>
+                              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">Administrador</SelectItem>
+                                <SelectItem value="almoxarife">Almoxarife</SelectItem>
+                                <SelectItem value="visualizador">Visualizador</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeleteUser(userItem.id, userItem.full_name || userItem.email)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
                         )}
                         {getRoleBadge(userItem.role)}
                       </div>
@@ -480,6 +541,32 @@ export default function Settings() {
           Salvar Alterações
         </Button>
       </div>
+
+      {/* Delete User Confirmation Dialog */}
+      <AlertDialog open={!!deleteUserId} onOpenChange={() => setDeleteUserId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Remover Usuário
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover o acesso de <strong>{deleteUserName}</strong>?
+              Esta ação irá revogar todas as permissões do usuário no sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteUserId && deleteUser.mutate(deleteUserId)}
+            >
+              {deleteUser.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

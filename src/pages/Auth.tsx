@@ -6,30 +6,75 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Package, Loader2, Eye, EyeOff, Check, X, Mail } from 'lucide-react';
 import { z } from 'zod';
 
+// Validação de email mais rigorosa
+const emailSchema = z.string()
+  .min(1, 'Email é obrigatório')
+  .email('Formato de email inválido')
+  .refine((email) => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(email);
+  }, 'Email inválido');
+
+// Validação de senha forte
+const passwordSchema = z.string()
+  .min(7, 'A senha deve ter no mínimo 7 caracteres')
+  .refine((password) => /[a-zA-Z]/.test(password), 'A senha deve conter pelo menos uma letra')
+  .refine((password) => /[0-9]/.test(password), 'A senha deve conter pelo menos um número')
+  .refine((password) => /[!@#$%^&*(),.?":{}|<>]/.test(password), 'A senha deve conter pelo menos um símbolo');
+
 const loginSchema = z.object({
-  email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),
+  email: emailSchema,
+  password: z.string().min(1, 'Senha é obrigatória'),
 });
 
 const signUpSchema = z.object({
   fullName: z.string().min(2, 'O nome deve ter no mínimo 2 caracteres'),
-  email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),
+  email: emailSchema,
+  password: passwordSchema,
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'As senhas não conferem',
   path: ['confirmPassword'],
 });
 
+// Componente de indicador de força de senha
+const PasswordStrengthIndicator = ({ password }: { password: string }) => {
+  const checks = [
+    { label: 'Mínimo 7 caracteres', valid: password.length >= 7 },
+    { label: 'Contém letra', valid: /[a-zA-Z]/.test(password) },
+    { label: 'Contém número', valid: /[0-9]/.test(password) },
+    { label: 'Contém símbolo', valid: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
+  ];
+
+  return (
+    <div className="mt-2 space-y-1">
+      {checks.map((check, index) => (
+        <div key={index} className="flex items-center gap-2 text-xs">
+          {check.valid ? (
+            <Check className="w-3 h-3 text-success" />
+          ) : (
+            <X className="w-3 h-3 text-muted-foreground" />
+          )}
+          <span className={check.valid ? 'text-success' : 'text-muted-foreground'}>
+            {check.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const Auth = () => {
   const navigate = useNavigate();
   const { signIn, signUp, user, loading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [emailConfirmationSent, setEmailConfirmationSent] = useState(false);
 
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [signUpData, setSignUpData] = useState({
@@ -93,11 +138,15 @@ const Auth = () => {
     }
 
     setIsLoading(true);
-    const { error } = await signUp(signUpData.email, signUpData.password, signUpData.fullName);
+    const { error, emailConfirmation } = await signUp(signUpData.email, signUpData.password, signUpData.fullName);
     setIsLoading(false);
 
     if (!error) {
-      navigate('/');
+      if (emailConfirmation) {
+        setEmailConfirmationSent(true);
+      } else {
+        navigate('/');
+      }
     }
   };
 
@@ -105,6 +154,38 @@ const Auth = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (emailConfirmationSent) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-card/50 backdrop-blur-sm border-border/50">
+          <CardContent className="pt-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-4">
+              <Mail className="w-8 h-8 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Verifique seu email</h2>
+            <p className="text-muted-foreground mb-4">
+              Enviamos um link de confirmação para <strong>{signUpData.email}</strong>. 
+              Clique no link para ativar sua conta.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Após confirmar seu email, você poderá fazer login no sistema.
+            </p>
+            <Button 
+              variant="outline" 
+              className="mt-6"
+              onClick={() => {
+                setEmailConfirmationSent(false);
+                setSignUpData({ fullName: '', email: '', password: '', confirmPassword: '' });
+              }}
+            >
+              Voltar para login
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -244,18 +325,28 @@ const Auth = () => {
                     {errors.password && (
                       <p className="text-sm text-destructive">{errors.password}</p>
                     )}
+                    <PasswordStrengthIndicator password={signUpData.password} />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="signup-confirm">Confirmar Senha</Label>
-                    <Input
-                      id="signup-confirm"
-                      type="password"
-                      placeholder="••••••••"
-                      value={signUpData.confirmPassword}
-                      onChange={(e) => setSignUpData({ ...signUpData, confirmPassword: e.target.value })}
-                      className={errors.confirmPassword ? 'border-destructive' : ''}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="signup-confirm"
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={signUpData.confirmPassword}
+                        onChange={(e) => setSignUpData({ ...signUpData, confirmPassword: e.target.value })}
+                        className={errors.confirmPassword ? 'border-destructive pr-10' : 'pr-10'}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                     {errors.confirmPassword && (
                       <p className="text-sm text-destructive">{errors.confirmPassword}</p>
                     )}
@@ -273,7 +364,8 @@ const Auth = () => {
                   </Button>
 
                   <p className="text-xs text-muted-foreground text-center">
-                    O primeiro usuário cadastrado será automaticamente administrador.
+                    Após o cadastro, você receberá um email de confirmação.
+                    O primeiro usuário será automaticamente administrador.
                   </p>
                 </form>
               </TabsContent>
