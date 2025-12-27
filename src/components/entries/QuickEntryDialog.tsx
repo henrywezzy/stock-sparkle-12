@@ -55,7 +55,7 @@ export function QuickEntryDialog({ trigger }: QuickEntryDialogProps) {
       await createEntry.mutateAsync({
         product_id: productId,
         quantity: parseInt(quantity),
-        supplier_id: supplierId || undefined,
+        supplier_id: supplierId && supplierId !== "none" ? supplierId : undefined,
       });
 
       toast({
@@ -153,7 +153,7 @@ export function QuickEntryDialog({ trigger }: QuickEntryDialogProps) {
                 <SelectValue placeholder="Selecione o fornecedor" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhum</SelectItem>
+                <SelectItem value="none">Nenhum</SelectItem>
                 {suppliers.map((supplier) => (
                   <SelectItem key={supplier.id} value={supplier.id}>
                     {supplier.name}
