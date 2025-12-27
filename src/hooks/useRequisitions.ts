@@ -108,11 +108,15 @@ export const useRequisitions = () => {
         .from('requisitions')
         .update(updateData)
         .eq('id', id)
-        .select()
+        .select(`
+          *,
+          products (name, sku, quantity),
+          employees (name, department)
+        `)
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Requisition;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['requisitions'] });
@@ -121,7 +125,7 @@ export const useRequisitions = () => {
         approved: { title: 'Requisição aprovada', description: 'A requisição foi aprovada e está pronta para separação.' },
         rejected: { title: 'Requisição rejeitada', description: 'A requisição foi rejeitada.' },
         in_separation: { title: 'Em separação', description: 'Os itens estão sendo separados.' },
-        delivered: { title: 'Entregue', description: 'A requisição foi entregue com sucesso.' },
+        delivered: { title: 'Entregue', description: 'A requisição foi entregue e saída registrada automaticamente.' },
         cancelled: { title: 'Cancelada', description: 'A requisição foi cancelada.' },
       };
 
@@ -175,8 +179,40 @@ export const useRequisitions = () => {
     return updateRequisition.mutateAsync({ id, status: 'in_separation' });
   };
 
-  const markAsDelivered = (id: string) => {
-    return updateRequisition.mutateAsync({ id, status: 'delivered' });
+  // Marcar como entregue E criar saída automaticamente
+  const markAsDelivered = async (id: string) => {
+    // Buscar a requisição completa
+    const requisition = requisitions.find(r => r.id === id);
+    if (!requisition) {
+      throw new Error('Requisição não encontrada');
+    }
+
+    // 1. Atualizar status da requisição
+    await updateRequisition.mutateAsync({ id, status: 'delivered' });
+
+    // 2. Criar saída automaticamente vinculada à requisição
+    const { error: exitError } = await supabase.from('exits').insert([{
+      product_id: requisition.product_id,
+      employee_id: requisition.employee_id,
+      quantity: requisition.quantity,
+      destination: requisition.employees?.department || 'Requisição',
+      reason: `Requisição #${id.substring(0, 8)}`,
+      notes: `Saída automática - Requisição entregue`,
+      requisition_id: id,
+    }]);
+
+    if (exitError) {
+      toast({
+        title: 'Aviso',
+        description: 'Requisição entregue, mas houve erro ao criar saída automática.',
+        variant: 'destructive',
+      });
+    } else {
+      // Invalidar queries relacionadas
+      queryClient.invalidateQueries({ queryKey: ['exits'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-history'] });
+    }
   };
 
   const cancelRequisition = (id: string, notes?: string) => {

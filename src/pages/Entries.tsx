@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, Edit, Trash2, ArrowDownToLine, Calendar, Loader2, X, Package, Hash } from "lucide-react";
+import { Plus, Search, Edit, Trash2, ArrowDownToLine, Calendar, Loader2, X, Package, Hash, Zap } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { useColumnPreferences } from "@/hooks/useColumnPreferences";
 import { ColumnSettings } from "@/components/ui/column-settings";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { formatCurrency } from "@/lib/currency";
+import { QuickEntryDialog } from "@/components/entries/QuickEntryDialog";
 import {
   Dialog,
   DialogContent,
@@ -450,14 +451,24 @@ export default function Entries() {
               onReset={resetToDefaults}
             />
             {canEdit && (
-              <Button
-                className="gradient-primary text-primary-foreground glow-sm"
-                onClick={() => handleOpenDialog()}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Nova Entrada</span>
-                <span className="sm:hidden">Nova</span>
-              </Button>
+              <>
+                <QuickEntryDialog
+                  trigger={
+                    <Button variant="outline" className="gap-2">
+                      <Zap className="w-4 h-4" />
+                      <span className="hidden sm:inline">Rápida</span>
+                    </Button>
+                  }
+                />
+                <Button
+                  className="gradient-primary text-primary-foreground glow-sm"
+                  onClick={() => handleOpenDialog()}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Nova Entrada</span>
+                  <span className="sm:hidden">Nova</span>
+                </Button>
+              </>
             )}
           </div>
         }

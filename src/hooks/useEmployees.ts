@@ -13,6 +13,7 @@ export interface Employee {
   email: string | null;
   photo_url: string | null;
   status: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -38,6 +39,7 @@ export const useEmployees = () => {
       const { data, error } = await supabase
         .from('employees')
         .select('*')
+        .is('deleted_at', null)
         .order('name');
 
       if (error) throw error;
@@ -100,21 +102,25 @@ export const useEmployees = () => {
     },
   });
 
+  // Soft delete
   const deleteEmployee = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('employees').delete().eq('id', id);
+      const { error } = await supabase
+        .from('employees')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       toast({
-        title: 'Funcionário excluído',
+        title: 'Funcionário removido',
         description: 'O funcionário foi removido com sucesso.',
       });
     },
     onError: (error: Error) => {
       toast({
-        title: 'Erro ao excluir funcionário',
+        title: 'Erro ao remover funcionário',
         description: error.message,
         variant: 'destructive',
       });

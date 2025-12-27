@@ -13,6 +13,7 @@ export interface Supplier {
   status: string | null;
   rating: number | null;
   notes: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -39,6 +40,7 @@ export const useSuppliers = () => {
       const { data, error } = await supabase
         .from('suppliers')
         .select('*')
+        .is('deleted_at', null)
         .order('name');
 
       if (error) throw error;
@@ -101,21 +103,25 @@ export const useSuppliers = () => {
     },
   });
 
+  // Soft delete
   const deleteSupplier = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('suppliers').delete().eq('id', id);
+      const { error } = await supabase
+        .from('suppliers')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       toast({
-        title: 'Fornecedor excluído',
+        title: 'Fornecedor removido',
         description: 'O fornecedor foi removido com sucesso.',
       });
     },
     onError: (error: Error) => {
       toast({
-        title: 'Erro ao excluir fornecedor',
+        title: 'Erro ao remover fornecedor',
         description: error.message,
         variant: 'destructive',
       });
