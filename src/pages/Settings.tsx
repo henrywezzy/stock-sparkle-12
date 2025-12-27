@@ -200,11 +200,29 @@ export default function Settings() {
 
   const approveUser = useMutation({
     mutationFn: async (userId: string) => {
+      // Get user info before approving
+      const userToApprove = usersWithRoles.find(u => u.id === userId);
+      
       const { error } = await supabase
         .from('user_roles')
         .update({ approved: true })
         .eq('user_id', userId);
       if (error) throw error;
+
+      // Send approval email to user
+      if (userToApprove?.email) {
+        try {
+          await supabase.functions.invoke('send-notification-email', {
+            body: {
+              type: 'user_approved',
+              userEmail: userToApprove.email,
+              userName: userToApprove.full_name,
+            },
+          });
+        } catch (notifyError) {
+          console.error('Failed to send approval notification:', notifyError);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
@@ -218,11 +236,29 @@ export default function Settings() {
 
   const revokeApproval = useMutation({
     mutationFn: async (userId: string) => {
+      // Get user info before revoking
+      const userToRevoke = usersWithRoles.find(u => u.id === userId);
+      
       const { error } = await supabase
         .from('user_roles')
         .update({ approved: false })
         .eq('user_id', userId);
       if (error) throw error;
+
+      // Send rejection email to user
+      if (userToRevoke?.email) {
+        try {
+          await supabase.functions.invoke('send-notification-email', {
+            body: {
+              type: 'user_rejected',
+              userEmail: userToRevoke.email,
+              userName: userToRevoke.full_name,
+            },
+          });
+        } catch (notifyError) {
+          console.error('Failed to send rejection notification:', notifyError);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
