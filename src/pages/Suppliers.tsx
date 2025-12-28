@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MaskedInput } from "@/components/ui/masked-input";
 import { Badge } from "@/components/ui/badge";
+import { ViaCEPResponse } from "@/lib/masks";
 import { useSuppliers, Supplier, SupplierFormData } from "@/hooks/useSuppliers";
 import { useAuth } from "@/contexts/AuthContext";
 import {
