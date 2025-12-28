@@ -17,6 +17,8 @@ export const MaskedInput = React.forwardRef<HTMLInputElement, MaskedInputProps>(
   ({ mask, value, onChange, className, showValidation = true, onAddressFound, onCompanyFound, ...props }, ref) => {
     const [isLoading, setIsLoading] = React.useState(false);
     const [validationState, setValidationState] = React.useState<'valid' | 'invalid' | null>(null);
+    const lastFetchedCEP = React.useRef<string>('');
+    const lastFetchedCNPJ = React.useRef<string>('');
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const inputValue = e.target.value;
@@ -64,17 +66,24 @@ export const MaskedInput = React.forwardRef<HTMLInputElement, MaskedInputProps>(
       } else {
         setValidationState(null);
       }
-    }, [value, mask, showValidation, onCompanyFound, isLoading]);
+    }, [value, mask, showValidation, isLoading]);
 
-    // Busca CEP automaticamente
+    // Busca CEP automaticamente - usando ref para evitar buscas duplicadas
     React.useEffect(() => {
       if (mask !== 'cep' || !onAddressFound) return;
       
       const numbers = onlyNumbers(value);
-      if (numbers.length !== 8) return;
+      if (numbers.length !== 8) {
+        lastFetchedCEP.current = '';
+        return;
+      }
+
+      // Não buscar se já buscou esse CEP
+      if (lastFetchedCEP.current === numbers) return;
 
       const fetchAddress = async () => {
         setIsLoading(true);
+        lastFetchedCEP.current = numbers;
         const address = await fetchAddressByCEP(value);
         setIsLoading(false);
         
@@ -88,14 +97,20 @@ export const MaskedInput = React.forwardRef<HTMLInputElement, MaskedInputProps>(
 
       const debounce = setTimeout(fetchAddress, 500);
       return () => clearTimeout(debounce);
-    }, [value, mask, onAddressFound]);
+    }, [value, mask]);
 
-    // Busca CNPJ automaticamente
+    // Busca CNPJ automaticamente - usando ref para evitar buscas duplicadas
     React.useEffect(() => {
       if (mask !== 'cnpj' || !onCompanyFound) return;
       
       const numbers = onlyNumbers(value);
-      if (numbers.length !== 14) return;
+      if (numbers.length !== 14) {
+        lastFetchedCNPJ.current = '';
+        return;
+      }
+      
+      // Não buscar se já buscou esse CNPJ
+      if (lastFetchedCNPJ.current === numbers) return;
       
       // Verifica se é um CNPJ válido antes de buscar
       if (!isValidCNPJ(value)) {
@@ -105,6 +120,7 @@ export const MaskedInput = React.forwardRef<HTMLInputElement, MaskedInputProps>(
 
       const fetchCompany = async () => {
         setIsLoading(true);
+        lastFetchedCNPJ.current = numbers;
         const company = await fetchCompanyByCNPJ(value);
         setIsLoading(false);
         
@@ -119,7 +135,7 @@ export const MaskedInput = React.forwardRef<HTMLInputElement, MaskedInputProps>(
 
       const debounce = setTimeout(fetchCompany, 800);
       return () => clearTimeout(debounce);
-    }, [value, mask, onCompanyFound]);
+    }, [value, mask]);
 
     const showIcon = showValidation && (mask === 'cnpj' || mask === 'cpf' || mask === 'date' || (mask === 'cep' && onAddressFound));
 

@@ -26,6 +26,7 @@ import {
   Bar,
 } from "recharts";
 import { useProducts } from "@/hooks/useProducts";
+import { useAuth } from "@/contexts/AuthContext";
 import { useEntries } from "@/hooks/useEntries";
 import { useExits } from "@/hooks/useExits";
 import { useCategories } from "@/hooks/useCategories";
@@ -42,6 +43,7 @@ export default function Dashboard() {
   const { exits } = useExits();
   const { categories } = useCategories();
   const { employees } = useEmployees();
+  const { isViewer } = useAuth();
 
   // Estatísticas gerais
   const totalProducts = products.length;
@@ -209,6 +211,122 @@ export default function Dashboard() {
       .sort((a, b) => b.date.getTime() - a.date.getTime())
       .slice(0, 5);
   }, [entries, exits]);
+
+  // Se for visualizador, mostrar dashboard simplificado
+  if (isViewer) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Dashboard"
+          description="Visão geral do almoxarifado"
+        />
+
+        {/* Stats Grid - Apenas total e categorias */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <StatCard
+            title="Total de Produtos"
+            value={totalProducts}
+            icon={Package}
+          />
+          <StatCard
+            title="Categorias"
+            value={categories.length}
+            icon={Package}
+          />
+          <StatCard
+            title="Estoque Crítico"
+            value={criticalStockCount}
+            icon={AlertTriangle}
+            className={criticalStockCount > 0 ? "border-destructive/50" : ""}
+          />
+        </div>
+
+        {/* Low Stock Alert Banner */}
+        {criticalStockCount > 0 && (
+          <div className="rounded-xl p-4 flex items-center gap-3 bg-destructive/10 border border-destructive/30">
+            <AlertTriangle className="w-5 h-5 text-destructive" />
+            <div>
+              <p className="font-medium">
+                <span className="text-destructive">{criticalStockCount} produto(s) sem estoque</span>
+              </p>
+              <p className="text-sm text-muted-foreground">Consulte a página de produtos para mais detalhes</p>
+            </div>
+          </div>
+        )}
+
+        {/* Category Distribution */}
+        <div className="glass rounded-xl p-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Package className="w-5 h-5 text-primary" />
+            Distribuição por Categoria
+          </h3>
+          {categoryDistribution.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={categoryDistribution}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  paddingAngle={5}
+                  dataKey="value"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  labelLine={false}
+                >
+                  {categoryDistribution.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(222, 47%, 10%)",
+                    border: "1px solid hsl(222, 47%, 16%)",
+                    borderRadius: "8px",
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              Nenhum dado disponível
+            </div>
+          )}
+        </div>
+
+        {/* Product Status */}
+        <div className="glass rounded-xl p-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <HardHat className="w-5 h-5 text-primary" />
+            Status dos Produtos (Validade)
+          </h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart
+              data={productStatusData}
+              layout="vertical"
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(222, 47%, 16%)" />
+              <XAxis type="number" stroke="hsl(215, 20%, 55%)" fontSize={12} />
+              <YAxis dataKey="name" type="category" stroke="hsl(215, 20%, 55%)" fontSize={12} width={80} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "hsl(222, 47%, 10%)",
+                  border: "1px solid hsl(222, 47%, 16%)",
+                  borderRadius: "8px",
+                }}
+              />
+              <Bar 
+                dataKey="value" 
+                radius={[0, 4, 4, 0]}
+                fill="hsl(199, 89%, 48%)"
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -24,6 +24,7 @@ interface AuthContextType {
   canEdit: boolean;
   canDelete: boolean;
   isAdmin: boolean;
+  isViewer: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -304,6 +305,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canEdit = userRole === 'admin' || userRole === 'almoxarife';
   const canDelete = userRole === 'admin';
   const isAdmin = userRole === 'admin';
+  const isViewer = userRole === 'visualizador';
 
   return (
     <AuthContext.Provider
@@ -321,6 +323,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         canEdit,
         canDelete,
         isAdmin,
+        isViewer,
       }}
     >
       {children}

@@ -33,27 +33,32 @@ const applyThemeToDocument = (theme: ThemeConfig) => {
   }
 };
 
-export function useTheme() {
-  const [theme, setThemeState] = useState<ThemeConfig>(() => {
-    if (typeof window === "undefined") return defaultTheme;
-    // Check if there's a logged-in user's theme, otherwise use default
-    const userTheme = localStorage.getItem(USER_THEME_KEY);
-    if (userTheme) {
-      try {
-        return JSON.parse(userTheme);
-      } catch {
-        return defaultTheme;
-      }
+// Get initial theme from localStorage synchronously before render
+const getInitialTheme = (): ThemeConfig => {
+  if (typeof window === "undefined") return defaultTheme;
+  
+  // First check for user theme (from logged in user)
+  const userTheme = localStorage.getItem(USER_THEME_KEY);
+  if (userTheme) {
+    try {
+      const parsed = JSON.parse(userTheme);
+      // Apply immediately to prevent flash
+      applyThemeToDocument(parsed);
+      return parsed;
+    } catch {
+      // Invalid JSON, continue
     }
-    return defaultTheme;
-  });
+  }
+  
+  // Apply default theme
+  applyThemeToDocument(defaultTheme);
+  return defaultTheme;
+};
+
+export function useTheme() {
+  const [theme, setThemeState] = useState<ThemeConfig>(getInitialTheme);
   const [userId, setUserId] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
-
-  // Apply theme immediately on mount
-  useEffect(() => {
-    applyThemeToDocument(theme);
-  }, []);
 
   // Handle auth state changes
   useEffect(() => {
