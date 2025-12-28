@@ -42,6 +42,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useTheme, ColorPalette } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
+import { ViaCEPResponse } from "@/lib/masks";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -484,8 +485,16 @@ export default function Settings() {
                       mask="cep"
                       value={companyForm.zip_code} 
                       onChange={(value) => setCompanyForm({ ...companyForm, zip_code: value })} 
-                      placeholder="00000-000"
+                      placeholder="00000-000" 
                       disabled={isViewer}
+                      onAddressFound={(address: ViaCEPResponse) => {
+                        setCompanyForm(prev => ({
+                          ...prev,
+                          address: address.logradouro,
+                          city: address.localidade,
+                          state: address.uf,
+                        }));
+                      }}
                     />
                   </div>
                 </div>

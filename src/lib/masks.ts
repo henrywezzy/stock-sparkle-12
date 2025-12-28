@@ -142,8 +142,61 @@ export const isValidCPF = (cpf: string): boolean => {
   return parseInt(numbers[10]) === digit;
 };
 
+// Máscara de data: DD/MM/AAAA
+export const maskDate = (value: string): string => {
+  const numbers = onlyNumbers(value);
+  
+  if (numbers.length <= 2) {
+    return numbers;
+  }
+  if (numbers.length <= 4) {
+    return `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
+  }
+  return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4, 8)}`;
+};
+
+// Converte DD/MM/AAAA para AAAA-MM-DD (formato ISO)
+export const dateToISO = (maskedDate: string): string => {
+  const numbers = onlyNumbers(maskedDate);
+  if (numbers.length !== 8) return '';
+  
+  const day = numbers.slice(0, 2);
+  const month = numbers.slice(2, 4);
+  const year = numbers.slice(4, 8);
+  
+  return `${year}-${month}-${day}`;
+};
+
+// Converte AAAA-MM-DD para DD/MM/AAAA
+export const isoToDate = (isoDate: string): string => {
+  if (!isoDate) return '';
+  const [year, month, day] = isoDate.split('-');
+  if (!year || !month || !day) return '';
+  return `${day}/${month}/${year}`;
+};
+
+// Valida data DD/MM/AAAA
+export const isValidDate = (date: string): boolean => {
+  const numbers = onlyNumbers(date);
+  if (numbers.length !== 8) return false;
+  
+  const day = parseInt(numbers.slice(0, 2), 10);
+  const month = parseInt(numbers.slice(2, 4), 10);
+  const year = parseInt(numbers.slice(4, 8), 10);
+  
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+  if (year < 1900 || year > 2100) return false;
+  
+  // Validação mais precisa para dias do mês
+  const daysInMonth = new Date(year, month, 0).getDate();
+  if (day > daysInMonth) return false;
+  
+  return true;
+};
+
 // Tipo de máscara disponível
-export type MaskType = 'phone' | 'cnpj' | 'cpf' | 'cep' | 'rg';
+export type MaskType = 'phone' | 'cnpj' | 'cpf' | 'cep' | 'rg' | 'date';
 
 // Aplica a máscara baseado no tipo
 export const applyMask = (value: string, type: MaskType): string => {
@@ -158,7 +211,39 @@ export const applyMask = (value: string, type: MaskType): string => {
       return maskCEP(value);
     case 'rg':
       return maskRG(value);
+    case 'date':
+      return maskDate(value);
     default:
       return value;
+  }
+};
+
+// Interface para resposta do ViaCEP
+export interface ViaCEPResponse {
+  cep: string;
+  logradouro: string;
+  complemento: string;
+  bairro: string;
+  localidade: string;
+  uf: string;
+  erro?: boolean;
+}
+
+// Busca endereço pelo CEP usando a API ViaCEP
+export const fetchAddressByCEP = async (cep: string): Promise<ViaCEPResponse | null> => {
+  const numbers = onlyNumbers(cep);
+  if (numbers.length !== 8) return null;
+  
+  try {
+    const response = await fetch(`https://viacep.com.br/ws/${numbers}/json/`);
+    if (!response.ok) return null;
+    
+    const data: ViaCEPResponse = await response.json();
+    if (data.erro) return null;
+    
+    return data;
+  } catch (error) {
+    console.error('Erro ao buscar CEP:', error);
+    return null;
   }
 };

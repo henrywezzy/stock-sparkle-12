@@ -47,6 +47,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ImageCropDialog } from "./ImageCropDialog";
+import { ViaCEPResponse } from "@/lib/masks";
 
 interface ProfileDialogProps {
   open: boolean;
@@ -428,6 +429,14 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                           value={profileData.zip_code}
                           onChange={(value) => setProfileData(prev => ({ ...prev, zip_code: value }))}
                           placeholder="00000-000"
+                          onAddressFound={(address: ViaCEPResponse) => {
+                            setProfileData(prev => ({
+                              ...prev,
+                              address: address.logradouro,
+                              city: address.localidade,
+                              state: address.uf,
+                            }));
+                          }}
                         />
                       </div>
                     </div>
