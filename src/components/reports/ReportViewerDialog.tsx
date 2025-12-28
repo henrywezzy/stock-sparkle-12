@@ -30,28 +30,22 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { InventoryReport } from "@/hooks/useInventoryReports";
+import { InventoryReport, InventoryDivergentItem } from "@/hooks/useInventoryReports";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 
 interface ReportViewerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   report: InventoryReport;
-  products?: Array<{
-    name: string;
-    category: string;
-    systemQty: number;
-    physicalQty: number;
-    difference: number;
-  }>;
 }
 
 export function ReportViewerDialog({
   open,
   onOpenChange,
   report,
-  products = [],
 }: ReportViewerDialogProps) {
+  // Usa os itens divergentes do próprio relatório
+  const divergentItems = report.divergentItems || [];
   const { toast } = useToast();
   const { settings } = useCompanySettings();
   const reportRef = useRef<HTMLDivElement>(null);
@@ -117,22 +111,23 @@ export function ReportViewerDialog({
     doc.text(`${report.adjustments}`, 20 + (pageWidth - 38) / 3 + 5, 128);
     doc.text(`${report.divergences}`, 20 + ((pageWidth - 38) / 3 + 5) * 2, 128);
     
-    // Products Table (if available)
-    if (products.length > 0) {
+    // Products Table (divergent items)
+    if (divergentItems.length > 0) {
       doc.setFontSize(12);
       doc.setTextColor(30, 41, 59);
-      doc.text("Detalhamento por Produto", 14, 150);
+      doc.text("Itens com Divergências", 14, 150);
       
       autoTable(doc, {
         startY: 155,
-        head: [['Produto', 'Categoria', 'Sistema', 'Físico', 'Diferença', 'Status']],
-        body: products.map(p => [
+        head: [['Produto', 'Categoria', 'Localização', 'Sistema', 'Físico', 'Diferença', 'Status']],
+        body: divergentItems.map(p => [
           p.name,
           p.category,
+          p.location || '—',
           p.systemQty.toString(),
           p.physicalQty.toString(),
           p.difference > 0 ? `+${p.difference}` : p.difference.toString(),
-          p.difference === 0 ? 'OK' : 'Divergente'
+          'Divergente'
         ]),
         styles: { fontSize: 8, cellPadding: 3 },
         headStyles: { fillColor: [30, 41, 59], textColor: 255 },
@@ -357,16 +352,20 @@ export function ReportViewerDialog({
                 </div>
               </div>
 
-              {/* Products Table (if available) */}
-              {products.length > 0 && (
+              {/* Divergent Items Table */}
+              {divergentItems.length > 0 && (
                 <div className="p-6 pt-0">
-                  <h3 className="font-semibold mb-4">Detalhamento por Produto</h3>
+                  <h3 className="font-semibold mb-4 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-warning" />
+                    Itens com Divergências ({divergentItems.length})
+                  </h3>
                   <div className="border border-border rounded-lg overflow-hidden">
                     <table className="w-full text-sm">
                       <thead className="bg-muted">
                         <tr>
                           <th className="text-left p-3 font-medium">Produto</th>
                           <th className="text-left p-3 font-medium">Categoria</th>
+                          <th className="text-left p-3 font-medium">Localização</th>
                           <th className="text-center p-3 font-medium">Sistema</th>
                           <th className="text-center p-3 font-medium">Físico</th>
                           <th className="text-center p-3 font-medium">Diferença</th>
@@ -374,27 +373,32 @@ export function ReportViewerDialog({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
-                        {products.map((product, index) => (
+                        {divergentItems.map((item, index) => (
                           <tr key={index} className="hover:bg-muted/50">
-                            <td className="p-3">{product.name}</td>
-                            <td className="p-3">{product.category}</td>
-                            <td className="p-3 text-center">{product.systemQty}</td>
-                            <td className="p-3 text-center">{product.physicalQty}</td>
-                            <td className={`p-3 text-center font-medium ${product.difference > 0 ? 'text-success' : product.difference < 0 ? 'text-destructive' : ''}`}>
-                              {product.difference > 0 ? '+' : ''}{product.difference}
+                            <td className="p-3 font-medium">{item.name}</td>
+                            <td className="p-3">{item.category}</td>
+                            <td className="p-3 text-muted-foreground">{item.location || '—'}</td>
+                            <td className="p-3 text-center">{item.systemQty}</td>
+                            <td className="p-3 text-center">{item.physicalQty}</td>
+                            <td className={`p-3 text-center font-medium ${item.difference > 0 ? 'text-success' : 'text-destructive'}`}>
+                              {item.difference > 0 ? '+' : ''}{item.difference}
                             </td>
                             <td className="p-3 text-center">
-                              {product.difference === 0 ? (
-                                <Badge className="bg-success/20 text-success">OK</Badge>
-                              ) : (
-                                <Badge className="bg-warning/20 text-warning">Divergente</Badge>
-                              )}
+                              <Badge className="bg-warning/20 text-warning">Divergente</Badge>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
+                </div>
+              )}
+
+              {divergentItems.length === 0 && report.status === 'completed' && (
+                <div className="p-6 pt-0 text-center text-success">
+                  <CheckCircle className="w-8 h-8 mx-auto mb-2" />
+                  <p className="font-medium">Nenhuma divergência encontrada</p>
+                  <p className="text-sm text-muted-foreground">Todos os itens conferidos estão de acordo com o sistema</p>
                 </div>
               )}
 

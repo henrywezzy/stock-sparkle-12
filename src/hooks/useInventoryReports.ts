@@ -1,5 +1,15 @@
 import { useState, useCallback } from 'react';
 
+export interface InventoryDivergentItem {
+  id: string;
+  name: string;
+  category: string;
+  location?: string;
+  systemQty: number;
+  physicalQty: number;
+  difference: number;
+}
+
 export interface InventoryReport {
   id: string;
   date: string;
@@ -11,6 +21,7 @@ export interface InventoryReport {
   divergences: number;
   adjustments: number;
   status: 'completed' | 'cancelled';
+  divergentItems?: InventoryDivergentItem[];
 }
 
 // Armazena os relatórios de inventário em memória (localStorage para persistência)
