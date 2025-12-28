@@ -3,6 +3,7 @@ import { Plus, Search, Edit, Trash2, UserCircle, Mail, Phone, Building2, Loader2
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MaskedInput } from "@/components/ui/masked-input";
 import { Badge } from "@/components/ui/badge";
 import { useEmployees, Employee, EmployeeFormData } from "@/hooks/useEmployees";
 import { useAuth } from "@/contexts/AuthContext";
@@ -364,10 +365,11 @@ export default function Employees() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="phone">Telefone</Label>
-                <Input
+                <MaskedInput
                   id="phone"
+                  mask="phone"
                   value={formData.phone || ""}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, phone: value })}
                   placeholder="(00) 00000-0000"
                 />
               </div>
