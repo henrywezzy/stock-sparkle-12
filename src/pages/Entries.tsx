@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, Edit, Trash2, ArrowDownToLine, Calendar, Loader2, X, Package, Hash, Zap } from "lucide-react";
+import { Plus, Search, Edit, Trash2, ArrowDownToLine, Calendar, Loader2, X, Package, Hash, Zap, FileText } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
+import { GenericReportDialog, ReportColumn, ReportSummary } from "@/components/reports/GenericReportDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useEntries, Entry, EntryFormData } from "@/hooks/useEntries";
@@ -109,6 +110,7 @@ export default function Entries() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
 
@@ -444,6 +446,13 @@ export default function Entries() {
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Entradas" }]}
         actions={
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsReportOpen(true)}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Relatório</span>
+            </Button>
             <ColumnSettings
               columns={columns}
               onToggle={toggleColumn}
@@ -956,6 +965,36 @@ export default function Entries() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Entries Report Dialog */}
+      <GenericReportDialog
+        open={isReportOpen}
+        onOpenChange={setIsReportOpen}
+        title="Relatório de Entradas"
+        subtitle={`Total de ${filteredEntries.length} entradas registradas`}
+        fileName="relatorio-entradas"
+        metadata={[
+          { label: "Data", value: format(new Date(), "dd/MM/yyyy", { locale: ptBR }) },
+          { label: "Total Entradas", value: String(entries.length) },
+          { label: "Itens Recebidos", value: String(entries.reduce((acc, e) => acc + e.quantity, 0)) },
+          { label: "Valor Total", value: formatCurrency(entries.reduce((acc, e) => acc + (e.total_price || 0), 0)) },
+        ]}
+        summaries={[
+          { label: "Total Entradas", value: entries.length, color: "primary" },
+          { label: "Itens", value: entries.reduce((acc, e) => acc + e.quantity, 0), color: "success" },
+          { label: "Valor Total", value: formatCurrency(entries.reduce((acc, e) => acc + (e.total_price || 0), 0)), color: "warning" },
+        ]}
+        columns={[
+          { key: "entry_date", header: "Data", format: (v) => format(new Date(v), "dd/MM/yyyy", { locale: ptBR }) },
+          { key: "products", header: "Produto", format: (v) => v?.name || "—" },
+          { key: "quantity", header: "Qtd.", align: "center" },
+          { key: "unit_price", header: "Preço Unit.", align: "right", format: (v) => v ? formatCurrency(v) : "—" },
+          { key: "total_price", header: "Total", align: "right", format: (v) => v ? formatCurrency(v) : "—" },
+          { key: "suppliers", header: "Fornecedor", format: (v) => v?.name || "—" },
+          { key: "invoice_number", header: "NF", format: (v) => v || "—" },
+        ]}
+        data={filteredEntries}
+      />
     </div>
   );
 }

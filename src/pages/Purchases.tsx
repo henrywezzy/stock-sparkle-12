@@ -11,9 +11,11 @@ import {
   Truck,
   ChevronDown,
   ChevronUp,
-  Loader2
+  Loader2,
+  FileText
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
+import { GenericReportDialog, ReportColumn, ReportSummary } from "@/components/reports/GenericReportDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -113,6 +115,7 @@ export default function Purchases() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<PurchaseSuggestion | null>(null);
   
   // Form state for purchase confirmation
@@ -443,12 +446,21 @@ export default function Purchases() {
         description="Gerencie sugestões de compras baseadas no estoque"
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Compras" }]}
         actions={
-          <ColumnSettings
-            columns={columns}
-            onToggle={toggleColumn}
-            onReorder={reorderColumns}
-            onReset={resetToDefaults}
-          />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsReportOpen(true)}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Relatório</span>
+            </Button>
+            <ColumnSettings
+              columns={columns}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetToDefaults}
+            />
+          </div>
         }
       />
 
@@ -828,6 +840,51 @@ export default function Purchases() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Purchases Report Dialog */}
+      <GenericReportDialog
+        open={isReportOpen}
+        onOpenChange={setIsReportOpen}
+        title="Relatório de Compras Sugeridas"
+        subtitle={`${filteredSuggestions.length} itens precisam de reposição`}
+        fileName="relatorio-compras"
+        metadata={[
+          { label: "Data", value: format(new Date(), "dd/MM/yyyy", { locale: ptBR }) },
+          { label: "Total Sugestões", value: String(purchaseSuggestions.length) },
+          { label: "Críticos", value: String(criticalCount) },
+          { label: "Estoque Baixo", value: String(lowCount) },
+        ]}
+        summaries={[
+          { label: "Total Sugestões", value: purchaseSuggestions.length, color: "primary" },
+          { label: "Crítico", value: criticalCount, color: "destructive" },
+          { label: "Baixo", value: lowCount, color: "warning" },
+          { 
+            label: "Valor Estimado", 
+            value: formatCurrency(purchaseSuggestions.reduce((total, s) => {
+              const bestPrice = getBestPrice(s.lastPurchases);
+              return total + (bestPrice?.unit_price || 0) * s.suggestedQuantity;
+            }, 0)), 
+            color: "success" 
+          },
+        ]}
+        columns={[
+          { key: "type", header: "Tipo", format: (_, row) => row.type === 'epi' ? 'EPI' : 'Produto' },
+          { key: "product", header: "Item", format: (_, row) => row.product.name },
+          { key: "status", header: "Status", format: (_, row) => row.status === 'critical' ? 'Crítico' : 'Baixo' },
+          { key: "current", header: "Atual", align: "center", format: (_, row) => String(row.product.quantity) },
+          { key: "min", header: "Mínimo", align: "center", format: (_, row) => String(row.product.min_quantity || 10) },
+          { key: "suggested", header: "Sugerido", align: "center", format: (_, row) => `+${row.suggestedQuantity}` },
+          { key: "price", header: "Últ. Preço", align: "right", format: (_, row) => {
+            const best = getBestPrice(row.lastPurchases);
+            return best?.unit_price ? formatCurrency(best.unit_price) : "—";
+          }},
+          { key: "total", header: "Total Est.", align: "right", format: (_, row) => {
+            const best = getBestPrice(row.lastPurchases);
+            return best?.unit_price ? formatCurrency(best.unit_price * row.suggestedQuantity) : "—";
+          }},
+        ]}
+        data={filteredSuggestions}
+      />
     </div>
   );
 }
