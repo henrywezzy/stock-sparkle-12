@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Loader2, Eye, EyeOff, Check, X, Mail } from 'lucide-react';
+import { Package, Loader2, Eye, EyeOff, Check, X, Mail, KeyRound, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 
 // Validação de email mais rigorosa
@@ -33,6 +33,14 @@ const loginSchema = z.object({
 const signUpSchema = z.object({
   fullName: z.string().min(2, 'O nome deve ter no mínimo 2 caracteres'),
   email: emailSchema,
+  password: passwordSchema,
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'As senhas não conferem',
+  path: ['confirmPassword'],
+});
+
+const resetPasswordSchema = z.object({
   password: passwordSchema,
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -67,14 +75,20 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
   );
 };
 
+type AuthView = 'login' | 'forgot-password' | 'reset-password';
+
 const Auth = () => {
   const navigate = useNavigate();
-  const { signIn, signUp, user, loading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const { signIn, signUp, user, loading, resetPasswordForEmail, updatePassword } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [emailConfirmationSent, setEmailConfirmationSent] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [passwordResetSuccess, setPasswordResetSuccess] = useState(false);
+  const [currentView, setCurrentView] = useState<AuthView>('login');
 
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [signUpData, setSignUpData] = useState({
@@ -83,12 +97,25 @@ const Auth = () => {
     password: '',
     confirmPassword: '',
   });
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [newPasswordData, setNewPasswordData] = useState({
+    password: '',
+    confirmPassword: '',
+  });
+
+  // Check if coming from password reset link
+  useEffect(() => {
+    const isReset = searchParams.get('reset') === 'true';
+    if (isReset) {
+      setCurrentView('reset-password');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
-    if (user && !loading) {
+    if (user && !loading && currentView !== 'reset-password') {
       navigate('/');
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, currentView]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,7 +165,7 @@ const Auth = () => {
     }
 
     setIsLoading(true);
-    const { error, emailConfirmation } = await signUp(signUpData.email, signUpData.password, signUpData.fullName);
+    const { error } = await signUp(signUpData.email, signUpData.password, signUpData.fullName);
     setIsLoading(false);
 
     if (!error) {
@@ -146,10 +173,292 @@ const Auth = () => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+
+    try {
+      emailSchema.parse(forgotPasswordEmail);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        setErrors({ email: error.errors[0].message });
+        return;
+      }
+    }
+
+    setIsLoading(true);
+    const { error } = await resetPasswordForEmail(forgotPasswordEmail);
+    setIsLoading(false);
+
+    if (!error) {
+      setResetEmailSent(true);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+
+    try {
+      resetPasswordSchema.parse(newPasswordData);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const fieldErrors: Record<string, string> = {};
+        error.errors.forEach((err) => {
+          if (err.path[0]) {
+            fieldErrors[err.path[0] as string] = err.message;
+          }
+        });
+        setErrors(fieldErrors);
+        return;
+      }
+    }
+
+    setIsLoading(true);
+    const { error } = await updatePassword(newPasswordData.password);
+    setIsLoading(false);
+
+    if (!error) {
+      setPasswordResetSuccess(true);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Password reset success screen
+  if (passwordResetSuccess) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-card/50 backdrop-blur-sm border-border/50">
+          <CardContent className="pt-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-4">
+              <Check className="w-8 h-8 text-success" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Senha alterada com sucesso!</h2>
+            <p className="text-muted-foreground mb-6">
+              Sua senha foi redefinida. Agora você pode fazer login com a nova senha.
+            </p>
+            <Button 
+              className="w-full"
+              onClick={() => {
+                setPasswordResetSuccess(false);
+                setCurrentView('login');
+                setNewPasswordData({ password: '', confirmPassword: '' });
+                navigate('/auth');
+              }}
+            >
+              Ir para o login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Reset password form (after clicking email link)
+  if (currentView === 'reset-password') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <div className="p-3 rounded-xl bg-primary/20 border border-primary/30">
+              <Package className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Stockly</h1>
+              <p className="text-sm text-muted-foreground">Gestão de Almoxarifado</p>
+            </div>
+          </div>
+
+          <Card className="bg-card/50 backdrop-blur-sm border-border/50">
+            <CardHeader className="text-center">
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-2">
+                <KeyRound className="w-6 h-6 text-primary" />
+              </div>
+              <CardTitle>Nova Senha</CardTitle>
+              <CardDescription>
+                Digite sua nova senha abaixo
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleResetPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">Nova Senha</Label>
+                  <div className="relative">
+                    <Input
+                      id="new-password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={newPasswordData.password}
+                      onChange={(e) => setNewPasswordData({ ...newPasswordData, password: e.target.value })}
+                      className={errors.password ? 'border-destructive pr-10' : 'pr-10'}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <p className="text-sm text-destructive">{errors.password}</p>
+                  )}
+                  <PasswordStrengthIndicator password={newPasswordData.password} />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-new-password">Confirmar Nova Senha</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirm-new-password"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={newPasswordData.confirmPassword}
+                      onChange={(e) => setNewPasswordData({ ...newPasswordData, confirmPassword: e.target.value })}
+                      className={errors.confirmPassword ? 'border-destructive pr-10' : 'pr-10'}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {errors.confirmPassword && (
+                    <p className="text-sm text-destructive">{errors.confirmPassword}</p>
+                  )}
+                </div>
+
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    'Salvar Nova Senha'
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Email sent for password reset confirmation
+  if (resetEmailSent) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-card/50 backdrop-blur-sm border-border/50">
+          <CardContent className="pt-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-4">
+              <Mail className="w-8 h-8 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Verifique seu email</h2>
+            <p className="text-muted-foreground mb-4">
+              Enviamos um link de redefinição de senha para <strong>{forgotPasswordEmail}</strong>.
+            </p>
+            <p className="text-sm text-muted-foreground mb-6">
+              Clique no link do email para criar uma nova senha. O link expira em 1 hora.
+            </p>
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => {
+                setResetEmailSent(false);
+                setForgotPasswordEmail('');
+                setCurrentView('login');
+              }}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar para login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Forgot password form
+  if (currentView === 'forgot-password') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <div className="p-3 rounded-xl bg-primary/20 border border-primary/30">
+              <Package className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Stockly</h1>
+              <p className="text-sm text-muted-foreground">Gestão de Almoxarifado</p>
+            </div>
+          </div>
+
+          <Card className="bg-card/50 backdrop-blur-sm border-border/50">
+            <CardHeader className="text-center">
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-2">
+                <KeyRound className="w-6 h-6 text-primary" />
+              </div>
+              <CardTitle>Esqueceu sua senha?</CardTitle>
+              <CardDescription>
+                Digite seu email para receber um link de redefinição
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="forgot-email">Email</Label>
+                  <Input
+                    id="forgot-email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={forgotPasswordEmail}
+                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    className={errors.email ? 'border-destructive' : ''}
+                  />
+                  {errors.email && (
+                    <p className="text-sm text-destructive">{errors.email}</p>
+                  )}
+                </div>
+
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    'Enviar link de redefinição'
+                  )}
+                </Button>
+
+                <Button 
+                  type="button"
+                  variant="ghost" 
+                  className="w-full"
+                  onClick={() => {
+                    setCurrentView('login');
+                    setForgotPasswordEmail('');
+                    setErrors({});
+                  }}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Voltar para login
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -269,6 +578,17 @@ const Auth = () => {
                       'Entrar'
                     )}
                   </Button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentView('forgot-password');
+                      setErrors({});
+                    }}
+                    className="w-full text-sm text-primary hover:underline"
+                  >
+                    Esqueceu sua senha?
+                  </button>
                 </form>
               </TabsContent>
 
