@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
-import { Menu, User } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
 import { NotificationPanel } from "@/components/notifications/NotificationPanel";
+import { ProfileMenu } from "@/components/profile/ProfileMenu";
 
 export function MainLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, userRole } = useAuth();
 
   return (
     <div className="min-h-screen bg-background">
@@ -32,16 +31,7 @@ export function MainLayout() {
           
           <div className="flex items-center gap-2 sm:gap-3">
             <NotificationPanel />
-            
-            <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l border-border">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium truncate max-w-[120px]">{user?.email?.split('@')[0] || 'Usuário'}</p>
-                <p className="text-xs text-muted-foreground capitalize">{userRole || 'Carregando...'}</p>
-              </div>
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full gradient-primary flex items-center justify-center">
-                <User className="w-4 h-4 text-primary-foreground" />
-              </div>
-            </div>
+            <ProfileMenu />
           </div>
         </header>
 
