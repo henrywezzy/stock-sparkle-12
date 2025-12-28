@@ -247,3 +247,65 @@ export const fetchAddressByCEP = async (cep: string): Promise<ViaCEPResponse | n
     return null;
   }
 };
+
+// Interface para resposta da API de CNPJ
+export interface CNPJResponse {
+  cnpj: string;
+  razao_social: string;
+  nome_fantasia: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  municipio: string;
+  uf: string;
+  cep: string;
+  telefone: string;
+  email: string;
+  situacao_cadastral: string;
+  erro?: boolean;
+  message?: string;
+}
+
+// Busca dados da empresa pelo CNPJ usando API pública
+export const fetchCompanyByCNPJ = async (cnpj: string): Promise<CNPJResponse | null> => {
+  const numbers = onlyNumbers(cnpj);
+  if (numbers.length !== 14) return null;
+  
+  try {
+    // Usando a API pública BrasilAPI
+    const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${numbers}`);
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      throw new Error('Erro na consulta');
+    }
+    
+    const data = await response.json();
+    
+    if (data.message) {
+      return null;
+    }
+    
+    return {
+      cnpj: data.cnpj || '',
+      razao_social: data.razao_social || '',
+      nome_fantasia: data.nome_fantasia || '',
+      logradouro: data.logradouro || '',
+      numero: data.numero || '',
+      complemento: data.complemento || '',
+      bairro: data.bairro || '',
+      municipio: data.municipio || '',
+      uf: data.uf || '',
+      cep: data.cep ? maskCEP(data.cep) : '',
+      telefone: data.ddd_telefone_1 ? maskPhone(`${data.ddd_telefone_1}`) : '',
+      email: data.email || '',
+      situacao_cadastral: data.descricao_situacao_cadastral || '',
+    };
+  } catch (error) {
+    console.error('Erro ao buscar CNPJ:', error);
+    return null;
+  }
+};

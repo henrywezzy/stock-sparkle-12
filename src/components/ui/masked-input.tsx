@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Input } from "@/components/ui/input";
-import { applyMask, MaskType, isValidCNPJ, isValidCPF, isValidDate, onlyNumbers, fetchAddressByCEP, ViaCEPResponse } from "@/lib/masks";
+import { applyMask, MaskType, isValidCNPJ, isValidCPF, isValidDate, onlyNumbers, fetchAddressByCEP, fetchCompanyByCNPJ, ViaCEPResponse, CNPJResponse } from "@/lib/masks";
 import { cn } from "@/lib/utils";
 import { Check, X, Loader2 } from "lucide-react";
 
@@ -10,10 +10,11 @@ interface MaskedInputProps extends Omit<React.InputHTMLAttributes<HTMLInputEleme
   onChange: (value: string) => void;
   showValidation?: boolean;
   onAddressFound?: (address: ViaCEPResponse) => void;
+  onCompanyFound?: (company: CNPJResponse) => void;
 }
 
 export const MaskedInput = React.forwardRef<HTMLInputElement, MaskedInputProps>(
-  ({ mask, value, onChange, className, showValidation = true, onAddressFound, ...props }, ref) => {
+  ({ mask, value, onChange, className, showValidation = true, onAddressFound, onCompanyFound, ...props }, ref) => {
     const [isLoading, setIsLoading] = React.useState(false);
     const [validationState, setValidationState] = React.useState<'valid' | 'invalid' | null>(null);
 
@@ -30,11 +31,17 @@ export const MaskedInput = React.forwardRef<HTMLInputElement, MaskedInputProps>(
         return;
       }
 
+      // Não sobrescrever estado de loading
+      if (isLoading) return;
+
       const numbers = onlyNumbers(value);
       
       if (mask === 'cnpj') {
         if (numbers.length === 14) {
-          setValidationState(isValidCNPJ(value) ? 'valid' : 'invalid');
+          // Se tem callback de busca, deixar a busca definir o estado
+          if (!onCompanyFound) {
+            setValidationState(isValidCNPJ(value) ? 'valid' : 'invalid');
+          }
         } else if (numbers.length > 0) {
           setValidationState(null);
         } else {
@@ -57,7 +64,7 @@ export const MaskedInput = React.forwardRef<HTMLInputElement, MaskedInputProps>(
       } else {
         setValidationState(null);
       }
-    }, [value, mask, showValidation]);
+    }, [value, mask, showValidation, onCompanyFound, isLoading]);
 
     // Busca CEP automaticamente
     React.useEffect(() => {
@@ -82,6 +89,37 @@ export const MaskedInput = React.forwardRef<HTMLInputElement, MaskedInputProps>(
       const debounce = setTimeout(fetchAddress, 500);
       return () => clearTimeout(debounce);
     }, [value, mask, onAddressFound]);
+
+    // Busca CNPJ automaticamente
+    React.useEffect(() => {
+      if (mask !== 'cnpj' || !onCompanyFound) return;
+      
+      const numbers = onlyNumbers(value);
+      if (numbers.length !== 14) return;
+      
+      // Verifica se é um CNPJ válido antes de buscar
+      if (!isValidCNPJ(value)) {
+        setValidationState('invalid');
+        return;
+      }
+
+      const fetchCompany = async () => {
+        setIsLoading(true);
+        const company = await fetchCompanyByCNPJ(value);
+        setIsLoading(false);
+        
+        if (company) {
+          setValidationState('valid');
+          onCompanyFound(company);
+        } else {
+          // CNPJ é válido mas não encontrado na base
+          setValidationState('valid');
+        }
+      };
+
+      const debounce = setTimeout(fetchCompany, 800);
+      return () => clearTimeout(debounce);
+    }, [value, mask, onCompanyFound]);
 
     const showIcon = showValidation && (mask === 'cnpj' || mask === 'cpf' || mask === 'date' || (mask === 'cep' && onAddressFound));
 
