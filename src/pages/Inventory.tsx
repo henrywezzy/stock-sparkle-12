@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useProducts, Product } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
-import { useInventoryReports, InventoryReport } from "@/hooks/useInventoryReports";
+import { useInventoryReports, InventoryReport, InventoryDivergentItem } from "@/hooks/useInventoryReports";
 import { ReportViewerDialog } from "@/components/reports/ReportViewerDialog";
 import {
   Dialog,
@@ -124,12 +124,25 @@ export default function Inventory() {
         quantity: counts[p.id] as number,
       }));
 
-    const divergences = filteredProducts.filter(p => {
-      const physicalQty = counts[p.id];
-      return physicalQty !== null && physicalQty !== p.quantity;
-    }).length;
+    // Coletar itens divergentes para o relatório
+    const divergentItems: InventoryDivergentItem[] = filteredProducts
+      .filter(p => {
+        const physicalQty = counts[p.id];
+        return physicalQty !== null && physicalQty !== undefined && physicalQty !== p.quantity;
+      })
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        category: p.categories?.name || 'Sem categoria',
+        location: p.location || undefined,
+        systemQty: p.quantity,
+        physicalQty: counts[p.id] as number,
+        difference: (counts[p.id] as number) - p.quantity,
+      }));
 
-    // Registrar relatório
+    const divergences = divergentItems.length;
+
+    // Registrar relatório com itens divergentes
     addReport({
       date: new Date().toISOString(),
       type: inventoryType || 'complete',
@@ -142,6 +155,7 @@ export default function Inventory() {
       divergences,
       adjustments: adjustments.length,
       status: 'completed',
+      divergentItems,
     });
 
     if (adjustments.length === 0) {
