@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, Edit, Trash2, Package, Loader2, AlertTriangle, Calendar } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, Loader2, AlertTriangle, Calendar, FileText } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { useColumnPreferences } from "@/hooks/useColumnPreferences";
 import { ColumnSettings } from "@/components/ui/column-settings";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { formatCurrency } from "@/lib/currency";
+import { GenericReportDialog, ReportColumn, ReportSummary } from "@/components/reports/GenericReportDialog";
 import {
   Dialog,
   DialogContent,
@@ -86,6 +87,7 @@ export default function Products() {
   const [selectedSupplier, setSelectedSupplier] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
 
@@ -348,6 +350,13 @@ export default function Products() {
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Produtos" }]}
         actions={
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsReportOpen(true)}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Relatório</span>
+            </Button>
             <ColumnSettings
               columns={columns}
               onToggle={toggleColumn}
@@ -683,6 +692,42 @@ export default function Products() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Products Report Dialog */}
+      <GenericReportDialog
+        open={isReportOpen}
+        onOpenChange={setIsReportOpen}
+        title="Relatório de Produtos"
+        subtitle={`Total de ${filteredProducts.length} produtos no estoque`}
+        fileName="relatorio-produtos"
+        metadata={[
+          { label: "Data", value: format(new Date(), "dd/MM/yyyy", { locale: ptBR }) },
+          { label: "Total Produtos", value: String(products.length) },
+          { label: "Estoque Baixo", value: String(lowStockProducts.length) },
+          { label: "Categorias", value: String(categories.length) },
+        ]}
+        summaries={[
+          { label: "Total Produtos", value: products.length, color: "primary" },
+          { label: "Estoque Baixo", value: lowStockProducts.length, color: "destructive" },
+          { label: "Valor Total", value: formatCurrency(totalValue), color: "success" },
+          { label: "Categorias", value: categories.length, color: "muted" },
+        ]}
+        columns={[
+          { key: "sku", header: "SKU" },
+          { key: "name", header: "Produto" },
+          { key: "category", header: "Categoria", format: (_, row) => row.categories?.name || "—" },
+          { key: "quantity", header: "Qtd.", align: "center" },
+          { key: "min_quantity", header: "Mín.", align: "center", format: (v) => String(v || 10) },
+          { key: "price", header: "Preço", align: "right", format: (v) => formatCurrency(v || 0) },
+          { key: "location", header: "Localização", format: (v) => v || "—" },
+          { key: "status", header: "Status", format: (_, row) => {
+            if (row.quantity === 0) return "Crítico";
+            if (row.quantity <= (row.min_quantity || 10)) return "Baixo";
+            return "Normal";
+          }},
+        ]}
+        data={filteredProducts}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, Search, Edit, Trash2, HardHat, AlertTriangle, CheckCircle, Clock, FileText, Eye } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
+import { GenericReportDialog, ReportColumn, ReportSummary } from "@/components/reports/GenericReportDialog";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,7 @@ export default function EPIs() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeliveryDialogOpen, setIsDeliveryDialogOpen] = useState(false);
   const [isTermoDialogOpen, setIsTermoDialogOpen] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
   const [selectedTermo, setSelectedTermo] = useState<TermoEntrega | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 
@@ -232,6 +234,13 @@ export default function EPIs() {
         actions={
           canEdit ? (
             <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsReportOpen(true)}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Relatório</span>
+              </Button>
               <Button variant="outline" onClick={() => setIsTermoDialogOpen(true)}>
                 <FileText className="w-4 h-4 mr-2" />
                 Termo de Entrega
@@ -245,7 +254,15 @@ export default function EPIs() {
                 Novo EPI
               </Button>
             </div>
-          ) : undefined
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => setIsReportOpen(true)}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Relatório</span>
+            </Button>
+          )
         }
       />
 
@@ -451,6 +468,39 @@ export default function EPIs() {
         open={isViewDialogOpen} 
         onOpenChange={setIsViewDialogOpen} 
         termo={selectedTermo}
+      />
+
+      {/* EPIs Report Dialog */}
+      <GenericReportDialog
+        open={isReportOpen}
+        onOpenChange={setIsReportOpen}
+        title="Relatório de EPIs"
+        subtitle={`Total de ${epis.length} EPIs cadastrados`}
+        fileName="relatorio-epis"
+        metadata={[
+          { label: "Data", value: format(new Date(), "dd/MM/yyyy", { locale: ptBR }) },
+          { label: "Total EPIs", value: String(epiStats.total) },
+          { label: "Em Uso", value: String(deliveryStats.inUse) },
+          { label: "Vencidos", value: String(deliveryStats.expired) },
+        ]}
+        summaries={[
+          { label: "Total EPIs", value: epiStats.total, color: "primary" },
+          { label: "Em Uso", value: deliveryStats.inUse, color: "success" },
+          { label: "Vencendo (30d)", value: deliveryStats.expiringSoon, color: "warning" },
+          { label: "Vencidos", value: deliveryStats.expired, color: "destructive" },
+        ]}
+        columns={[
+          { key: "name", header: "EPI" },
+          { key: "category", header: "Categoria", format: (v) => v || "—" },
+          { key: "ca_number", header: "CA", format: (v) => v || "—" },
+          { key: "quantity", header: "Estoque", align: "center" },
+          { key: "min_quantity", header: "Mínimo", align: "center", format: (v) => String(v || 5) },
+          { key: "default_validity_days", header: "Validade (dias)", align: "center", format: (v) => String(v || 365) },
+          { key: "status", header: "Status", format: (_, row) => {
+            return row.quantity <= (row.min_quantity || 5) ? "Baixo" : "Normal";
+          }},
+        ]}
+        data={filteredEPIs}
       />
     </div>
   );

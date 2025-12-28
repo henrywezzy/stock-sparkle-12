@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
-import { Plus, Edit, Trash2, ArrowUpFromLine, Calendar, Loader2, Search, Package, Hash, X } from "lucide-react";
+import { Plus, Edit, Trash2, ArrowUpFromLine, Calendar, Loader2, Search, Package, Hash, X, FileText } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
+import { GenericReportDialog, ReportColumn, ReportSummary } from "@/components/reports/GenericReportDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useExits, Exit, ExitFormData } from "@/hooks/useExits";
@@ -79,6 +80,7 @@ export default function Exits() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
   const [editingExit, setEditingExit] = useState<Exit | null>(null);
   const [deletingExitId, setDeletingExitId] = useState<string | null>(null);
 
@@ -345,6 +347,13 @@ export default function Exits() {
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Saídas" }]}
         actions={
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsReportOpen(true)}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Relatório</span>
+            </Button>
             <ColumnSettings
               columns={columns}
               onToggle={toggleColumn}
@@ -732,6 +741,34 @@ export default function Exits() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Exits Report Dialog */}
+      <GenericReportDialog
+        open={isReportOpen}
+        onOpenChange={setIsReportOpen}
+        title="Relatório de Saídas"
+        subtitle={`Total de ${filteredExits.length} saídas registradas`}
+        fileName="relatorio-saidas"
+        metadata={[
+          { label: "Data", value: format(new Date(), "dd/MM/yyyy", { locale: ptBR }) },
+          { label: "Total Saídas", value: String(exits.length) },
+          { label: "Itens Movimentados", value: String(exits.reduce((acc, e) => acc + e.quantity, 0)) },
+        ]}
+        summaries={[
+          { label: "Total Saídas", value: exits.length, color: "primary" },
+          { label: "Itens", value: exits.reduce((acc, e) => acc + e.quantity, 0), color: "destructive" },
+          { label: "Filtrados", value: filteredExits.length, color: "muted" },
+        ]}
+        columns={[
+          { key: "exit_date", header: "Data", format: (v) => format(new Date(v), "dd/MM/yyyy", { locale: ptBR }) },
+          { key: "products", header: "Produto", format: (v) => v?.name || "—" },
+          { key: "quantity", header: "Qtd.", align: "center" },
+          { key: "destination", header: "Destino", format: (v) => v || "—" },
+          { key: "employees", header: "Funcionário", format: (v) => v?.name || "—" },
+          { key: "reason", header: "Motivo", format: (v) => v || "—" },
+        ]}
+        data={filteredExits}
+      />
     </div>
   );
 }
