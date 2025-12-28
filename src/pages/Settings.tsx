@@ -24,6 +24,7 @@ import {
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MaskedInput } from "@/components/ui/masked-input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -424,18 +425,20 @@ export default function Settings() {
                 </div>
                 <div>
                   <Label>CNPJ</Label>
-                  <Input 
+                  <MaskedInput 
+                    mask="cnpj"
                     value={companyForm.cnpj} 
-                    onChange={(e) => setCompanyForm({ ...companyForm, cnpj: e.target.value })} 
+                    onChange={(value) => setCompanyForm({ ...companyForm, cnpj: value })} 
                     placeholder="00.000.000/0001-00" 
                     disabled={isViewer}
                   />
                 </div>
                 <div>
                   <Label>Telefone</Label>
-                  <Input 
+                  <MaskedInput 
+                    mask="phone"
                     value={companyForm.phone} 
-                    onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })} 
+                    onChange={(value) => setCompanyForm({ ...companyForm, phone: value })} 
                     placeholder="(00) 0000-0000" 
                     disabled={isViewer}
                   />
@@ -477,9 +480,11 @@ export default function Settings() {
                   </div>
                   <div>
                     <Label>CEP</Label>
-                    <Input 
+                    <MaskedInput 
+                      mask="cep"
                       value={companyForm.zip_code} 
-                      onChange={(e) => setCompanyForm({ ...companyForm, zip_code: e.target.value })} 
+                      onChange={(value) => setCompanyForm({ ...companyForm, zip_code: value })} 
+                      placeholder="00000-000"
                       disabled={isViewer}
                     />
                   </div>

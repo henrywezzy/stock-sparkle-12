@@ -3,6 +3,7 @@ import { Plus, Search, Edit, Trash2, Truck, Mail, Phone, MapPin, Star, Loader2, 
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MaskedInput } from "@/components/ui/masked-input";
 import { Badge } from "@/components/ui/badge";
 import { useSuppliers, Supplier, SupplierFormData } from "@/hooks/useSuppliers";
 import { useAuth } from "@/contexts/AuthContext";
@@ -316,10 +317,11 @@ export default function Suppliers() {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="cnpj">CNPJ</Label>
-                <Input
+                <MaskedInput
                   id="cnpj"
+                  mask="cnpj"
                   value={formData.cnpj || ""}
-                  onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, cnpj: value })}
                   placeholder="00.000.000/0000-00"
                 />
               </div>
@@ -361,10 +363,11 @@ export default function Suppliers() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="phone">Telefone</Label>
-                <Input
+                <MaskedInput
                   id="phone"
+                  mask="phone"
                   value={formData.phone || ""}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, phone: value })}
                   placeholder="(00) 0000-0000"
                 />
               </div>

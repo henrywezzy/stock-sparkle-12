@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MaskedInput } from "@/components/ui/masked-input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -372,10 +373,11 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                         <Phone className="w-4 h-4 text-muted-foreground" />
                         Telefone
                       </Label>
-                      <Input
+                      <MaskedInput
                         id="phone"
+                        mask="phone"
                         value={profileData.phone}
-                        onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
+                        onChange={(value) => setProfileData(prev => ({ ...prev, phone: value }))}
                         placeholder="(00) 00000-0000"
                       />
                     </div>
@@ -420,10 +422,11 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
 
                       <div className="space-y-2">
                         <Label htmlFor="zip_code">CEP</Label>
-                        <Input
+                        <MaskedInput
                           id="zip_code"
+                          mask="cep"
                           value={profileData.zip_code}
-                          onChange={(e) => setProfileData(prev => ({ ...prev, zip_code: e.target.value }))}
+                          onChange={(value) => setProfileData(prev => ({ ...prev, zip_code: value }))}
                           placeholder="00000-000"
                         />
                       </div>
