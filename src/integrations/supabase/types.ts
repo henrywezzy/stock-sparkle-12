@@ -518,34 +518,55 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
           avatar_url: string | null
+          city: string | null
           created_at: string
           email: string | null
           full_name: string | null
           id: string
+          phone: string | null
+          selected_icon: string | null
+          state: string | null
           ui_theme: string | null
           updated_at: string
           user_id: string
+          username: string | null
+          zip_code: string | null
         }
         Insert: {
+          address?: string | null
           avatar_url?: string | null
+          city?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
           id?: string
+          phone?: string | null
+          selected_icon?: string | null
+          state?: string | null
           ui_theme?: string | null
           updated_at?: string
           user_id: string
+          username?: string | null
+          zip_code?: string | null
         }
         Update: {
+          address?: string | null
           avatar_url?: string | null
+          city?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
           id?: string
+          phone?: string | null
+          selected_icon?: string | null
+          state?: string | null
           ui_theme?: string | null
           updated_at?: string
           user_id?: string
+          username?: string | null
+          zip_code?: string | null
         }
         Relationships: []
       }
