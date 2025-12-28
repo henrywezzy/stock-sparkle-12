@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MaskedInput } from "@/components/ui/masked-input";
 import { Badge } from "@/components/ui/badge";
-import { ViaCEPResponse } from "@/lib/masks";
+import { ViaCEPResponse, CNPJResponse } from "@/lib/masks";
 import { useSuppliers, Supplier, SupplierFormData } from "@/hooks/useSuppliers";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -324,6 +324,16 @@ export default function Suppliers() {
                   value={formData.cnpj || ""}
                   onChange={(value) => setFormData({ ...formData, cnpj: value })}
                   placeholder="00.000.000/0000-00"
+                  onCompanyFound={(company: CNPJResponse) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      name: company.razao_social || prev.name,
+                      contact_name: prev.contact_name,
+                      address: company.logradouro ? `${company.logradouro}, ${company.numero}, ${company.bairro} - ${company.municipio}/${company.uf}` : prev.address,
+                      phone: company.telefone || prev.phone,
+                      email: company.email || prev.email,
+                    }));
+                  }}
                 />
               </div>
               <div className="grid gap-2">
