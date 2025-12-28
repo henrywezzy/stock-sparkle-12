@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, Archive, CheckCircle, AlertTriangle, ClipboardCheck, Loader2, Save, RotateCcw, History, Calendar, User, BarChart3 } from "lucide-react";
+import { Plus, Search, Archive, CheckCircle, AlertTriangle, ClipboardCheck, Loader2, Save, RotateCcw, History, Calendar, User, BarChart3, Eye } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useProducts, Product } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
-import { useInventoryReports } from "@/hooks/useInventoryReports";
+import { useInventoryReports, InventoryReport } from "@/hooks/useInventoryReports";
+import { ReportViewerDialog } from "@/components/reports/ReportViewerDialog";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +54,7 @@ export default function Inventory() {
   const [isInventoryActive, setIsInventoryActive] = useState(false);
   const [counts, setCounts] = useState<Record<string, number | null>>({});
   const [activeTab, setActiveTab] = useState("inventory");
+  const [viewingReport, setViewingReport] = useState<InventoryReport | null>(null);
 
   const recentReports = getRecentReports(10);
   const reportStats = getReportStats();
@@ -569,21 +571,27 @@ export default function Inventory() {
                           </span>
                         </div>
                       </div>
-                      <div className="flex gap-6 text-right">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Conferidos</p>
-                          <p className="font-semibold">{report.countedItems}/{report.totalItems}</p>
+                      <div className="flex items-center gap-4">
+                        <div className="flex gap-6 text-right">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Conferidos</p>
+                            <p className="font-semibold">{report.countedItems}/{report.totalItems}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Divergências</p>
+                            <p className={`font-semibold ${report.divergences > 0 ? 'text-warning' : 'text-success'}`}>
+                              {report.divergences}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Divergências</p>
-                          <p className={`font-semibold ${report.divergences > 0 ? 'text-warning' : 'text-success'}`}>
-                            {report.divergences}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Ajustes</p>
-                          <p className="font-semibold">{report.adjustments}</p>
-                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setViewingReport(report)}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          Ver
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -593,6 +601,14 @@ export default function Inventory() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {viewingReport && (
+        <ReportViewerDialog
+          open={!!viewingReport}
+          onOpenChange={(open) => !open && setViewingReport(null)}
+          report={viewingReport}
+        />
+      )}
     </div>
   );
 }

@@ -35,9 +35,11 @@ import {
   Bird,
   Briefcase,
   LucideIcon,
+  ShieldCheck,
 } from "lucide-react";
 import { ProfileDialog } from "./ProfileDialog";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
+import { TwoFactorDialog } from "./TwoFactorDialog";
 
 interface ProfileData {
   full_name: string | null;
@@ -74,6 +76,7 @@ export function ProfileMenu() {
   const { user, userRole, signOut } = useAuth();
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [twoFactorDialogOpen, setTwoFactorDialogOpen] = useState(false);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
 
   const fetchProfileData = async () => {
@@ -157,6 +160,13 @@ export function ProfileMenu() {
             <Key className="mr-2 h-4 w-4" />
             <span>Alterar Senha</span>
           </DropdownMenuItem>
+          <DropdownMenuItem 
+            onClick={() => setTwoFactorDialogOpen(true)}
+            className="cursor-pointer"
+          >
+            <ShieldCheck className="mr-2 h-4 w-4" />
+            <span>Autenticação 2FA</span>
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem 
             onClick={signOut}
@@ -176,6 +186,11 @@ export function ProfileMenu() {
       <ChangePasswordDialog 
         open={passwordDialogOpen} 
         onOpenChange={setPasswordDialogOpen} 
+      />
+
+      <TwoFactorDialog 
+        open={twoFactorDialogOpen} 
+        onOpenChange={setTwoFactorDialogOpen} 
       />
     </>
   );
