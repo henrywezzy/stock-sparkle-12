@@ -131,6 +131,7 @@ export const DataFilters = ({
                   selected={dateFrom}
                   onSelect={onDateFromChange}
                   initialFocus
+                  className="p-3 pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
@@ -160,6 +161,7 @@ export const DataFilters = ({
                   selected={dateTo}
                   onSelect={onDateToChange}
                   initialFocus
+                  className="p-3 pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>

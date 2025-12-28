@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DateInput } from "@/components/ui/date-input";
 import {
   Dialog,
   DialogContent,
@@ -424,10 +425,10 @@ export function DeliveryTermDialog({ open, onOpenChange }: DeliveryTermDialogPro
                           </div>
                           <div>
                             <Label className="text-xs">Entrega</Label>
-                            <Input 
-                              type="date" 
+                            <DateInput 
                               value={item.data_entrega} 
-                              onChange={(e) => updateEPIItem(index, 'data_entrega', e.target.value)}
+                              onChange={(date) => updateEPIItem(index, 'data_entrega', date)}
+                              showPicker={false}
                             />
                           </div>
                         </div>

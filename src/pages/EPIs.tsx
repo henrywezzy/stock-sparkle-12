@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DateInput } from "@/components/ui/date-input";
 import { useEPIs, EPI } from "@/hooks/useEPIs";
 import { useEPIDeliveries, EPIDelivery } from "@/hooks/useEPIDeliveries";
 import { useEmployees } from "@/hooks/useEmployees";
@@ -443,7 +444,10 @@ export default function EPIs() {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>Data de Entrega</Label>
-                <Input type="date" value={newDelivery.delivery_date} onChange={(e) => setNewDelivery({ ...newDelivery, delivery_date: e.target.value })} />
+                <DateInput 
+                  value={newDelivery.delivery_date} 
+                  onChange={(date) => setNewDelivery({ ...newDelivery, delivery_date: date })} 
+                />
               </div>
               <div className="grid gap-2">
                 <Label>Quantidade</Label>

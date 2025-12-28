@@ -443,6 +443,10 @@ export default function Settings() {
                         phone: company.telefone || prev.phone,
                         email: company.email || prev.email,
                       }));
+                      toast({
+                        title: "Dados encontrados!",
+                        description: `Empresa: ${company.razao_social}`,
+                      });
                     }}
                   />
                 </div>

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ViaCEPResponse, CNPJResponse } from "@/lib/masks";
 import { useSuppliers, Supplier, SupplierFormData } from "@/hooks/useSuppliers";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -333,6 +334,10 @@ export default function Suppliers() {
                       phone: company.telefone || prev.phone,
                       email: company.email || prev.email,
                     }));
+                    toast({
+                      title: "Dados encontrados!",
+                      description: `Empresa: ${company.razao_social}`,
+                    });
                   }}
                 />
               </div>
