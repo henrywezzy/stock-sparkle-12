@@ -72,7 +72,7 @@ export default function Products() {
   const { products, isLoading, createProduct, updateProduct, deleteProduct } = useProducts();
   const { categories } = useCategories();
   const { suppliers } = useSuppliers();
-  const { canEdit, canDelete } = useAuth();
+  const { canEdit, canDelete, isViewer } = useAuth();
 
   const {
     columns,
@@ -277,7 +277,7 @@ export default function Products() {
       case "unit":
         return product.unit || "un";
       case "price":
-        return formatCurrency(product.price || 0);
+        return isViewer ? "—" : formatCurrency(product.price || 0);
       case "location":
         return product.location || "—";
       case "supplier":
@@ -393,7 +393,7 @@ export default function Products() {
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <div className={`grid gap-3 sm:gap-4 ${isViewer ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
         <div className="glass rounded-xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
             <Package className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
@@ -421,15 +421,17 @@ export default function Products() {
             <p className="text-xl sm:text-2xl font-bold">{categories.length}</p>
           </div>
         </div>
-        <div className="glass rounded-xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
-            <span className="text-lg sm:text-xl font-bold text-warning">R$</span>
+        {!isViewer && (
+          <div className="glass rounded-xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
+              <span className="text-lg sm:text-xl font-bold text-warning">R$</span>
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm text-muted-foreground">Valor Total</p>
+              <p className="text-lg sm:text-xl font-bold truncate">{formatCurrency(totalValue)}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs sm:text-sm text-muted-foreground">Valor Total</p>
-            <p className="text-lg sm:text-xl font-bold truncate">{formatCurrency(totalValue)}</p>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Products Table */}

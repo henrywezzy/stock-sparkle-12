@@ -1,8 +1,6 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useProducts } from './useProducts';
-import { useEntries } from './useEntries';
-import { useExits } from './useExits';
-import { useEmployees } from './useEmployees';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -19,9 +17,7 @@ const STORAGE_KEY = 'dismissedNotifications';
 
 export const useNotifications = () => {
   const { products } = useProducts();
-  const { entries } = useEntries();
-  const { exits } = useExits();
-  const { employees } = useEmployees();
+  const { isViewer } = useAuth();
   
   // Estado para armazenar IDs de notificações descartadas
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
@@ -52,6 +48,51 @@ export const useNotifications = () => {
   const allNotifications = useMemo(() => {
     const notifications: Notification[] = [];
 
+    // Para visualizador, mostrar apenas produtos com estoque zerado (sem detalhes de valor)
+    // e produtos próximos ao vencimento
+    if (isViewer) {
+      // Apenas produtos sem estoque (crítico) - sem mostrar valores
+      products
+        .filter((p) => p.quantity === 0)
+        .forEach((product) => {
+          notifications.push({
+            id: `low-stock-${product.id}`,
+            type: 'low_stock',
+            title: 'Produto Sem Estoque',
+            description: `${product.name} está sem unidades disponíveis`,
+            time: formatDistanceToNow(new Date(product.updated_at), { addSuffix: true, locale: ptBR }),
+            read: false,
+          });
+        });
+
+      // Produtos vencidos ou próximos do vencimento
+      const today = new Date();
+      const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+      
+      products
+        .filter((p) => p.expiry_date && new Date(p.expiry_date) <= thirtyDaysFromNow)
+        .forEach((product) => {
+          const expiryDate = new Date(product.expiry_date!);
+          const isExpired = expiryDate < today;
+          
+          notifications.push({
+            id: `expiry-${product.id}`,
+            type: 'expiry',
+            title: isExpired ? 'Produto Vencido' : 'Vencimento Próximo',
+            description: `${product.name} ${isExpired ? 'venceu' : 'vence'} em ${expiryDate.toLocaleDateString('pt-BR')}`,
+            time: formatDistanceToNow(expiryDate, { addSuffix: true, locale: ptBR }),
+            read: false,
+          });
+        });
+
+      return notifications.sort((a, b) => {
+        if (a.type === 'low_stock' && b.type !== 'low_stock') return -1;
+        if (a.type !== 'low_stock' && b.type === 'low_stock') return 1;
+        return 0;
+      });
+    }
+
+    // Notificações completas para admin e almoxarife
     // Low stock notifications
     products
       .filter((p) => p.quantity <= (p.min_quantity || 10))
@@ -65,30 +106,6 @@ export const useNotifications = () => {
           read: false,
         });
       });
-
-    // Recent entries (last 5)
-    entries.slice(0, 5).forEach((entry) => {
-      notifications.push({
-        id: `entry-${entry.id}`,
-        type: 'entry',
-        title: 'Nova Entrada',
-        description: `+${entry.quantity} unidades de ${entry.products?.name || 'Produto'}`,
-        time: formatDistanceToNow(new Date(entry.entry_date), { addSuffix: true, locale: ptBR }),
-        read: false,
-      });
-    });
-
-    // Recent exits (last 5)
-    exits.slice(0, 5).forEach((exit) => {
-      notifications.push({
-        id: `exit-${exit.id}`,
-        type: 'exit',
-        title: 'Nova Saída',
-        description: `-${exit.quantity} unidades de ${exit.products?.name || 'Produto'}`,
-        time: formatDistanceToNow(new Date(exit.exit_date), { addSuffix: true, locale: ptBR }),
-        read: false,
-      });
-    });
 
     // Products near expiry
     const today = new Date();
@@ -110,21 +127,6 @@ export const useNotifications = () => {
         });
       });
 
-    // New employees (last 3)
-    employees
-      .filter((e) => e.status === 'active')
-      .slice(0, 3)
-      .forEach((employee) => {
-        notifications.push({
-          id: `employee-${employee.id}`,
-          type: 'employee',
-          title: 'Funcionário Ativo',
-          description: `${employee.name} - ${employee.department || 'Sem departamento'}`,
-          time: formatDistanceToNow(new Date(employee.created_at), { addSuffix: true, locale: ptBR }),
-          read: false,
-        });
-      });
-
     // Sort by most recent
     return notifications.sort((a, b) => {
       // Priority: low_stock and expiry first, then by time
@@ -134,7 +136,7 @@ export const useNotifications = () => {
       if (a.type !== 'expiry' && b.type === 'expiry') return 1;
       return 0;
     });
-  }, [products, entries, exits, employees]);
+  }, [products, isViewer]);
 
   // Filtrar notificações descartadas
   const notifications = useMemo(() => {
