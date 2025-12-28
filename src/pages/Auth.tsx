@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Loader2, Eye, EyeOff, Check, X, Mail, KeyRound, ArrowLeft } from 'lucide-react';
+import { Package, Loader2, Eye, EyeOff, Check, X, Mail, KeyRound, ArrowLeft, User, Phone } from 'lucide-react';
 import { z } from 'zod';
 
 // Validação de email mais rigorosa
@@ -24,11 +25,6 @@ const passwordSchema = z.string()
   .refine((password) => /[a-zA-Z]/.test(password), 'A senha deve conter pelo menos uma letra')
   .refine((password) => /[0-9]/.test(password), 'A senha deve conter pelo menos um número')
   .refine((password) => /[!@#$%^&*(),.?":{}|<>]/.test(password), 'A senha deve conter pelo menos um símbolo');
-
-const loginSchema = z.object({
-  email: emailSchema,
-  password: z.string().min(1, 'Senha é obrigatória'),
-});
 
 const signUpSchema = z.object({
   fullName: z.string().min(2, 'O nome deve ter no mínimo 2 caracteres'),
@@ -90,7 +86,7 @@ const Auth = () => {
   const [passwordResetSuccess, setPasswordResetSuccess] = useState(false);
   const [currentView, setCurrentView] = useState<AuthView>('login');
 
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
+  const [loginData, setLoginData] = useState({ identifier: '', password: '' });
   const [signUpData, setSignUpData] = useState({
     fullName: '',
     email: '',
@@ -117,27 +113,55 @@ const Auth = () => {
     }
   }, [user, loading, navigate, currentView]);
 
+  const resolveEmailFromIdentifier = async (identifier: string): Promise<string | null> => {
+    // Check if it's already an email
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier.trim());
+    if (isEmail) {
+      return identifier.trim().toLowerCase();
+    }
+
+    // Try to find email by username or phone
+    try {
+      const { data, error } = await supabase.functions.invoke('find-user-email', {
+        body: { identifier: identifier.trim() }
+      });
+
+      if (error || !data?.email) {
+        return null;
+      }
+
+      return data.email;
+    } catch {
+      return null;
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
 
-    try {
-      loginSchema.parse(loginData);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const fieldErrors: Record<string, string> = {};
-        error.errors.forEach((err) => {
-          if (err.path[0]) {
-            fieldErrors[err.path[0] as string] = err.message;
-          }
-        });
-        setErrors(fieldErrors);
-        return;
-      }
+    if (!loginData.identifier.trim()) {
+      setErrors({ identifier: 'Digite seu email, usuário ou telefone' });
+      return;
+    }
+
+    if (!loginData.password) {
+      setErrors({ password: 'Digite sua senha' });
+      return;
     }
 
     setIsLoading(true);
-    const { error } = await signIn(loginData.email, loginData.password);
+
+    // Resolve identifier to email
+    const email = await resolveEmailFromIdentifier(loginData.identifier);
+    
+    if (!email) {
+      setErrors({ identifier: 'Usuário não encontrado' });
+      setIsLoading(false);
+      return;
+    }
+
+    const { error } = await signIn(email, loginData.password);
     setIsLoading(false);
 
     if (!error) {
@@ -530,18 +554,28 @@ const Auth = () => {
               <TabsContent value="login">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      value={loginData.email}
-                      onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                      className={errors.email ? 'border-destructive' : ''}
-                    />
-                    {errors.email && (
-                      <p className="text-sm text-destructive">{errors.email}</p>
+                    <Label htmlFor="login-identifier" className="flex items-center gap-2">
+                      Email, Usuário ou Telefone
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="login-identifier"
+                        type="text"
+                        placeholder="email, @usuario ou telefone"
+                        value={loginData.identifier}
+                        onChange={(e) => setLoginData({ ...loginData, identifier: e.target.value })}
+                        className={errors.identifier ? 'border-destructive pl-10' : 'pl-10'}
+                      />
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        <User className="h-4 w-4" />
+                      </div>
+                    </div>
+                    {errors.identifier && (
+                      <p className="text-sm text-destructive">{errors.identifier}</p>
                     )}
+                    <p className="text-xs text-muted-foreground">
+                      Use seu email, nome de usuário ou telefone cadastrado
+                    </p>
                   </div>
 
                   <div className="space-y-2">
