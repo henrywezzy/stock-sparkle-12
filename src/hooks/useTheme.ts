@@ -9,7 +9,6 @@ interface ThemeConfig {
   palette: ColorPalette;
 }
 
-const LOCAL_THEME_KEY = "stockly-theme";
 const USER_THEME_KEY = "stockly-user-theme";
 
 const defaultTheme: ThemeConfig = {
@@ -33,24 +32,10 @@ const applyThemeToDocument = (theme: ThemeConfig) => {
   }
 };
 
-// Get initial theme from localStorage synchronously before render
+// Get initial theme - always start with default (will load user theme after auth check)
 const getInitialTheme = (): ThemeConfig => {
-  if (typeof window === "undefined") return defaultTheme;
-  
-  // First check for user theme (from logged in user)
-  const userTheme = localStorage.getItem(USER_THEME_KEY);
-  if (userTheme) {
-    try {
-      const parsed = JSON.parse(userTheme);
-      // Apply immediately to prevent flash
-      applyThemeToDocument(parsed);
-      return parsed;
-    } catch {
-      // Invalid JSON, continue
-    }
-  }
-  
-  // Apply default theme
+  // Always start with default theme
+  // User theme will be loaded after auth check
   applyThemeToDocument(defaultTheme);
   return defaultTheme;
 };
@@ -60,6 +45,47 @@ export function useTheme() {
   const [userId, setUserId] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Load theme from database for a specific user
+  const loadUserThemeFromDB = useCallback(async (uid: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('ui_theme')
+        .eq('user_id', uid)
+        .maybeSingle();
+
+      if (!error && data?.ui_theme) {
+        try {
+          const userTheme = JSON.parse(data.ui_theme) as ThemeConfig;
+          setThemeState(userTheme);
+          localStorage.setItem(USER_THEME_KEY, JSON.stringify(userTheme));
+          applyThemeToDocument(userTheme);
+        } catch (e) {
+          // Invalid JSON, use default
+          setThemeState(defaultTheme);
+          applyThemeToDocument(defaultTheme);
+        }
+      } else {
+        // No saved theme, use default
+        setThemeState(defaultTheme);
+        applyThemeToDocument(defaultTheme);
+      }
+    } catch (e) {
+      console.error('Error loading theme:', e);
+      setThemeState(defaultTheme);
+      applyThemeToDocument(defaultTheme);
+    }
+    setIsInitialized(true);
+  }, []);
+
+  // Reset theme to default
+  const resetToDefault = useCallback(() => {
+    localStorage.removeItem(USER_THEME_KEY);
+    setThemeState(defaultTheme);
+    applyThemeToDocument(defaultTheme);
+    setIsInitialized(true);
+  }, []);
+
   // Handle auth state changes
   useEffect(() => {
     const handleAuthChange = async () => {
@@ -68,14 +94,11 @@ export function useTheme() {
       if (session?.user) {
         setUserId(session.user.id);
         // User logged in - load their theme from database
-        loadUserThemeFromDB(session.user.id);
+        await loadUserThemeFromDB(session.user.id);
       } else {
         setUserId(null);
-        // User logged out - reset to default theme
-        localStorage.removeItem(USER_THEME_KEY);
-        setThemeState(defaultTheme);
-        applyThemeToDocument(defaultTheme);
-        setIsInitialized(true);
+        // No user - reset to default theme
+        resetToDefault();
       }
     };
 
@@ -84,57 +107,17 @@ export function useTheme() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         setUserId(session.user.id);
+        // Load user theme on login
         loadUserThemeFromDB(session.user.id);
       } else if (event === 'SIGNED_OUT') {
         setUserId(null);
         // Reset to default theme when user logs out
-        localStorage.removeItem(USER_THEME_KEY);
-        setThemeState(defaultTheme);
-        applyThemeToDocument(defaultTheme);
+        resetToDefault();
       }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
-
-  // Load theme from database for a specific user
-  const loadUserThemeFromDB = async (uid: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('ui_theme')
-      .eq('user_id', uid)
-      .maybeSingle();
-
-    if (!error && data?.ui_theme) {
-      try {
-        const userTheme = JSON.parse(data.ui_theme) as ThemeConfig;
-        setThemeState(userTheme);
-        localStorage.setItem(USER_THEME_KEY, JSON.stringify(userTheme));
-        applyThemeToDocument(userTheme);
-      } catch (e) {
-        // Invalid JSON, use default
-        setThemeState(defaultTheme);
-        applyThemeToDocument(defaultTheme);
-      }
-    } else {
-      // No saved theme, use default
-      setThemeState(defaultTheme);
-      applyThemeToDocument(defaultTheme);
-    }
-    setIsInitialized(true);
-  };
-
-  // Apply theme changes
-  useEffect(() => {
-    if (!isInitialized) return;
-    
-    applyThemeToDocument(theme);
-
-    // Only save to localStorage if user is logged in
-    if (userId) {
-      localStorage.setItem(USER_THEME_KEY, JSON.stringify(theme));
-    }
-  }, [theme, isInitialized, userId]);
+  }, [loadUserThemeFromDB, resetToDefault]);
 
   const setMode = useCallback((mode: ThemeMode) => {
     const newTheme = { ...theme, mode };
@@ -181,5 +164,6 @@ export function useTheme() {
     setMode,
     setPalette,
     isDark: theme.mode === "dark",
+    isInitialized,
   };
 }
