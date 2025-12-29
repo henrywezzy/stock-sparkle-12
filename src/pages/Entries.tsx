@@ -15,6 +15,7 @@ import { ColumnSettings } from "@/components/ui/column-settings";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { formatCurrency } from "@/lib/currency";
 import { QuickEntryDialog } from "@/components/entries/QuickEntryDialog";
+import { ExportDropdown } from "@/components/ui/export-dropdown";
 import {
   Dialog,
   DialogContent,
@@ -114,6 +115,8 @@ export default function Entries() {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
+  const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -216,6 +219,42 @@ export default function Entries() {
       return matchesSearch && matchesDateFrom && matchesDateTo && matchesSupplier;
     });
   }, [entries, products, searchTerm, dateFrom, dateTo, selectedSupplier]);
+
+  const handleSelectEntry = (id: string) => {
+    setSelectedEntryIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllEntries = (checked: boolean) => {
+    setSelectedEntryIds(checked ? filteredEntries.map(e => e.id) : []);
+  };
+
+  const handleBulkDelete = async () => {
+    for (const id of selectedEntryIds) {
+      await deleteEntry.mutateAsync(id);
+    }
+    setSelectedEntryIds([]);
+    setIsBulkDeleteDialogOpen(false);
+  };
+
+  const getExportData = () => {
+    const dataToExport = selectedEntryIds.length > 0 
+      ? filteredEntries.filter(e => selectedEntryIds.includes(e.id))
+      : filteredEntries;
+    return dataToExport;
+  };
+
+  const exportColumns = [
+    { key: "entry_date", header: "Data", render: (e: Entry) => format(new Date(e.entry_date), "dd/MM/yyyy") },
+    { key: "sku", header: "SKU", render: (e: Entry) => products.find(p => p.id === e.product_id)?.sku || "" },
+    { key: "product", header: "Produto", render: (e: Entry) => e.products?.name || "" },
+    { key: "quantity", header: "Quantidade", render: (e: Entry) => String(e.quantity) },
+    { key: "unit_price", header: "Preço Unit.", render: (e: Entry) => e.unit_price ? formatCurrency(e.unit_price) : "" },
+    { key: "total", header: "Total", render: (e: Entry) => e.total_price ? formatCurrency(e.total_price) : "" },
+    { key: "supplier", header: "Fornecedor", render: (e: Entry) => e.suppliers?.name || "" },
+    { key: "invoice", header: "Nota Fiscal", render: (e: Entry) => e.invoice_number || "" },
+  ];
 
   const resetForm = () => {
     setFormData({
@@ -533,12 +572,51 @@ export default function Entries() {
         </div>
       </div>
 
+      {/* Bulk Actions */}
+      {selectedEntryIds.length > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
+          <span className="text-sm text-muted-foreground">
+            {selectedEntryIds.length} item(s) selecionado(s)
+          </span>
+          <ExportDropdown
+            title="Entradas Selecionadas"
+            filename="entradas-selecionadas"
+            columns={exportColumns}
+            data={getExportData()}
+            selectedCount={selectedEntryIds.length}
+          />
+          {canDelete && (
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={() => setIsBulkDeleteDialogOpen(true)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Excluir selecionados
+            </Button>
+          )}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setSelectedEntryIds([])}
+          >
+            Limpar seleção
+          </Button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="glass rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedEntryIds.length === filteredEntries.length && filteredEntries.length > 0}
+                    onCheckedChange={handleSelectAllEntries}
+                  />
+                </TableHead>
                 {visibleColumns.map((col) => (
                   <TableHead key={col.key} className="text-muted-foreground">
                     {col.label}
@@ -550,7 +628,7 @@ export default function Entries() {
               {filteredEntries.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={visibleColumns.length}
+                    colSpan={visibleColumns.length + 1}
                     className="text-center py-8 text-muted-foreground"
                   >
                     Nenhuma entrada encontrada
@@ -558,7 +636,16 @@ export default function Entries() {
                 </TableRow>
               ) : (
                 filteredEntries.map((entry) => (
-                  <TableRow key={entry.id} className="border-border">
+                  <TableRow 
+                    key={entry.id} 
+                    className={`border-border ${selectedEntryIds.includes(entry.id) ? 'bg-primary/5' : ''}`}
+                  >
+                    <TableCell className="w-12">
+                      <Checkbox
+                        checked={selectedEntryIds.includes(entry.id)}
+                        onCheckedChange={() => handleSelectEntry(entry.id)}
+                      />
+                    </TableCell>
                     {visibleColumns.map((col) => (
                       <TableCell key={`${entry.id}-${col.key}`}>
                         {renderCell(entry, col.key)}
@@ -996,6 +1083,28 @@ export default function Entries() {
         ]}
         data={filteredEntries}
       />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão em massa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir {selectedEntryIds.length} entrada(s)? 
+              Esta ação não pode ser desfeita e o estoque será ajustado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir {selectedEntryIds.length} item(s)
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

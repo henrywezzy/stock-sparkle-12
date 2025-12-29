@@ -189,12 +189,12 @@ export function ImportarEstoqueDialog({
             await createEntry.mutateAsync({
               product_id: productId,
               quantity: Math.round(item.quantidade_comercial),
-              unit_price: item.valor_unitario_comercial,
-              total_price: item.valor_bruto,
-              supplier_id: supplierId,
-              invoice_number: `NFe ${nfeData.numero}`,
-              entry_date: nfeData.data_emissao,
-              notes: `Importado da NF-e ${nfeData.chave_nfe}`,
+              unit_price: item.valor_unitario_comercial || 0,
+              total_price: item.valor_bruto || 0,
+              supplier_id: supplierId || undefined,
+              invoice_number: `NFe ${nfeData.numero || 'S/N'}`,
+              entry_date: nfeData.data_emissao || new Date().toISOString().split('T')[0],
+              notes: `Importado da NF-e ${nfeData.chave_nfe || 'sem chave'}`,
             });
             successCount++;
           }

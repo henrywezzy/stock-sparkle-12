@@ -11,6 +11,7 @@ import { useEmployees } from "@/hooks/useEmployees";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColumnPreferences } from "@/hooks/useColumnPreferences";
 import { ColumnSettings } from "@/components/ui/column-settings";
+import { ExportDropdown } from "@/components/ui/export-dropdown";
 import {
   Dialog,
   DialogContent,
@@ -84,6 +85,8 @@ export default function Exits() {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [editingExit, setEditingExit] = useState<Exit | null>(null);
   const [deletingExitId, setDeletingExitId] = useState<string | null>(null);
+  const [selectedExitIds, setSelectedExitIds] = useState<string[]>([]);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -166,6 +169,41 @@ export default function Exits() {
       return matchesSearch && matchesDateFrom && matchesDateTo && matchesEmployee;
     });
   }, [exits, products, searchTerm, dateFrom, dateTo, selectedEmployee]);
+
+  const handleSelectExit = (id: string) => {
+    setSelectedExitIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllExits = (checked: boolean) => {
+    setSelectedExitIds(checked ? filteredExits.map(e => e.id) : []);
+  };
+
+  const handleBulkDelete = async () => {
+    for (const id of selectedExitIds) {
+      await deleteExit.mutateAsync(id);
+    }
+    setSelectedExitIds([]);
+    setIsBulkDeleteDialogOpen(false);
+  };
+
+  const getExportData = () => {
+    const dataToExport = selectedExitIds.length > 0 
+      ? filteredExits.filter(e => selectedExitIds.includes(e.id))
+      : filteredExits;
+    return dataToExport;
+  };
+
+  const exportColumns = [
+    { key: "exit_date", header: "Data", render: (e: Exit) => format(new Date(e.exit_date), "dd/MM/yyyy") },
+    { key: "sku", header: "SKU", render: (e: Exit) => products.find(p => p.id === e.product_id)?.sku || "" },
+    { key: "product", header: "Produto", render: (e: Exit) => e.products?.name || "" },
+    { key: "quantity", header: "Quantidade", render: (e: Exit) => String(e.quantity) },
+    { key: "destination", header: "Destino", render: (e: Exit) => e.destination || "" },
+    { key: "employee", header: "Funcionário", render: (e: Exit) => e.employees?.name || "" },
+    { key: "reason", header: "Motivo", render: (e: Exit) => e.reason || "" },
+  ];
 
   const resetForm = () => {
     setFormData({
@@ -424,12 +462,51 @@ export default function Exits() {
         </div>
       </div>
 
+      {/* Bulk Actions */}
+      {selectedExitIds.length > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
+          <span className="text-sm text-muted-foreground">
+            {selectedExitIds.length} item(s) selecionado(s)
+          </span>
+          <ExportDropdown
+            title="Saídas Selecionadas"
+            filename="saidas-selecionadas"
+            columns={exportColumns}
+            data={getExportData()}
+            selectedCount={selectedExitIds.length}
+          />
+          {canDelete && (
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={() => setIsBulkDeleteDialogOpen(true)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Excluir selecionados
+            </Button>
+          )}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setSelectedExitIds([])}
+          >
+            Limpar seleção
+          </Button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="glass rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedExitIds.length === filteredExits.length && filteredExits.length > 0}
+                    onCheckedChange={handleSelectAllExits}
+                  />
+                </TableHead>
                 {visibleColumns.map((col) => (
                   <TableHead key={col.key} className="text-muted-foreground">
                     {col.label}
@@ -441,7 +518,7 @@ export default function Exits() {
               {filteredExits.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={visibleColumns.length}
+                    colSpan={visibleColumns.length + 1}
                     className="text-center py-8 text-muted-foreground"
                   >
                     Nenhuma saída encontrada
@@ -449,7 +526,16 @@ export default function Exits() {
                 </TableRow>
               ) : (
                 filteredExits.map((exit) => (
-                  <TableRow key={exit.id} className="border-border">
+                  <TableRow 
+                    key={exit.id} 
+                    className={`border-border ${selectedExitIds.includes(exit.id) ? 'bg-primary/5' : ''}`}
+                  >
+                    <TableCell className="w-12">
+                      <Checkbox
+                        checked={selectedExitIds.includes(exit.id)}
+                        onCheckedChange={() => handleSelectExit(exit.id)}
+                      />
+                    </TableCell>
                     {visibleColumns.map((col) => (
                       <TableCell key={`${exit.id}-${col.key}`}>
                         {renderCell(exit, col.key)}
@@ -770,6 +856,28 @@ export default function Exits() {
         ]}
         data={filteredExits}
       />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão em massa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir {selectedExitIds.length} saída(s)? 
+              Esta ação não pode ser desfeita e o estoque será ajustado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir {selectedExitIds.length} item(s)
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
