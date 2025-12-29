@@ -1,9 +1,21 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// HTML escape function to prevent XSS in emails
+function escapeHtml(unsafe: string | undefined | null): string {
+  if (!unsafe) return "";
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 interface ReportEmailRequest {
   to: string;
@@ -21,6 +33,42 @@ interface ReportEmailRequest {
   };
   companyName: string;
   pdfBase64?: string;
+}
+
+async function verifyAuth(req: Request): Promise<{ user: any; error?: string }> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return { user: null, error: "Missing authorization header" };
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error || !user) {
+    return { user: null, error: "Invalid or expired token" };
+  }
+
+  return { user };
+}
+
+async function verifyUserRole(userId: string, allowedRoles: string[]): Promise<boolean> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  const { data: roles } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("approved", true);
+
+  return roles?.some((r: any) => allowedRoles.includes(r.role)) ?? false;
 }
 
 async function sendEmail(to: string[], subject: string, html: string, attachments?: Array<{filename: string, content: string}>) {
@@ -60,9 +108,34 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Verify authentication
+    const { user, error: authError } = await verifyAuth(req);
+    if (authError || !user) {
+      console.error("Authentication failed:", authError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Verify user has admin or almoxarife role
+    const hasRole = await verifyUserRole(user.id, ["admin", "almoxarife"]);
+    if (!hasRole) {
+      console.error("User lacks required role:", user.id);
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Insufficient permissions" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     const { to, subject, reportData, companyName, pdfBase64 }: ReportEmailRequest = await req.json();
 
-    console.log(`Sending report email to: ${to}`);
+    console.log(`Sending report email to: ${to} by user ${user.id}`);
+
+    // Escape user inputs
+    const safeCompanyName = escapeHtml(companyName);
+    const safeResponsible = escapeHtml(reportData.responsible);
+    const safeCategoryName = escapeHtml(reportData.categoryName);
 
     const formatDate = (dateStr: string) => {
       const date = new Date(dateStr);
@@ -101,7 +174,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <!-- Header -->
                   <tr>
                     <td style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 32px; text-align: center;">
-                      <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">${companyName}</h1>
+                      <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">${safeCompanyName}</h1>
                       <p style="color: #94a3b8; margin: 8px 0 0 0; font-size: 14px;">Sistema de Gestão de Almoxarifado</p>
                     </td>
                   </tr>
@@ -127,7 +200,7 @@ const handler = async (req: Request): Promise<Response> => {
                                 <td width="50%" style="padding-bottom: 12px;">
                                   <span style="color: #64748b; font-size: 12px;">Tipo</span><br>
                                   <strong style="color: #1e293b; font-size: 14px;">
-                                    ${reportData.type === 'complete' ? 'Inventário Completo' : `Categoria: ${reportData.categoryName}`}
+                                    ${reportData.type === 'complete' ? 'Inventário Completo' : `Categoria: ${safeCategoryName}`}
                                   </strong>
                                 </td>
                                 <td width="50%" style="padding-bottom: 12px;">
@@ -140,7 +213,7 @@ const handler = async (req: Request): Promise<Response> => {
                               <tr>
                                 <td colspan="2">
                                   <span style="color: #64748b; font-size: 12px;">Responsável</span><br>
-                                  <strong style="color: #1e293b; font-size: 14px;">${reportData.responsible}</strong>
+                                  <strong style="color: #1e293b; font-size: 14px;">${safeResponsible}</strong>
                                 </td>
                               </tr>
                             </table>
@@ -195,7 +268,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <tr>
                     <td style="padding: 24px 32px; background-color: #f8fafc; text-align: center; border-top: 1px solid #e2e8f0;">
                       <p style="color: #94a3b8; font-size: 12px; margin: 0;">
-                        Este email foi enviado automaticamente pelo sistema ${companyName}.<br>
+                        Este email foi enviado automaticamente pelo sistema ${safeCompanyName}.<br>
                         Por favor, não responda a este email.
                       </p>
                     </td>

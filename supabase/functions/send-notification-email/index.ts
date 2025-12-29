@@ -13,6 +13,17 @@ interface NotificationRequest {
   userName?: string;
 }
 
+// HTML escape function to prevent XSS in emails
+function escapeHtml(unsafe: string | undefined | null): string {
+  if (!unsafe) return "";
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 async function sendEmail(to: string[], subject: string, html: string) {
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
   
@@ -38,6 +49,28 @@ async function sendEmail(to: string[], subject: string, html: string) {
   return await response.json();
 }
 
+async function verifyAuth(req: Request): Promise<{ user: any; error?: string }> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return { user: null, error: "Missing authorization header" };
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error || !user) {
+    return { user: null, error: "Invalid or expired token" };
+  }
+
+  return { user };
+}
+
 const handler = async (req: Request): Promise<Response> => {
   console.log("send-notification-email function called");
 
@@ -47,12 +80,43 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Verify authentication
+    const { user, error: authError } = await verifyAuth(req);
+    if (authError || !user) {
+      console.error("Authentication failed:", authError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     const { type, userEmail, userName }: NotificationRequest = await req.json();
-    console.log(`Processing ${type} notification for ${userEmail}`);
+    console.log(`Processing ${type} notification for ${userEmail} by user ${user.id}`);
+
+    // Escape user inputs to prevent XSS
+    const safeUserName = escapeHtml(userName);
+    const safeUserEmail = escapeHtml(userEmail);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // For admin-only operations, verify user has admin role
+    if (type === "user_approved" || type === "user_rejected") {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("approved", true);
+
+      if (!roles?.some((r) => r.role === "admin")) {
+        console.error("User is not an admin:", user.id);
+        return new Response(
+          JSON.stringify({ error: "Forbidden: Admin access required" }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+    }
 
     if (type === "new_user_registration") {
       // Get all admin users to notify
@@ -126,8 +190,8 @@ const handler = async (req: Request): Promise<Response> => {
                 </div>
                 
                 <div style="background-color: #fafafa; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-                  <p style="margin: 0 0 8px 0; font-size: 14px;"><strong style="color: #18181b;">Nome:</strong> <span style="color: #52525b;">${userName || "Não informado"}</span></p>
-                  <p style="margin: 0; font-size: 14px;"><strong style="color: #18181b;">Email:</strong> <span style="color: #52525b;">${userEmail}</span></p>
+                  <p style="margin: 0 0 8px 0; font-size: 14px;"><strong style="color: #18181b;">Nome:</strong> <span style="color: #52525b;">${safeUserName || "Não informado"}</span></p>
+                  <p style="margin: 0; font-size: 14px;"><strong style="color: #18181b;">Email:</strong> <span style="color: #52525b;">${safeUserEmail}</span></p>
                 </div>
                 
                 <p style="color: #52525b; font-size: 14px; margin-bottom: 24px;">
@@ -182,7 +246,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <h2 style="color: #18181b; text-align: center; margin: 0 0 16px 0; font-size: 20px;">Acesso Aprovado!</h2>
                 
                 <p style="color: #52525b; font-size: 14px; text-align: center; margin-bottom: 24px;">
-                  Olá${userName ? ` ${userName}` : ""}! Seu cadastro foi aprovado pelo administrador. Agora você pode acessar o sistema normalmente.
+                  Olá${safeUserName ? ` ${safeUserName}` : ""}! Seu cadastro foi aprovado pelo administrador. Agora você pode acessar o sistema normalmente.
                 </p>
                 
                 <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e4e4e7;">

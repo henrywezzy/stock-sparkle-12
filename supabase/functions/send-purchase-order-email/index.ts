@@ -9,6 +9,17 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// HTML escape function to prevent XSS in emails
+function escapeHtml(unsafe: string | undefined | null): string {
+  if (!unsafe) return "";
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 async function sendEmail(options: { from: string; to: string[]; subject: string; html: string; attachments?: { filename: string; content: string }[] }) {
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -34,19 +45,74 @@ interface PurchaseOrderEmailRequest {
   pdfBase64?: string;
 }
 
+async function verifyAuth(req: Request): Promise<{ user: any; error?: string }> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return { user: null, error: "Missing authorization header" };
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error || !user) {
+    return { user: null, error: "Invalid or expired token" };
+  }
+
+  return { user };
+}
+
+async function verifyUserRole(supabase: any, userId: string, allowedRoles: string[]): Promise<boolean> {
+  const { data: roles } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("approved", true);
+
+  return roles?.some((r: any) => allowedRoles.includes(r.role)) ?? false;
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Verify authentication
+    const { user, error: authError } = await verifyAuth(req);
+    if (authError || !user) {
+      console.error("Authentication failed:", authError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Verify user has admin or almoxarife role
+    const hasRole = await verifyUserRole(supabase, user.id, ["admin", "almoxarife"]);
+    if (!hasRole) {
+      console.error("User lacks required role:", user.id);
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Insufficient permissions" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     const { orderId, recipientEmail, recipientName, pdfBase64 }: PurchaseOrderEmailRequest = await req.json();
 
-    console.log(`Sending purchase order email for order ${orderId} to ${recipientEmail}`);
+    console.log(`Sending purchase order email for order ${orderId} to ${recipientEmail} by user ${user.id}`);
+
+    // Escape user inputs
+    const safeRecipientName = escapeHtml(recipientName);
 
     const { data: order, error: orderError } = await supabase
       .from("purchase_orders")
@@ -73,14 +139,14 @@ const handler = async (req: Request): Promise<Response> => {
       .select("*")
       .single();
 
-    const companyName = company?.name || "Empresa";
+    const companyName = escapeHtml(company?.name) || "Empresa";
 
     const itemsHtml = items?.map((item: { codigo?: string; descricao: string; unidade: string; quantidade: number; valor_unitario: number }, index: number) => `
       <tr style="border-bottom: 1px solid #e5e7eb;">
         <td style="padding: 12px; text-align: center;">${index + 1}</td>
-        <td style="padding: 12px; font-family: monospace;">${item.codigo || '—'}</td>
-        <td style="padding: 12px;">${item.descricao}</td>
-        <td style="padding: 12px; text-align: center;">${item.unidade}</td>
+        <td style="padding: 12px; font-family: monospace;">${escapeHtml(item.codigo) || '—'}</td>
+        <td style="padding: 12px;">${escapeHtml(item.descricao)}</td>
+        <td style="padding: 12px; text-align: center;">${escapeHtml(item.unidade)}</td>
         <td style="padding: 12px; text-align: center; font-weight: 600;">${item.quantidade}</td>
         <td style="padding: 12px; text-align: right;">R$ ${Number(item.valor_unitario).toFixed(2)}</td>
         <td style="padding: 12px; text-align: right; font-weight: 600;">R$ ${(Number(item.quantidade) * Number(item.valor_unitario)).toFixed(2)}</td>
@@ -106,12 +172,12 @@ const handler = async (req: Request): Promise<Response> => {
               <tr>
                 <td>
                   <h1 style="color: #1f2937; margin: 0; font-size: 24px;">${companyName}</h1>
-                  ${company?.cnpj ? `<p style="color: #6b7280; margin: 4px 0; font-size: 14px;">CNPJ: ${company.cnpj}</p>` : ''}
-                  ${company?.address ? `<p style="color: #6b7280; margin: 4px 0; font-size: 14px;">${company.address}</p>` : ''}
+                  ${company?.cnpj ? `<p style="color: #6b7280; margin: 4px 0; font-size: 14px;">CNPJ: ${escapeHtml(company.cnpj)}</p>` : ''}
+                  ${company?.address ? `<p style="color: #6b7280; margin: 4px 0; font-size: 14px;">${escapeHtml(company.address)}</p>` : ''}
                 </td>
                 <td style="text-align: right;">
                   <h2 style="color: #2563eb; margin: 0; font-size: 20px;">ORDEM DE COMPRA</h2>
-                  <p style="font-size: 18px; font-weight: 600; margin: 8px 0;">${order.numero}</p>
+                  <p style="font-size: 18px; font-weight: 600; margin: 8px 0;">${escapeHtml(order.numero)}</p>
                   <p style="color: #6b7280; font-size: 14px; margin: 4px 0;">Emissão: ${formatDate(order.data_emissao)}</p>
                   ${order.data_entrega ? `<p style="color: #6b7280; font-size: 14px; margin: 4px 0;">Entrega: ${formatDate(order.data_entrega)}</p>` : ''}
                 </td>
@@ -121,10 +187,10 @@ const handler = async (req: Request): Promise<Response> => {
 
           <div style="margin-bottom: 30px;">
             <p style="font-size: 16px; color: #374151;">
-              Prezado(a) <strong>${recipientName}</strong>,
+              Prezado(a) <strong>${safeRecipientName}</strong>,
             </p>
             <p style="font-size: 14px; color: #6b7280;">
-              Segue a Ordem de Compra ${order.numero} para sua análise e confirmação.
+              Segue a Ordem de Compra ${escapeHtml(order.numero)} para sua análise e confirmação.
             </p>
           </div>
 
@@ -133,15 +199,15 @@ const handler = async (req: Request): Promise<Response> => {
               <tr>
                 <td style="width: 33%;">
                   <p style="color: #6b7280; font-size: 12px; text-transform: uppercase; margin: 0;">Condições de Pagamento</p>
-                  <p style="font-weight: 600; margin: 4px 0;">${order.condicoes_pagamento || '—'}</p>
+                  <p style="font-weight: 600; margin: 4px 0;">${escapeHtml(order.condicoes_pagamento) || '—'}</p>
                 </td>
                 <td style="width: 33%;">
                   <p style="color: #6b7280; font-size: 12px; text-transform: uppercase; margin: 0;">Frete</p>
-                  <p style="font-weight: 600; margin: 4px 0;">${order.frete || '—'}</p>
+                  <p style="font-weight: 600; margin: 4px 0;">${escapeHtml(order.frete) || '—'}</p>
                 </td>
                 <td style="width: 33%;">
                   <p style="color: #6b7280; font-size: 12px; text-transform: uppercase; margin: 0;">Solicitante</p>
-                  <p style="font-weight: 600; margin: 4px 0;">${order.solicitante || '—'}</p>
+                  <p style="font-weight: 600; margin: 4px 0;">${escapeHtml(order.solicitante) || '—'}</p>
                 </td>
               </tr>
             </table>
@@ -173,7 +239,7 @@ const handler = async (req: Request): Promise<Response> => {
           ${order.observacoes ? `
           <div style="background-color: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
             <h4 style="color: #92400e; margin: 0 0 8px 0; font-size: 14px;">Observações</h4>
-            <p style="color: #78350f; margin: 0; font-size: 14px; white-space: pre-wrap;">${order.observacoes}</p>
+            <p style="color: #78350f; margin: 0; font-size: 14px; white-space: pre-wrap;">${escapeHtml(order.observacoes)}</p>
           </div>
           ` : ''}
 
@@ -184,8 +250,8 @@ const handler = async (req: Request): Promise<Response> => {
             <p style="color: #6b7280; font-size: 14px;">
               Atenciosamente,<br>
               <strong>${companyName}</strong><br>
-              ${company?.phone ? `Tel: ${company.phone}` : ''}<br>
-              ${company?.email ? `Email: ${company.email}` : ''}
+              ${company?.phone ? `Tel: ${escapeHtml(company.phone)}` : ''}<br>
+              ${company?.email ? `Email: ${escapeHtml(company.email)}` : ''}
             </p>
           </div>
 
