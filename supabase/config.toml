@@ -7,7 +7,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.focus-nfe]
-verify_jwt = true
+verify_jwt = false
 
 [functions.ocr-danfe]
 verify_jwt = false
