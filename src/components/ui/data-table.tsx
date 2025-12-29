@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 
 interface Column<T> {
   key: keyof T | string;
-  header: string;
+  header: string | (() => React.ReactNode);
   render?: (item: T) => React.ReactNode;
   className?: string;
 }
@@ -38,7 +38,7 @@ export function DataTable<T extends { id: string | number }>({
                 key={String(column.key)}
                 className={cn("text-muted-foreground font-semibold", column.className)}
               >
-                {column.header}
+                {typeof column.header === 'function' ? column.header() : column.header}
               </TableHead>
             ))}
           </TableRow>

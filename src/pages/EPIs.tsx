@@ -106,7 +106,57 @@ export default function EPIs() {
     setNewDelivery({ employee_id: "", epi_id: "", quantity: 1, delivery_date: new Date().toISOString().split("T")[0] });
   };
 
+  const handleSelectEPI = (epiId: string, checked: boolean) => {
+    setSelectedEPIIds(prev => 
+      checked ? [...prev, epiId] : prev.filter(id => id !== epiId)
+    );
+  };
+
+  const handleSelectAllEPIs = (checked: boolean) => {
+    setSelectedEPIIds(checked ? filteredEPIs.map(e => e.id) : []);
+  };
+
+  const handleBulkDeleteEPIs = async () => {
+    for (const id of selectedEPIIds) {
+      await deleteEPI.mutateAsync(id);
+    }
+    setSelectedEPIIds([]);
+    setIsBulkDeleteDialogOpen(false);
+    toast({ title: `${selectedEPIIds.length} EPIs excluídos com sucesso` });
+  };
+
+  const getExportData = () => {
+    const dataToExport = selectedEPIIds.length > 0 
+      ? filteredEPIs.filter(e => selectedEPIIds.includes(e.id))
+      : filteredEPIs;
+    return dataToExport.map(epi => ({
+      Nome: epi.name,
+      Categoria: epi.category || '-',
+      CA: epi.ca_number || '-',
+      Estoque: epi.quantity,
+      'Estoque Mínimo': epi.min_quantity || 5,
+      'Validade (dias)': epi.default_validity_days || 365,
+      Status: epi.quantity <= (epi.min_quantity || 5) ? 'Estoque Baixo' : 'Normal',
+    }));
+  };
+
   const epiColumns = [
+    {
+      key: "select",
+      header: () => (
+        <Checkbox
+          checked={selectedEPIIds.length === filteredEPIs.length && filteredEPIs.length > 0}
+          onCheckedChange={handleSelectAllEPIs}
+        />
+      ),
+      render: (epi: EPI) => (
+        <Checkbox
+          checked={selectedEPIIds.includes(epi.id)}
+          onCheckedChange={(checked) => handleSelectEPI(epi.id, checked as boolean)}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+    },
     {
       key: "name",
       header: "EPI",
@@ -330,14 +380,51 @@ export default function EPIs() {
         </TabsList>
 
         <TabsContent value="inventory" className="space-y-4">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar EPIs..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-secondary/50 border-border/50"
-            />
+          <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+            <div className="relative max-w-md flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar EPIs..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-secondary/50 border-border/50"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedEPIIds.length > 0 && (
+                <>
+                  <span className="text-sm text-muted-foreground">
+                    {selectedEPIIds.length} selecionado(s)
+                  </span>
+                  {canDelete && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setIsBulkDeleteDialogOpen(true)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Excluir
+                    </Button>
+                  )}
+                </>
+              )}
+              <ExportDropdown
+                title="Relatório de EPIs"
+                filename="epis"
+                columns={[
+                  { key: 'Nome', header: 'Nome' },
+                  { key: 'Categoria', header: 'Categoria' },
+                  { key: 'CA', header: 'CA' },
+                  { key: 'Estoque', header: 'Estoque' },
+                  { key: 'Estoque Mínimo', header: 'Estoque Mínimo' },
+                  { key: 'Validade (dias)', header: 'Validade (dias)' },
+                  { key: 'Status', header: 'Status' },
+                ]}
+                data={getExportData()}
+                disabled={filteredEPIs.length === 0}
+                selectedCount={selectedEPIIds.length}
+              />
+            </div>
           </div>
           <DataTable columns={epiColumns} data={filteredEPIs} />
         </TabsContent>
@@ -520,6 +607,28 @@ export default function EPIs() {
         ]}
         data={filteredEPIs}
       />
+
+      {/* Bulk Delete Dialog */}
+      <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão em massa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir {selectedEPIIds.length} EPI(s) selecionado(s)?
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDeleteEPIs}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir {selectedEPIIds.length} EPI(s)
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
