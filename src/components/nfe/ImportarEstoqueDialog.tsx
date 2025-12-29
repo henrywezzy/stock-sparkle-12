@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Dialog, 
   DialogContent, 
@@ -127,14 +128,48 @@ export function ImportarEstoqueDialog({
       // Create entries for each selected item
       let successCount = 0;
       let errorCount = 0;
+      let newProductCount = 0;
 
       for (const item of selectedItems) {
         try {
-          // For now, we'll create entries for existing products only
-          // New products would need to be created first
-          if (!item.isNewProduct && item.productId) {
+          let productId = item.productId;
+          
+          // If new product, create it first
+          if (item.isNewProduct) {
+            const { data: newProduct, error: productError } = await supabase
+              .from('products')
+              .insert({
+                name: item.descricao.substring(0, 100), // Limit name length
+                sku: item.codigo_produto || undefined,
+                quantity: 0, // Will be updated by entry trigger
+                unit: item.unidade_comercial || 'UN',
+                price: item.valor_unitario_comercial || 0,
+                supplier_id: supplierId,
+                category_id: item.categoryId || undefined,
+                location: item.location || undefined,
+                status: 'active',
+              })
+              .select()
+              .single();
+            
+            if (productError) {
+              console.error('Error creating product:', item.descricao, productError);
+              toast({
+                title: "Erro ao criar produto",
+                description: `"${item.descricao.substring(0, 50)}..." - ${productError.message}`,
+                variant: "destructive",
+              });
+              errorCount++;
+              continue;
+            }
+            
+            productId = newProduct.id;
+            newProductCount++;
+          }
+
+          if (productId) {
             await createEntry.mutateAsync({
-              product_id: item.productId,
+              product_id: productId,
               quantity: Math.round(item.quantidade_comercial),
               unit_price: item.valor_unitario_comercial,
               total_price: item.valor_bruto,
@@ -144,16 +179,6 @@ export function ImportarEstoqueDialog({
               notes: `Importado da NF-e ${nfeData.chave_nfe}`,
             });
             successCount++;
-          } else if (item.isNewProduct) {
-            // For new products, we would need to create the product first
-            // This is a simplified version - just count as success
-            // In a full implementation, you'd create the product then the entry
-            toast({
-              title: "Produto novo detectado",
-              description: `"${item.descricao}" precisa ser cadastrado primeiro.`,
-              variant: "destructive",
-            });
-            errorCount++;
           }
         } catch (error) {
           console.error('Error importing item:', item.descricao, error);
@@ -162,9 +187,14 @@ export function ImportarEstoqueDialog({
       }
 
       if (successCount > 0) {
+        const parts = [];
+        parts.push(`${successCount} item(s) importado(s)`);
+        if (newProductCount > 0) parts.push(`${newProductCount} produto(s) criado(s)`);
+        if (errorCount > 0) parts.push(`${errorCount} erro(s)`);
+        
         toast({
           title: "Importação concluída!",
-          description: `${successCount} item(s) importado(s) com sucesso.${errorCount > 0 ? ` ${errorCount} erro(s).` : ''}`,
+          description: parts.join(', ') + '.',
         });
         onSuccess?.();
         onOpenChange(false);
@@ -198,17 +228,19 @@ export function ImportarEstoqueDialog({
             <Package className="w-5 h-5 text-primary" />
             Importar Itens para Estoque
           </DialogTitle>
-          <DialogDescription>
-            Selecione os itens da NF-e {nfeData.numero} para importar ao estoque.
-            {existingSupplier ? (
-              <Badge variant="outline" className="ml-2 text-success border-success/30">
-                Fornecedor: {existingSupplier.name}
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="ml-2 text-warning border-warning/30">
-                Novo fornecedor será criado: {nfeData.nome_emitente}
-              </Badge>
-            )}
+          <DialogDescription asChild>
+            <div className="space-y-2">
+              <span>Selecione os itens da NF-e {nfeData.numero} para importar ao estoque.</span>
+              {existingSupplier ? (
+                <Badge variant="outline" className="ml-2 text-success border-success/30">
+                  Fornecedor: <span className="truncate max-w-[200px] inline-block align-bottom">{existingSupplier.name}</span>
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="ml-2 text-warning border-warning/30">
+                  Novo fornecedor: <span className="truncate max-w-[200px] inline-block align-bottom">{nfeData.nome_emitente}</span>
+                </Badge>
+              )}
+            </div>
           </DialogDescription>
         </DialogHeader>
 
