@@ -47,11 +47,14 @@ export default function Suppliers() {
   const { canEdit, canDelete } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterCategoryId, setFilterCategoryId] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [deletingSupplierId, setDeletingSupplierId] = useState<string | null>(null);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<string[]>([]);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
 
   const [formData, setFormData] = useState<SupplierFormData>({
     name: "",
@@ -65,12 +68,45 @@ export default function Suppliers() {
   });
 
   const filteredSuppliers = useMemo(() => {
-    return suppliers.filter(
-      (s) =>
-        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.cnpj?.toLowerCase().includes(searchTerm.toLowerCase())
+    return suppliers.filter((s) => {
+      const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        s.cnpj?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Filtro por categoria
+      if (filterCategoryId !== "all") {
+        const supplierCatIds = allSupplierCategories
+          .filter(sc => sc.supplier_id === s.id)
+          .map(sc => sc.category_id);
+        if (!supplierCatIds.includes(filterCategoryId)) {
+          return false;
+        }
+      }
+      
+      return matchesSearch;
+    });
+  }, [suppliers, searchTerm, filterCategoryId, allSupplierCategories]);
+
+  const handleSelectAll = () => {
+    if (selectedSupplierIds.length === filteredSuppliers.length) {
+      setSelectedSupplierIds([]);
+    } else {
+      setSelectedSupplierIds(filteredSuppliers.map(s => s.id));
+    }
+  };
+
+  const handleSelectSupplier = (id: string) => {
+    setSelectedSupplierIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
-  }, [suppliers, searchTerm]);
+  };
+
+  const handleBulkDelete = async () => {
+    for (const id of selectedSupplierIds) {
+      await deleteSupplier.mutateAsync(id);
+    }
+    setSelectedSupplierIds([]);
+    setIsBulkDeleteDialogOpen(false);
+  };
 
   const resetForm = () => {
     setFormData({
@@ -208,15 +244,47 @@ export default function Suppliers() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar fornecedores..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 bg-secondary/50 border-border/50"
-        />
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar fornecedores..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 bg-secondary/50 border-border/50"
+          />
+        </div>
+        <Select value={filterCategoryId} onValueChange={setFilterCategoryId}>
+          <SelectTrigger className="w-full sm:w-[200px] bg-secondary/50 border-border/50">
+            <Tag className="w-4 h-4 mr-2 text-muted-foreground" />
+            <SelectValue placeholder="Filtrar por categoria" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as categorias</SelectItem>
+            {categories.map((cat) => (
+              <SelectItem key={cat.id} value={cat.id}>
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-2 h-2 rounded-full" 
+                    style={{ backgroundColor: cat.color || '#3B82F6' }}
+                  />
+                  {cat.name}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {selectedSupplierIds.length > 0 && canDelete && (
+          <Button 
+            variant="destructive" 
+            onClick={() => setIsBulkDeleteDialogOpen(true)}
+            className="gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Excluir ({selectedSupplierIds.length})
+          </Button>
+        )}
       </div>
 
       {/* Suppliers Grid */}
@@ -232,45 +300,68 @@ export default function Suppliers() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredSuppliers.map((supplier) => (
-            <div
-              key={supplier.id}
-              className="glass rounded-xl p-4 sm:p-6 glass-hover animate-slide-up"
-            >
-              <div className="flex items-start justify-between gap-2 mb-4">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                    <Truck className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+        <>
+          {/* Select All */}
+          {canDelete && filteredSuppliers.length > 0 && (
+            <div className="flex items-center gap-2 mb-2">
+              <Checkbox
+                id="select-all-suppliers"
+                checked={selectedSupplierIds.length === filteredSuppliers.length && filteredSuppliers.length > 0}
+                onCheckedChange={handleSelectAll}
+              />
+              <Label htmlFor="select-all-suppliers" className="text-sm text-muted-foreground cursor-pointer">
+                Selecionar todos ({filteredSuppliers.length})
+              </Label>
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredSuppliers.map((supplier) => (
+              <div
+                key={supplier.id}
+                className={`glass rounded-xl p-4 sm:p-6 glass-hover animate-slide-up ${
+                  selectedSupplierIds.includes(supplier.id) ? 'ring-2 ring-primary' : ''
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2 mb-4">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    {canDelete && (
+                      <Checkbox
+                        checked={selectedSupplierIds.includes(supplier.id)}
+                        onCheckedChange={() => handleSelectSupplier(supplier.id)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    )}
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <Truck className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-sm sm:text-base truncate">{supplier.name}</h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground">{supplier.cnpj || "Sem CNPJ"}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-sm sm:text-base truncate">{supplier.name}</h3>
-                    <p className="text-xs sm:text-sm text-muted-foreground">{supplier.cnpj || "Sem CNPJ"}</p>
+                  <div className="flex gap-1 shrink-0">
+                    {canEdit && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        onClick={() => handleOpenDialog(supplier)}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => openDeleteDialog(supplier.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  {canEdit && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-primary"
-                      onClick={() => handleOpenDialog(supplier)}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                  )}
-                  {canDelete && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => openDeleteDialog(supplier.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
 
               <div className="space-y-2 text-xs sm:text-sm">
                 {supplier.contact_name && (
@@ -350,6 +441,7 @@ export default function Suppliers() {
             </div>
           ))}
         </div>
+      </>
       )}
 
       {/* Create/Edit Dialog */}
@@ -542,6 +634,27 @@ export default function Suppliers() {
             >
               {deleteSupplier.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão em lote</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir {selectedSupplierIds.length} fornecedor(es)? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir {selectedSupplierIds.length} fornecedor(es)
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
