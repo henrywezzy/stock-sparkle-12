@@ -570,6 +570,138 @@ export type Database = {
         }
         Relationships: []
       }
+      purchase_order_items: {
+        Row: {
+          codigo: string | null
+          created_at: string | null
+          descricao: string
+          epi_id: string | null
+          id: string
+          order_id: string
+          product_id: string | null
+          quantidade: number
+          subtotal: number | null
+          tipo: string
+          unidade: string | null
+          valor_unitario: number
+        }
+        Insert: {
+          codigo?: string | null
+          created_at?: string | null
+          descricao: string
+          epi_id?: string | null
+          id?: string
+          order_id: string
+          product_id?: string | null
+          quantidade: number
+          subtotal?: number | null
+          tipo?: string
+          unidade?: string | null
+          valor_unitario: number
+        }
+        Update: {
+          codigo?: string | null
+          created_at?: string | null
+          descricao?: string
+          epi_id?: string | null
+          id?: string
+          order_id?: string
+          product_id?: string | null
+          quantidade?: number
+          subtotal?: number | null
+          tipo?: string
+          unidade?: string | null
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_items_epi_id_fkey"
+            columns: ["epi_id"]
+            isOneToOne: false
+            referencedRelation: "epis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_orders: {
+        Row: {
+          aprovado_por: string | null
+          condicoes_pagamento: string | null
+          created_at: string | null
+          created_by: string | null
+          data_aprovacao: string | null
+          data_emissao: string
+          data_entrega: string | null
+          frete: string | null
+          id: string
+          numero: string
+          observacoes: string | null
+          solicitante: string | null
+          status: string
+          supplier_id: string | null
+          total: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          aprovado_por?: string | null
+          condicoes_pagamento?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_aprovacao?: string | null
+          data_emissao?: string
+          data_entrega?: string | null
+          frete?: string | null
+          id?: string
+          numero: string
+          observacoes?: string | null
+          solicitante?: string | null
+          status?: string
+          supplier_id?: string | null
+          total?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          aprovado_por?: string | null
+          condicoes_pagamento?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_aprovacao?: string | null
+          data_emissao?: string
+          data_entrega?: string | null
+          frete?: string | null
+          id?: string
+          numero?: string
+          observacoes?: string | null
+          solicitante?: string | null
+          status?: string
+          supplier_id?: string | null
+          total?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       requisitions: {
         Row: {
           approved_at: string | null

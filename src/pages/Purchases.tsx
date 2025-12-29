@@ -12,7 +12,9 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
-  FileText
+  FileText,
+  ClipboardList,
+  Plus
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { GenericReportDialog, ReportColumn, ReportSummary } from "@/components/reports/GenericReportDialog";
@@ -56,6 +58,9 @@ import { ptBR } from "date-fns/locale";
 import { DataFilters } from "@/components/filters/DataFilters";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { PurchaseOrderDialog } from "@/components/purchases/PurchaseOrderDialog";
+import { PurchaseOrdersListDialog } from "@/components/purchases/PurchaseOrdersListDialog";
+import { usePurchaseOrders } from "@/hooks/usePurchaseOrders";
 
 // Colunas padrão para a tabela
 const DEFAULT_COLUMNS = [
@@ -117,11 +122,15 @@ export default function Purchases() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<PurchaseSuggestion | null>(null);
+  const [orderDialogOpen, setOrderDialogOpen] = useState(false);
+  const [ordersListDialogOpen, setOrdersListDialogOpen] = useState(false);
   
   // Form state for purchase confirmation
   const [purchaseQuantity, setPurchaseQuantity] = useState<number>(0);
   const [purchasePrice, setPurchasePrice] = useState<string>("");
   const [purchaseSupplierId, setPurchaseSupplierId] = useState<string>("");
+  
+  const { getStatistics } = usePurchaseOrders();
 
   // Gerar sugestões de compra baseado em produtos e EPIs com estoque baixo/crítico
   const purchaseSuggestions = useMemo(() => {
@@ -447,6 +456,20 @@ export default function Purchases() {
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Compras" }]}
         actions={
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setOrdersListDialogOpen(true)}
+            >
+              <ClipboardList className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Ordens</span>
+            </Button>
+            <Button
+              onClick={() => setOrderDialogOpen(true)}
+              disabled={filteredSuggestions.length === 0}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Gerar Ordem</span>
+            </Button>
             <Button
               variant="outline"
               onClick={() => setIsReportOpen(true)}
@@ -884,6 +907,19 @@ export default function Purchases() {
           }},
         ]}
         data={filteredSuggestions}
+      />
+
+      {/* Purchase Order Dialog */}
+      <PurchaseOrderDialog
+        open={orderDialogOpen}
+        onOpenChange={setOrderDialogOpen}
+        suggestions={filteredSuggestions}
+      />
+
+      {/* Purchase Orders List Dialog */}
+      <PurchaseOrdersListDialog
+        open={ordersListDialogOpen}
+        onOpenChange={setOrdersListDialogOpen}
       />
     </div>
   );
