@@ -1,6 +1,5 @@
 import * as React from "react";
 import { Input } from "@/components/ui/input";
-import { maskCurrency, unmaskCurrency, formatCurrencyValue } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 interface CurrencyInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {
@@ -10,45 +9,62 @@ interface CurrencyInputProps extends Omit<React.InputHTMLAttributes<HTMLInputEle
 
 export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
   ({ value, onChange, className, ...props }, ref) => {
-    const [displayValue, setDisplayValue] = React.useState(() => 
-      value > 0 ? formatCurrencyValue(value) : ''
-    );
+    const [displayValue, setDisplayValue] = React.useState<string>("");
+    const [isFocused, setIsFocused] = React.useState(false);
 
-    // Atualiza o display quando o valor externo muda
+    // Format number to display string
+    const formatToDisplay = (num: number): string => {
+      if (num === 0) return "";
+      return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
+    // Parse display string to number
+    const parseToNumber = (str: string): number => {
+      if (!str) return 0;
+      // Remove all non-digit characters except comma
+      const cleaned = str.replace(/[^\d,]/g, '');
+      // Replace comma with dot for parsing
+      const normalized = cleaned.replace(',', '.');
+      return parseFloat(normalized) || 0;
+    };
+
+    // Update display when value changes externally and not focused
     React.useEffect(() => {
-      if (value > 0) {
-        setDisplayValue(formatCurrencyValue(value));
-      } else {
-        setDisplayValue('');
+      if (!isFocused) {
+        setDisplayValue(formatToDisplay(value));
       }
-    }, [value]);
+    }, [value, isFocused]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const inputValue = e.target.value;
       
-      // Se estiver vazio, define como 0
-      if (!inputValue) {
-        setDisplayValue('');
-        onChange(0);
-        return;
+      // Allow only digits and comma
+      const cleaned = inputValue.replace(/[^\d,]/g, '');
+      
+      // Ensure only one comma
+      const parts = cleaned.split(',');
+      let formatted = parts[0];
+      if (parts.length > 1) {
+        formatted += ',' + parts[1].slice(0, 2);
       }
       
-      // Aplica a máscara
-      const masked = maskCurrency(inputValue);
-      setDisplayValue(masked);
-      
-      // Converte para número e notifica a mudança
-      const numericValue = unmaskCurrency(masked);
-      onChange(numericValue);
+      setDisplayValue(formatted);
+      onChange(parseToNumber(formatted));
+    };
+
+    const handleFocus = () => {
+      setIsFocused(true);
+      // Show raw value on focus for easier editing
+      if (value > 0) {
+        setDisplayValue(value.toFixed(2).replace('.', ','));
+      } else {
+        setDisplayValue("");
+      }
     };
 
     const handleBlur = () => {
-      // Ao sair do campo, formata o valor corretamente
-      if (value > 0) {
-        setDisplayValue(formatCurrencyValue(value));
-      } else {
-        setDisplayValue('');
-      }
+      setIsFocused(false);
+      setDisplayValue(formatToDisplay(value));
     };
 
     return (
@@ -59,9 +75,10 @@ export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputPro
         <Input
           ref={ref}
           type="text"
-          inputMode="numeric"
+          inputMode="decimal"
           value={displayValue}
           onChange={handleChange}
+          onFocus={handleFocus}
           onBlur={handleBlur}
           className={cn("pl-10", className)}
           placeholder="0,00"
