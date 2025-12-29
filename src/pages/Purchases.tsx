@@ -133,6 +133,7 @@ export default function Purchases() {
   const [selectedProduct, setSelectedProduct] = useState<PurchaseSuggestion | null>(null);
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [ordersListDialogOpen, setOrdersListDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"sugestoes" | "dashboard">("sugestoes");
   
   // Form state for purchase confirmation
   const [purchaseQuantity, setPurchaseQuantity] = useState<number>(0);
@@ -456,8 +457,6 @@ export default function Purchases() {
   const lowCount = purchaseSuggestions.filter((s) => s.status === 'low').length;
   const epiCount = purchaseSuggestions.filter((s) => s.type === 'epi').length;
   const productCount = purchaseSuggestions.filter((s) => s.type === 'product').length;
-
-  const [activeTab, setActiveTab] = useState<"sugestoes" | "dashboard">("sugestoes");
 
   return (
     <div className="space-y-4 sm:space-y-6">
