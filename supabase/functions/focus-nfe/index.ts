@@ -7,11 +7,72 @@ const corsHeaders = {
 };
 
 // Focus NFe API endpoints
-const FOCUS_API_URL = Deno.env.get('FOCUS_NFE_AMBIENTE') === 'producao' 
-  ? 'https://api.focusnfe.com.br' 
-  : 'https://homologacao.focusnfe.com.br';
+const FOCUS_BASE_URLS = {
+  producao: 'https://api.focusnfe.com.br',
+  homologacao: 'https://homologacao.focusnfe.com.br',
+} as const;
 
+type FocusEnv = keyof typeof FOCUS_BASE_URLS;
+
+function normalizeEnv(env?: string): FocusEnv {
+  const e = (env || '').toLowerCase().trim();
+  return e === 'producao' ? 'producao' : 'homologacao';
+}
+
+const CONFIG_ENV = normalizeEnv(Deno.env.get('FOCUS_NFE_AMBIENTE'));
 const FOCUS_TOKEN = Deno.env.get('FOCUS_NFE_TOKEN');
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+function getFocusAuthHeaders() {
+  // Basic auth: token as username, empty password
+  return {
+    Authorization: `Basic ${btoa(`${FOCUS_TOKEN}:`)}`,
+  };
+}
+
+async function fetchFocus(
+  path: string,
+  init: RequestInit,
+  opts: { retryOtherEnvOn401?: boolean } = {}
+): Promise<{ response: Response; envUsed: FocusEnv }> {
+  const primary: FocusEnv = CONFIG_ENV;
+  const secondary: FocusEnv = primary === 'producao' ? 'homologacao' : 'producao';
+  const envs: FocusEnv[] = opts.retryOtherEnvOn401 ? [primary, secondary] : [primary];
+
+  let lastResponse: Response | null = null;
+  let lastEnv: FocusEnv = primary;
+
+  for (const env of envs) {
+    const baseUrl = FOCUS_BASE_URLS[env];
+    lastEnv = env;
+
+    const response = await fetch(`${baseUrl}${path}`, {
+      ...init,
+      headers: {
+        ...(init.headers || {}),
+        ...getFocusAuthHeaders(),
+      },
+    });
+
+    lastResponse = response;
+
+    // only retry if 401 and allowed
+    if (!(opts.retryOtherEnvOn401 && response.status === 401)) {
+      return { response, envUsed: env };
+    }
+
+    console.warn(`Focus NFe 401 on env=${env}; trying other environment...`);
+  }
+
+  // fallback
+  return { response: lastResponse!, envUsed: lastEnv };
+}
 
 interface NFEItem {
   numero_item: string;
@@ -66,14 +127,11 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
+    // Verify authentication (we return JSON error with 200 to avoid generic invoke errors)
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.error('Missing authorization header');
-      return new Response(
-        JSON.stringify({ error: 'Authorization header required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return json({ error: 'Unauthorized: missing Authorization header' });
     }
 
     // Create Supabase client and verify user
@@ -86,10 +144,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       console.error('Authentication failed:', authError?.message);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return json({ error: 'Unauthorized' });
     }
 
     // Check user role (admin or almoxarife)
@@ -101,19 +156,13 @@ serve(async (req) => {
 
     if (!roleData?.approved || !['admin', 'almoxarife'].includes(roleData.role)) {
       console.error('User lacks required role');
-      return new Response(
-        JSON.stringify({ error: 'Insufficient permissions' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return json({ error: 'Insufficient permissions' });
     }
 
     // Check if Focus NFe token is configured
     if (!FOCUS_TOKEN) {
       console.error('FOCUS_NFE_TOKEN not configured');
-      return new Response(
-        JSON.stringify({ error: 'Focus NFe API not configured. Please add FOCUS_NFE_TOKEN secret.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return json({ error: 'Focus NFe API not configured. Please set FOCUS_NFE_TOKEN.' });
     }
 
     const { action, chave_acesso, tipo_manifestacao } = await req.json();
@@ -123,10 +172,7 @@ serve(async (req) => {
     // Validate chave_acesso for actions that require it
     if (['consultar', 'manifestar', 'download_xml'].includes(action)) {
       if (!chave_acesso || !validateChaveAcesso(chave_acesso)) {
-        return new Response(
-          JSON.stringify({ error: 'Invalid chave_acesso. Must be 44 digits.' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return json({ error: 'Invalid chave_acesso. Must be 44 digits.' });
       }
     }
 
@@ -135,87 +181,85 @@ serve(async (req) => {
     switch (action) {
       case 'consultar': {
         // Consultar NF-e pela chave de acesso
-        const response = await fetch(`${FOCUS_API_URL}/v2/nfes_recebidas/${cleanChave}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Basic ${btoa(FOCUS_TOKEN + ':')}`,
-            'Content-Type': 'application/json',
-          },
-        });
+        const { response, envUsed } = await fetchFocus(
+          `/v2/nfe_recebidas/${cleanChave}`,
+          { method: 'GET' },
+          { retryOtherEnvOn401: true }
+        );
 
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Focus NFe API error:', response.status, errorText);
-          
-          // Try alternative endpoint for NFe lookup
-          const altResponse = await fetch(`${FOCUS_API_URL}/v2/nfes/${cleanChave}`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Basic ${btoa(FOCUS_TOKEN + ':')}`,
-              'Content-Type': 'application/json',
-            },
-          });
 
-          if (!altResponse.ok) {
-            return new Response(
-              JSON.stringify({ 
-                error: 'NF-e não encontrada ou não autorizada para consulta.',
-                details: escapeHtml(errorText)
-              }),
-              { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          // If not found, try alternative endpoint
+          if (response.status === 404) {
+            const alt = await fetchFocus(
+              `/v2/nfes/${cleanChave}`,
+              { method: 'GET' },
+              { retryOtherEnvOn401: true }
             );
+
+            if (alt.response.ok) {
+              const altData = await alt.response.json();
+              return json({ ...altData, _focus_env: alt.envUsed, _focus_env_config: CONFIG_ENV });
+            }
           }
 
-          const altData = await altResponse.json();
-          return new Response(
-            JSON.stringify(altData),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          const friendly = response.status === 401
+            ? 'Acesso negado na Focus NFe (token inválido ou ambiente incorreto).'
+            : 'NF-e não encontrada ou não autorizada para consulta.';
+
+          return json({
+            error: friendly,
+            focus_status: response.status,
+            details: escapeHtml(errorText),
+            _focus_env: envUsed,
+            _focus_env_config: CONFIG_ENV,
+          });
         }
 
         const data = await response.json();
-        return new Response(
-          JSON.stringify(data),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return json({ ...data, _focus_env: envUsed, _focus_env_config: CONFIG_ENV });
       }
 
       case 'listar_recebidas': {
         // Listar NF-es recebidas (destinadas à empresa)
-        const cnpj = Deno.env.get('FOCUS_NFE_CNPJ') || '';
-        
-        const response = await fetch(`${FOCUS_API_URL}/v2/nfes_recebidas?cnpj=${cnpj}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Basic ${btoa(FOCUS_TOKEN + ':')}`,
-            'Content-Type': 'application/json',
-          },
-        });
+        const cnpj = (Deno.env.get('FOCUS_NFE_CNPJ') || '').replace(/\D/g, '');
+        if (!cnpj) {
+          return json({ error: 'FOCUS_NFE_CNPJ não configurado para listar notas recebidas.' });
+        }
+
+        const { response, envUsed } = await fetchFocus(
+          `/v2/nfe_recebidas?cnpj=${cnpj}`,
+          { method: 'GET' },
+          { retryOtherEnvOn401: true }
+        );
 
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Focus NFe API error:', response.status, errorText);
-          return new Response(
-            JSON.stringify({ error: 'Erro ao listar NF-es recebidas', details: escapeHtml(errorText) }),
-            { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return json({
+            error: 'Erro ao listar NF-es recebidas',
+            focus_status: response.status,
+            details: escapeHtml(errorText),
+            _focus_env: envUsed,
+            _focus_env_config: CONFIG_ENV,
+          });
         }
 
         const data = await response.json();
-        return new Response(
-          JSON.stringify(data),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        // Keep response shape as array/object from Focus API
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          return json({ ...data, _focus_env: envUsed, _focus_env_config: CONFIG_ENV });
+        }
+        return json(data);
       }
 
       case 'manifestar': {
         // Tipos de manifestação: ciencia, confirmacao, desconhecimento, nao_realizada
         const validTipos = ['ciencia', 'confirmacao', 'desconhecimento', 'nao_realizada'];
         if (!tipo_manifestacao || !validTipos.includes(tipo_manifestacao)) {
-          return new Response(
-            JSON.stringify({ error: 'tipo_manifestacao inválido. Use: ciencia, confirmacao, desconhecimento, ou nao_realizada' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return json({ error: 'tipo_manifestacao inválido. Use: ciencia, confirmacao, desconhecimento, ou nao_realizada' });
         }
 
         const manifestacaoEndpoint = {
@@ -225,72 +269,68 @@ serve(async (req) => {
           nao_realizada: 'nao_realizada',
         };
 
-        const response = await fetch(`${FOCUS_API_URL}/v2/nfes_recebidas/${cleanChave}/manifestar`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Basic ${btoa(FOCUS_TOKEN + ':')}`,
-            'Content-Type': 'application/json',
+        const { response, envUsed } = await fetchFocus(
+          `/v2/nfe_recebidas/${cleanChave}/manifesto`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              tipo: manifestacaoEndpoint[tipo_manifestacao as keyof typeof manifestacaoEndpoint],
+            }),
           },
-          body: JSON.stringify({
-            tipo: manifestacaoEndpoint[tipo_manifestacao as keyof typeof manifestacaoEndpoint],
-          }),
-        });
+          { retryOtherEnvOn401: true }
+        );
 
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Focus NFe manifestation error:', response.status, errorText);
-          return new Response(
-            JSON.stringify({ error: 'Erro ao manifestar NF-e', details: escapeHtml(errorText) }),
-            { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return json({
+            error: 'Erro ao manifestar NF-e',
+            focus_status: response.status,
+            details: escapeHtml(errorText),
+            _focus_env: envUsed,
+            _focus_env_config: CONFIG_ENV,
+          });
         }
 
         const data = await response.json();
         console.log(`Manifestação ${tipo_manifestacao} registrada para chave ${cleanChave}`);
-        
-        return new Response(
-          JSON.stringify({ success: true, ...data }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+
+        return json({ success: true, ...data, _focus_env: envUsed, _focus_env_config: CONFIG_ENV });
       }
 
       case 'download_xml': {
         // Download do XML completo da NF-e
-        const response = await fetch(`${FOCUS_API_URL}/v2/nfes_recebidas/${cleanChave}.xml`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Basic ${btoa(FOCUS_TOKEN + ':')}`,
-          },
-        });
+        const { response, envUsed } = await fetchFocus(
+          `/v2/nfe_recebidas/${cleanChave}.xml`,
+          { method: 'GET' },
+          { retryOtherEnvOn401: true }
+        );
 
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Focus NFe XML download error:', response.status, errorText);
-          return new Response(
-            JSON.stringify({ error: 'Erro ao baixar XML da NF-e', details: escapeHtml(errorText) }),
-            { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return json({
+            error: 'Erro ao baixar XML da NF-e',
+            focus_status: response.status,
+            details: escapeHtml(errorText),
+            _focus_env: envUsed,
+            _focus_env_config: CONFIG_ENV,
+          });
         }
 
         const xml = await response.text();
-        return new Response(
-          JSON.stringify({ xml }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return json({ xml, _focus_env: envUsed, _focus_env_config: CONFIG_ENV });
       }
 
       default:
-        return new Response(
-          JSON.stringify({ error: 'Ação inválida. Use: consultar, listar_recebidas, manifestar, ou download_xml' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return json({ error: 'Ação inválida. Use: consultar, listar_recebidas, manifestar, ou download_xml' });
     }
 
   } catch (error) {
     console.error('Focus NFe function error:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return json({ error: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 });

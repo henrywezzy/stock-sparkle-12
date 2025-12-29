@@ -50,16 +50,17 @@ export function useNFe() {
         console.error('Error consulting NFe:', error);
         toast({
           title: "Erro ao consultar NF-e",
-          description: error.message || "Não foi possível consultar a nota fiscal.",
+          description: "Falha ao chamar o serviço de NF-e.",
           variant: "destructive",
         });
         return null;
       }
 
       if (data?.error) {
+        const extra = data?.details ? ` (${data.details})` : '';
         toast({
-          title: "NF-e não encontrada",
-          description: data.error,
+          title: "Erro na consulta",
+          description: `${data.error}${extra}`,
           variant: "destructive",
         });
         return null;
@@ -124,16 +125,17 @@ export function useNFe() {
         console.error('Error manifesting NFe:', error);
         toast({
           title: "Erro ao manifestar NF-e",
-          description: error.message || "Não foi possível registrar a manifestação.",
+          description: "Falha ao chamar o serviço de NF-e.",
           variant: "destructive",
         });
         return false;
       }
 
       if (data?.error) {
+        const extra = data?.details ? ` (${data.details})` : '';
         toast({
           title: "Erro na manifestação",
-          description: data.error,
+          description: `${data.error}${extra}`,
           variant: "destructive",
         });
         return false;
