@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Plus, Search, Edit, Trash2, Truck, Mail, Phone, MapPin, Star, Loader2, User } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Plus, Search, Edit, Trash2, Truck, Mail, Phone, MapPin, Star, Loader2, User, Tag } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,8 +7,11 @@ import { MaskedInput } from "@/components/ui/masked-input";
 import { Badge } from "@/components/ui/badge";
 import { ViaCEPResponse, CNPJResponse } from "@/lib/masks";
 import { useSuppliers, Supplier, SupplierFormData } from "@/hooks/useSuppliers";
+import { useCategories } from "@/hooks/useCategories";
+import { useSupplierCategories } from "@/hooks/useSupplierCategories";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +42,8 @@ import {
 
 export default function Suppliers() {
   const { suppliers, isLoading, createSupplier, updateSupplier, deleteSupplier } = useSuppliers();
+  const { categories } = useCategories();
+  const { allSupplierCategories, setSupplierCategories, getCategoriesForSupplier } = useSupplierCategories();
   const { canEdit, canDelete } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -46,6 +51,7 @@ export default function Suppliers() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [deletingSupplierId, setDeletingSupplierId] = useState<string | null>(null);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
 
   const [formData, setFormData] = useState<SupplierFormData>({
     name: "",
@@ -77,6 +83,7 @@ export default function Suppliers() {
       status: "active",
       rating: 5,
     });
+    setSelectedCategoryIds([]);
     setEditingSupplier(null);
   };
 
@@ -93,6 +100,9 @@ export default function Suppliers() {
         status: supplier.status || "active",
         rating: supplier.rating || 5,
       });
+      // Load existing categories for this supplier
+      const existingCategories = getCategoriesForSupplier(supplier.id);
+      setSelectedCategoryIds(existingCategories);
     } else {
       resetForm();
     }
@@ -102,13 +112,25 @@ export default function Suppliers() {
   const handleSubmit = async () => {
     if (!formData.name) return;
 
+    let supplierId: string | undefined;
+
     if (editingSupplier) {
       await updateSupplier.mutateAsync({
         id: editingSupplier.id,
         ...formData,
       });
+      supplierId = editingSupplier.id;
     } else {
-      await createSupplier.mutateAsync(formData);
+      const result = await createSupplier.mutateAsync(formData);
+      supplierId = result?.id;
+    }
+
+    // Save supplier categories
+    if (supplierId) {
+      await setSupplierCategories.mutateAsync({
+        supplierId,
+        categoryIds: selectedCategoryIds,
+      });
     }
 
     setIsDialogOpen(false);
@@ -277,6 +299,39 @@ export default function Suppliers() {
                 )}
               </div>
 
+              {/* Categories */}
+              {(() => {
+                const supplierCats = allSupplierCategories
+                  .filter(sc => sc.supplier_id === supplier.id)
+                  .map(sc => {
+                    const cat = categories.find(c => c.id === sc.category_id);
+                    return cat;
+                  })
+                  .filter(Boolean);
+                
+                return supplierCats.length > 0 ? (
+                  <div className="flex items-center gap-2 mt-3 flex-wrap">
+                    <Tag className="w-3 h-3 text-muted-foreground shrink-0" />
+                    {supplierCats.slice(0, 3).map((cat) => (
+                      <Badge
+                        key={cat!.id}
+                        variant="outline"
+                        className="text-xs"
+                        style={{ 
+                          borderColor: cat!.color || undefined,
+                          color: cat!.color || undefined,
+                        }}
+                      >
+                        {cat!.name}
+                      </Badge>
+                    ))}
+                    {supplierCats.length > 3 && (
+                      <span className="text-xs text-muted-foreground">+{supplierCats.length - 3}</span>
+                    )}
+                  </div>
+                ) : null;
+              })()}
+
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/50">
                 <div className="flex items-center gap-1">
                   {renderStars(supplier.rating || 5)}
@@ -415,6 +470,42 @@ export default function Suppliers() {
                   </button>
                 ))}
                 <span className="ml-2 text-sm text-muted-foreground">({formData.rating || 5}/5)</span>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Categorias de Produtos</Label>
+              <p className="text-xs text-muted-foreground">
+                Selecione as categorias de produtos que este fornecedor comercializa
+              </p>
+              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 border rounded-md border-border/50">
+                {categories.map((category) => (
+                  <div key={category.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`cat-${category.id}`}
+                      checked={selectedCategoryIds.includes(category.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedCategoryIds([...selectedCategoryIds, category.id]);
+                        } else {
+                          setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== category.id));
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor={`cat-${category.id}`}
+                      className="text-sm cursor-pointer flex items-center gap-1"
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: category.color || '#3B82F6' }}
+                      />
+                      {category.name}
+                    </label>
+                  </div>
+                ))}
+                {categories.length === 0 && (
+                  <p className="text-xs text-muted-foreground col-span-2">Nenhuma categoria cadastrada</p>
+                )}
               </div>
             </div>
           </div>
