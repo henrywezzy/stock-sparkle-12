@@ -46,31 +46,12 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useNFe, type NFEData, type ManifestacaoTipo } from "@/hooks/useNFe";
+import { ImportarEstoqueDialog } from "@/components/nfe/ImportarEstoqueDialog";
 import { formatCurrency } from "@/lib/currency";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-
-// Tipos para NF-e
-interface NFEItem {
-  codigo: string;
-  descricao: string;
-  quantidade: number;
-  valor_unitario: number;
-  subtotal: number;
-}
-
-interface NFEData {
-  chave_acesso: string;
-  emitente: {
-    nome: string;
-    cnpj: string;
-  };
-  data_emissao: string;
-  valor_total: number;
-  itens: NFEItem[];
-  status_manifestacao?: 'pendente' | 'ciencia' | 'confirmada' | 'desconhecida' | 'nao_realizada';
-}
 
 // Manifestação Status
 const manifestacaoStatus = {
@@ -83,19 +64,22 @@ const manifestacaoStatus = {
 
 export default function NFe() {
   const { toast } = useToast();
+  const { isLoading: nfeLoading, consultarNFe, manifestarNFe } = useNFe();
+  
   const [activeTab, setActiveTab] = useState<"consultar" | "historico">("consultar");
   const [chaveAcesso, setChaveAcesso] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [nfeData, setNfeData] = useState<NFEData | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [manifestacaoTipo, setManifestacaoTipo] = useState<string>("");
+  const [manifestacaoTipo, setManifestacaoTipo] = useState<ManifestacaoTipo>("ciencia");
   const [historicoNFes, setHistoricoNFes] = useState<NFEData[]>([]);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   // Validar chave de acesso (44 dígitos)
   const isChaveValida = chaveAcesso.replace(/\D/g, "").length === 44;
 
-  // Simular consulta NF-e
-  const consultarNFe = async () => {
+  // Consultar NF-e via Focus NFe API
+  const handleConsultarNFe = async () => {
     if (!isChaveValida) {
       toast({
         title: "Chave inválida",
@@ -107,71 +91,17 @@ export default function NFe() {
 
     setIsLoading(true);
     
-    // Simular chamada à API
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    const data = await consultarNFe(chaveAcesso);
     
-    // Dados simulados
-    const mockData: NFEData = {
-      chave_acesso: chaveAcesso.replace(/\D/g, ""),
-      emitente: {
-        nome: "Distribuidora de Materiais LTDA",
-        cnpj: "12.345.678/0001-90",
-      },
-      data_emissao: new Date().toISOString(),
-      valor_total: 2850.75,
-      itens: [
-        {
-          codigo: "001",
-          descricao: "Parafuso Sextavado M10x50mm",
-          quantidade: 500,
-          valor_unitario: 0.85,
-          subtotal: 425.00,
-        },
-        {
-          codigo: "002",
-          descricao: "Porca Sextavada M10",
-          quantidade: 500,
-          valor_unitario: 0.45,
-          subtotal: 225.00,
-        },
-        {
-          codigo: "003",
-          descricao: "Arruela Lisa M10",
-          quantidade: 1000,
-          valor_unitario: 0.15,
-          subtotal: 150.00,
-        },
-        {
-          codigo: "004",
-          descricao: "Luva de Segurança - Par",
-          quantidade: 50,
-          valor_unitario: 18.50,
-          subtotal: 925.00,
-        },
-        {
-          codigo: "005",
-          descricao: "Óculos de Proteção Incolor",
-          quantidade: 30,
-          valor_unitario: 25.25,
-          subtotal: 757.50,
-        },
-        {
-          codigo: "006",
-          descricao: "Capacete de Segurança Classe B",
-          quantidade: 10,
-          valor_unitario: 36.825,
-          subtotal: 368.25,
-        },
-      ],
-      status_manifestacao: 'pendente',
-    };
-
-    setNfeData(mockData);
+    if (data) {
+      setNfeData(data);
+    }
+    
     setIsLoading(false);
   };
 
   // Confirmar manifestação
-  const confirmarManifestacao = async (tipo: string) => {
+  const confirmarManifestacao = async (tipo: ManifestacaoTipo) => {
     setManifestacaoTipo(tipo);
     setConfirmDialogOpen(true);
   };
@@ -181,41 +111,30 @@ export default function NFe() {
 
     setIsLoading(true);
     
-    // Simular envio para SEFAZ
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    const success = await manifestarNFe(nfeData.chave_nfe, manifestacaoTipo);
     
-    const statusMap: Record<string, NFEData['status_manifestacao']> = {
-      ciencia: 'ciencia',
-      confirmacao: 'confirmada',
-      desconhecimento: 'desconhecida',
-      nao_realizada: 'nao_realizada',
-    };
+    if (success) {
+      const statusMap: Record<string, NFEData['status_manifestacao']> = {
+        ciencia: 'ciencia',
+        confirmacao: 'confirmada',
+        desconhecimento: 'desconhecida',
+        nao_realizada: 'nao_realizada',
+      };
 
-    const nfeAtualizada = {
-      ...nfeData,
-      status_manifestacao: statusMap[manifestacaoTipo],
-    };
+      const nfeAtualizada: NFEData = {
+        ...nfeData,
+        status_manifestacao: statusMap[manifestacaoTipo],
+      };
 
-    setNfeData(nfeAtualizada);
-    setHistoricoNFes(prev => {
-      const exists = prev.find(n => n.chave_acesso === nfeData.chave_acesso);
-      if (exists) {
-        return prev.map(n => n.chave_acesso === nfeData.chave_acesso ? nfeAtualizada : n);
-      }
-      return [nfeAtualizada, ...prev];
-    });
-
-    const tipoLabels: Record<string, string> = {
-      ciencia: "Ciência da Operação",
-      confirmacao: "Confirmação da Operação",
-      desconhecimento: "Desconhecimento da Operação",
-      nao_realizada: "Operação Não Realizada",
-    };
-
-    toast({
-      title: "Manifestação registrada!",
-      description: `${tipoLabels[manifestacaoTipo]} enviada com sucesso para a SEFAZ.`,
-    });
+      setNfeData(nfeAtualizada);
+      setHistoricoNFes(prev => {
+        const exists = prev.find(n => n.chave_nfe === nfeData.chave_nfe);
+        if (exists) {
+          return prev.map(n => n.chave_nfe === nfeData.chave_nfe ? nfeAtualizada : n);
+        }
+        return [nfeAtualizada, ...prev];
+      });
+    }
 
     setIsLoading(false);
     setConfirmDialogOpen(false);
@@ -227,11 +146,13 @@ export default function NFe() {
     setNfeData(null);
   };
 
+  const loading = isLoading || nfeLoading;
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="NF-e"
-        description="Gestão de Notas Fiscais Eletrônicas de entrada"
+        description="Gestão de Notas Fiscais Eletrônicas de entrada via Focus NFe"
         breadcrumbs={[
           { label: "Dashboard", href: "/" },
           { label: "NF-e" },
@@ -259,7 +180,7 @@ export default function NFe() {
                 Consultar Nota Fiscal
               </CardTitle>
               <CardDescription>
-                Digite a chave de acesso da NF-e (44 dígitos) para consultar os dados
+                Digite a chave de acesso da NF-e (44 dígitos) para consultar os dados via Focus NFe
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -280,11 +201,11 @@ export default function NFe() {
                 </div>
                 <div className="flex gap-2 sm:self-end">
                   <Button
-                    onClick={consultarNFe}
-                    disabled={!isChaveValida || isLoading}
+                    onClick={handleConsultarNFe}
+                    disabled={!isChaveValida || loading}
                     className="min-w-[120px]"
                   >
-                    {isLoading ? (
+                    {loading ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     ) : (
                       <Search className="w-4 h-4 mr-2" />
@@ -312,10 +233,10 @@ export default function NFe() {
                     <div>
                       <CardTitle className="flex items-center gap-2">
                         <Building2 className="w-5 h-5 text-primary" />
-                        {nfeData.emitente.nome}
+                        {nfeData.nome_emitente}
                       </CardTitle>
                       <CardDescription className="font-mono mt-1">
-                        CNPJ: {nfeData.emitente.cnpj}
+                        CNPJ: {nfeData.cnpj_emitente}
                       </CardDescription>
                     </div>
                     <Badge 
@@ -356,9 +277,9 @@ export default function NFe() {
                     </div>
                     <div className="glass rounded-lg p-3 text-center">
                       <FileText className="w-5 h-5 mx-auto text-primary mb-1" />
-                      <p className="text-xs text-muted-foreground">Chave</p>
-                      <p className="font-mono text-xs truncate" title={nfeData.chave_acesso}>
-                        ...{nfeData.chave_acesso.slice(-12)}
+                      <p className="text-xs text-muted-foreground">Número</p>
+                      <p className="font-mono text-sm">
+                        {nfeData.numero || `...${nfeData.chave_nfe.slice(-12)}`}
                       </p>
                     </div>
                   </div>
@@ -381,6 +302,7 @@ export default function NFe() {
                           <TableHead className="w-20">Código</TableHead>
                           <TableHead>Descrição</TableHead>
                           <TableHead className="text-center">Qtd.</TableHead>
+                          <TableHead className="text-center">Unid.</TableHead>
                           <TableHead className="text-right">Vlr. Unit.</TableHead>
                           <TableHead className="text-right">Subtotal</TableHead>
                         </TableRow>
@@ -388,15 +310,16 @@ export default function NFe() {
                       <TableBody>
                         {nfeData.itens.map((item, idx) => (
                           <TableRow key={idx} className="border-border">
-                            <TableCell className="font-mono text-xs">{item.codigo}</TableCell>
+                            <TableCell className="font-mono text-xs">{item.codigo_produto}</TableCell>
                             <TableCell className="font-medium">{item.descricao}</TableCell>
-                            <TableCell className="text-center">{item.quantidade}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(item.valor_unitario)}</TableCell>
-                            <TableCell className="text-right font-semibold">{formatCurrency(item.subtotal)}</TableCell>
+                            <TableCell className="text-center">{item.quantidade_comercial}</TableCell>
+                            <TableCell className="text-center text-xs">{item.unidade_comercial}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(item.valor_unitario_comercial)}</TableCell>
+                            <TableCell className="text-right font-semibold">{formatCurrency(item.valor_bruto)}</TableCell>
                           </TableRow>
                         ))}
                         <TableRow className="border-border bg-muted/30">
-                          <TableCell colSpan={4} className="text-right font-semibold">
+                          <TableCell colSpan={5} className="text-right font-semibold">
                             Total:
                           </TableCell>
                           <TableCell className="text-right font-bold text-success">
@@ -426,7 +349,7 @@ export default function NFe() {
                       variant="outline"
                       className="h-auto py-4 flex flex-col gap-2 hover:bg-primary/10 hover:border-primary/50"
                       onClick={() => confirmarManifestacao('ciencia')}
-                      disabled={nfeData.status_manifestacao !== 'pendente'}
+                      disabled={nfeData.status_manifestacao !== 'pendente' || loading}
                     >
                       <HelpCircle className="w-6 h-6 text-primary" />
                       <span className="text-xs text-center">Ciência da Operação</span>
@@ -435,7 +358,7 @@ export default function NFe() {
                       variant="outline"
                       className="h-auto py-4 flex flex-col gap-2 hover:bg-success/10 hover:border-success/50"
                       onClick={() => confirmarManifestacao('confirmacao')}
-                      disabled={nfeData.status_manifestacao === 'confirmada'}
+                      disabled={nfeData.status_manifestacao === 'confirmada' || loading}
                     >
                       <Check className="w-6 h-6 text-success" />
                       <span className="text-xs text-center">Confirmar Operação</span>
@@ -444,7 +367,7 @@ export default function NFe() {
                       variant="outline"
                       className="h-auto py-4 flex flex-col gap-2 hover:bg-destructive/10 hover:border-destructive/50"
                       onClick={() => confirmarManifestacao('desconhecimento')}
-                      disabled={nfeData.status_manifestacao === 'confirmada'}
+                      disabled={nfeData.status_manifestacao === 'confirmada' || loading}
                     >
                       <X className="w-6 h-6 text-destructive" />
                       <span className="text-xs text-center">Desconhecer Operação</span>
@@ -453,7 +376,7 @@ export default function NFe() {
                       variant="outline"
                       className="h-auto py-4 flex flex-col gap-2 hover:bg-warning/10 hover:border-warning/50"
                       onClick={() => confirmarManifestacao('nao_realizada')}
-                      disabled={nfeData.status_manifestacao === 'confirmada'}
+                      disabled={nfeData.status_manifestacao === 'confirmada' || loading}
                     >
                       <Ban className="w-6 h-6 text-warning" />
                       <span className="text-xs text-center">Op. Não Realizada</span>
@@ -469,7 +392,10 @@ export default function NFe() {
                           Esta nota fiscal já foi confirmada e os itens podem ser lançados no estoque.
                         </p>
                       </div>
-                      <Button className="ml-auto bg-success hover:bg-success/90">
+                      <Button 
+                        className="ml-auto bg-success hover:bg-success/90"
+                        onClick={() => setImportDialogOpen(true)}
+                      >
                         <Download className="w-4 h-4 mr-2" />
                         Lançar Estoque
                       </Button>
@@ -517,8 +443,8 @@ export default function NFe() {
                         const StatusIcon = manifestacaoStatus[nfe.status_manifestacao || 'pendente'].icon;
                         return (
                           <TableRow key={idx} className="border-border">
-                            <TableCell className="font-medium">{nfe.emitente.nome}</TableCell>
-                            <TableCell className="font-mono text-sm">{nfe.emitente.cnpj}</TableCell>
+                            <TableCell className="font-medium">{nfe.nome_emitente}</TableCell>
+                            <TableCell className="font-mono text-sm">{nfe.cnpj_emitente}</TableCell>
                             <TableCell>
                               {format(new Date(nfe.data_emissao), "dd/MM/yyyy", { locale: ptBR })}
                             </TableCell>
@@ -541,18 +467,34 @@ export default function NFe() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setChaveAcesso(nfe.chave_acesso);
-                                  setNfeData(nfe);
-                                  setActiveTab("consultar");
-                                }}
-                              >
-                                <Search className="w-4 h-4 mr-1" />
-                                Ver
-                              </Button>
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setChaveAcesso(nfe.chave_nfe);
+                                    setNfeData(nfe);
+                                    setActiveTab("consultar");
+                                  }}
+                                >
+                                  <Search className="w-4 h-4 mr-1" />
+                                  Ver
+                                </Button>
+                                {nfe.status_manifestacao === 'confirmada' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-success hover:text-success"
+                                    onClick={() => {
+                                      setNfeData(nfe);
+                                      setImportDialogOpen(true);
+                                    }}
+                                  >
+                                    <Download className="w-4 h-4 mr-1" />
+                                    Importar
+                                  </Button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -566,7 +508,7 @@ export default function NFe() {
         </TabsContent>
       </Tabs>
 
-      {/* Dialog de Confirmação */}
+      {/* Dialog de Confirmação de Manifestação */}
       <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
         <DialogContent className="glass border-border">
           <DialogHeader>
@@ -587,14 +529,14 @@ export default function NFe() {
             </Button>
             <Button
               onClick={executarManifestacao}
-              disabled={isLoading}
+              disabled={loading}
               className={cn(
                 manifestacaoTipo === 'confirmacao' && "bg-success hover:bg-success/90",
                 manifestacaoTipo === 'desconhecimento' && "bg-destructive hover:bg-destructive/90",
                 manifestacaoTipo === 'nao_realizada' && "bg-warning hover:bg-warning/90 text-warning-foreground"
               )}
             >
-              {isLoading ? (
+              {loading ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
                 <Check className="w-4 h-4 mr-2" />
@@ -604,6 +546,21 @@ export default function NFe() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de Importação para Estoque */}
+      {nfeData && (
+        <ImportarEstoqueDialog
+          open={importDialogOpen}
+          onOpenChange={setImportDialogOpen}
+          nfeData={nfeData}
+          onSuccess={() => {
+            toast({
+              title: "Estoque atualizado",
+              description: "Os itens da NF-e foram importados para o estoque.",
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
