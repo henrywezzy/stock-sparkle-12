@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.send-notification-email]
 verify_jwt = false
+
+[functions.focus-nfe]
+verify_jwt = false
