@@ -471,19 +471,19 @@ export default function NFe() {
               {/* Resumo */}
               <Card className="glass border-border">
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
                       <CardTitle className="flex items-center gap-2">
-                        <Building2 className="w-5 h-5 text-primary" />
-                        {nfeData.nome_emitente}
+                        <Building2 className="w-5 h-5 text-primary shrink-0" />
+                        <span className="truncate">{nfeData.nome_emitente}</span>
                       </CardTitle>
                       <CardDescription className="font-mono mt-1">
                         CNPJ: {nfeData.cnpj_emitente}
                       </CardDescription>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       {nfeSource && (
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-xs whitespace-nowrap">
                           {nfeSource === "xml" && "Via XML"}
                           {nfeSource === "ocr" && "Via OCR"}
                           {nfeSource === "api" && "Via API"}
@@ -492,7 +492,7 @@ export default function NFe() {
                       <Badge
                         variant="outline"
                         className={cn(
-                          "text-sm",
+                          "text-sm whitespace-nowrap",
                           nfeData.status_manifestacao === "confirmada" &&
                             "bg-success/20 text-success border-success/30",
                           nfeData.status_manifestacao === "pendente" &&
@@ -791,13 +791,13 @@ export default function NFe() {
                   <Table>
                     <TableHeader>
                       <TableRow className="border-border hover:bg-transparent">
-                        <TableHead>Emitente</TableHead>
-                        <TableHead>CNPJ</TableHead>
-                        <TableHead>Data</TableHead>
-                        <TableHead className="text-right">Valor</TableHead>
-                        <TableHead className="text-center">Origem</TableHead>
-                        <TableHead className="text-center">Status</TableHead>
-                        <TableHead className="text-right">Ações</TableHead>
+                        <TableHead className="max-w-[200px]">Emitente</TableHead>
+                        <TableHead className="w-[130px]">CNPJ</TableHead>
+                        <TableHead className="w-[100px]">Data</TableHead>
+                        <TableHead className="text-right w-[100px]">Valor</TableHead>
+                        <TableHead className="text-center w-[80px]">Origem</TableHead>
+                        <TableHead className="text-center w-[100px]">Status</TableHead>
+                        <TableHead className="text-right w-[100px]">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -806,8 +806,8 @@ export default function NFe() {
                           manifestacaoStatus[nfe.status_manifestacao as keyof typeof manifestacaoStatus || "pendente"].icon;
                         return (
                           <TableRow key={nfe.id} className="border-border">
-                            <TableCell className="font-medium">
-                              {nfe.nome_emitente || "—"}
+                            <TableCell className="font-medium max-w-[200px]">
+                              <span className="truncate block">{nfe.nome_emitente || "—"}</span>
                             </TableCell>
                             <TableCell className="font-mono text-sm">
                               {nfe.cnpj_emitente || "—"}

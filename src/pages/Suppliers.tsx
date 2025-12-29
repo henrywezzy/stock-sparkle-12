@@ -216,12 +216,12 @@ export default function Suppliers() {
               key={supplier.id}
               className="glass rounded-xl p-4 sm:p-6 glass-hover animate-slide-up"
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
+              <div className="flex items-start justify-between gap-2 mb-4">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                     <Truck className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <h3 className="font-semibold text-sm sm:text-base truncate">{supplier.name}</h3>
                     <p className="text-xs sm:text-sm text-muted-foreground">{supplier.cnpj || "Sem CNPJ"}</p>
                   </div>
