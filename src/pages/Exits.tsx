@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Plus, Edit, Trash2, ArrowUpFromLine, Calendar, Loader2, Search, Package, Hash, X, FileText } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/ui/page-header";
 import { GenericReportDialog, ReportColumn, ReportSummary } from "@/components/reports/GenericReportDialog";
 import { Button } from "@/components/ui/button";

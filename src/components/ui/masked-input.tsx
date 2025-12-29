@@ -99,15 +99,45 @@ export const MaskedInput = React.forwardRef<HTMLInputElement, MaskedInputProps>(
       return () => clearTimeout(debounce);
     }, [value, mask]);
 
-    // Busca CNPJ automaticamente - usando ref para evitar buscas duplicadas
+    // Ref para rastrear se o usuário digitou algo (não apenas valor inicial do modal)
+    const userHasTyped = React.useRef(false);
+    const previousValue = React.useRef(value);
+
+    // Detectar quando o usuário digita (valor muda após interação)
+    React.useEffect(() => {
+      if (value !== previousValue.current) {
+        // Se o valor mudou e não é um valor inicial completo (14 dígitos), significa que o usuário está digitando
+        const prevNumbers = onlyNumbers(previousValue.current);
+        const currNumbers = onlyNumbers(value);
+        
+        // Se estava vazio e agora tem algo, ou se aumentou 1 caractere, usuário digitou
+        if (currNumbers.length > prevNumbers.length || (prevNumbers.length === 0 && currNumbers.length > 0)) {
+          userHasTyped.current = true;
+        }
+        
+        previousValue.current = value;
+      }
+    }, [value]);
+
+    // Reset quando modal fecha (value volta para vazio)
+    React.useEffect(() => {
+      if (!value || onlyNumbers(value).length === 0) {
+        userHasTyped.current = false;
+        lastFetchedCNPJ.current = '';
+      }
+    }, [value]);
+
+    // Busca CNPJ apenas quando o usuário DIGITA - não ao abrir modal
     React.useEffect(() => {
       if (mask !== 'cnpj' || !onCompanyFound) return;
       
       const numbers = onlyNumbers(value);
       if (numbers.length !== 14) {
-        lastFetchedCNPJ.current = '';
         return;
       }
+      
+      // Só buscar se o usuário digitou algo (não apenas ao carregar modal com valor existente)
+      if (!userHasTyped.current) return;
       
       // Não buscar se já buscou esse CNPJ
       if (lastFetchedCNPJ.current === numbers) return;

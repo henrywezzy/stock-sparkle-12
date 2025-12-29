@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Plus, Search, Edit, Trash2, Package, Loader2, AlertTriangle, Calendar, FileText } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,6 +91,8 @@ export default function Products() {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
 
   const [formData, setFormData] = useState<ProductFormData>({
     name: "",
@@ -123,6 +126,28 @@ export default function Products() {
   const totalValue = useMemo(() => {
     return products.reduce((acc, p) => acc + (p.quantity * (p.price || 0)), 0);
   }, [products]);
+
+  const handleSelectAll = () => {
+    if (selectedProductIds.length === filteredProducts.length) {
+      setSelectedProductIds([]);
+    } else {
+      setSelectedProductIds(filteredProducts.map(p => p.id));
+    }
+  };
+
+  const handleSelectProduct = (id: string) => {
+    setSelectedProductIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    for (const id of selectedProductIds) {
+      await deleteProduct.mutateAsync(id);
+    }
+    setSelectedProductIds([]);
+    setIsBulkDeleteDialogOpen(false);
+  };
 
   const resetForm = () => {
     setFormData({
@@ -434,6 +459,30 @@ export default function Products() {
         )}
       </div>
 
+      {/* Bulk Actions */}
+      {selectedProductIds.length > 0 && canDelete && (
+        <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
+          <span className="text-sm text-muted-foreground">
+            {selectedProductIds.length} item(s) selecionado(s)
+          </span>
+          <Button 
+            variant="destructive" 
+            size="sm"
+            onClick={() => setIsBulkDeleteDialogOpen(true)}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Excluir selecionados
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setSelectedProductIds([])}
+          >
+            Limpar seleção
+          </Button>
+        </div>
+      )}
+
       {/* Products Table */}
       {filteredProducts.length === 0 ? (
         <div className="glass rounded-xl p-8 text-center">
@@ -452,6 +501,14 @@ export default function Products() {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent border-border/50">
+                  {canDelete && (
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectedProductIds.length === filteredProducts.length && filteredProducts.length > 0}
+                        onCheckedChange={handleSelectAll}
+                      />
+                    </TableHead>
+                  )}
                   {visibleColumns.map((col) => (
                     <TableHead key={col.key} className="text-muted-foreground font-semibold">
                       {col.label}
@@ -463,8 +520,18 @@ export default function Products() {
                 {filteredProducts.map((product) => (
                   <TableRow
                     key={product.id}
-                    className="hover:bg-secondary/30 border-border/50 transition-colors"
+                    className={`hover:bg-secondary/30 border-border/50 transition-colors ${
+                      selectedProductIds.includes(product.id) ? 'bg-primary/5' : ''
+                    }`}
                   >
+                    {canDelete && (
+                      <TableCell className="w-12">
+                        <Checkbox
+                          checked={selectedProductIds.includes(product.id)}
+                          onCheckedChange={() => handleSelectProduct(product.id)}
+                        />
+                      </TableCell>
+                    )}
                     {visibleColumns.map((col) => (
                       <TableCell key={col.key}>
                         {renderCell(product, col.key)}
@@ -690,6 +757,27 @@ export default function Products() {
             >
               {deleteProduct.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+        <AlertDialogContent className="glass border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão em lote</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir {selectedProductIds.length} produto(s)? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir {selectedProductIds.length} produto(s)
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
