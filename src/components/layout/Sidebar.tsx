@@ -22,6 +22,7 @@ import {
   LogOut,
   X,
   ShoppingCart,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ const allMenuItems: MenuItem[] = [
   { title: "Inventário", icon: Archive, path: "/inventario" },
   { title: "Histórico", icon: History, path: "/historico" },
   { title: "Relatórios", icon: FileBarChart, path: "/relatorios" },
+  { title: "NF-e", icon: FileText, path: "/nfe" },
   { title: "Configurações", icon: Settings, path: "/configuracoes" },
 ];
 

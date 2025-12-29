@@ -37,6 +37,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PurchaseOrder, usePurchaseOrders } from "@/hooks/usePurchaseOrders";
+import { useReceiveOrder } from "@/hooks/useReceiveOrder";
 import { PurchaseOrderPrint } from "./PurchaseOrderPrint";
 import { formatCurrency } from "@/lib/currency";
 import { format } from "date-fns";
@@ -53,6 +54,7 @@ import {
   Calendar,
   Mail,
   Send,
+  PackageCheck,
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -77,6 +79,7 @@ export function PurchaseOrdersListDialog({
   onOpenChange,
 }: PurchaseOrdersListDialogProps) {
   const { orders, isLoading, updateStatus, deleteOrder, fetchOrderById } = usePurchaseOrders();
+  const { receiveOrder } = useReceiveOrder();
   const { toast } = useToast();
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -207,7 +210,23 @@ export function PurchaseOrdersListDialog({
   };
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
+    // Se mudar para recebida, perguntar se deseja lançar no estoque
+    if (newStatus === 'recebida') {
+      const order = orders.find(o => o.id === orderId);
+      if (order) {
+        handleReceiveOrder(order);
+        return;
+      }
+    }
     await updateStatus.mutateAsync({ id: orderId, status: newStatus });
+  };
+
+  const handleReceiveOrder = async (order: PurchaseOrder) => {
+    // Buscar ordem com itens
+    const fullOrder = await fetchOrderById(order.id);
+    if (fullOrder) {
+      await receiveOrder.mutateAsync(fullOrder);
+    }
   };
 
   const handleDeleteConfirm = async () => {
@@ -318,6 +337,22 @@ export function PurchaseOrdersListDialog({
                               <Eye className="w-4 h-4" />
                             )}
                           </Button>
+                          {order.status === 'confirmada' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-success hover:text-success hover:bg-success/10"
+                              onClick={() => handleReceiveOrder(order)}
+                              disabled={receiveOrder.isPending}
+                              title="Receber e lançar no estoque"
+                            >
+                              {receiveOrder.isPending ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <PackageCheck className="w-4 h-4" />
+                              )}
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"

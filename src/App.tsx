@@ -24,6 +24,7 @@ const History = lazy(() => import("./pages/History"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Purchases = lazy(() => import("./pages/Purchases"));
+const NFe = lazy(() => import("./pages/NFe"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -62,6 +63,7 @@ const App = () => (
                 <Route path="/inventario" element={<Inventory />} />
                 <Route path="/historico" element={<History />} />
                 <Route path="/relatorios" element={<Reports />} />
+                <Route path="/nfe" element={<NFe />} />
                 <Route path="/configuracoes" element={<Settings />} />
               </Route>
               <Route path="*" element={<NotFound />} />
