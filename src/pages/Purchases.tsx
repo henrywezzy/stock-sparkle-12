@@ -457,28 +457,40 @@ export default function Purchases() {
   const epiCount = purchaseSuggestions.filter((s) => s.type === 'epi').length;
   const productCount = purchaseSuggestions.filter((s) => s.type === 'product').length;
 
+  const [activeTab, setActiveTab] = useState<"sugestoes" | "dashboard">("sugestoes");
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Compras"
-        description="Gerencie sugestões de compras baseadas no estoque"
+        description="Gerencie sugestões de compras e ordens de compra"
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Compras" }]}
         actions={
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setOrdersListDialogOpen(true)}
-            >
-              <ClipboardList className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Ordens</span>
-            </Button>
-            <Button
-              onClick={() => setOrderDialogOpen(true)}
-              disabled={filteredSuggestions.length === 0}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Gerar Ordem</span>
-            </Button>
+            {/* Menu Cascata para Ordens */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <ClipboardList className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Ordens</span>
+                  <ChevronDown className="w-4 h-4 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setOrdersListDialogOpen(true)}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Consultar Ordens
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setOrderDialogOpen(true)}
+                  disabled={filteredSuggestions.length === 0}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Gerar Nova Ordem
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
             <Button
               variant="outline"
               onClick={() => setIsReportOpen(true)}
@@ -495,6 +507,21 @@ export default function Purchases() {
           </div>
         }
       />
+      
+      {/* Tabs para alternar entre Sugestões e Dashboard */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "sugestoes" | "dashboard")} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="sugestoes" className="flex items-center gap-2">
+            <ShoppingCart className="w-4 h-4" />
+            Sugestões
+          </TabsTrigger>
+          <TabsTrigger value="dashboard" className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" />
+            Dashboard
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="sugestoes" className="mt-4 space-y-4">
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
@@ -716,6 +743,12 @@ export default function Purchases() {
           </Table>
         </div>
       </div>
+        </TabsContent>
+        
+        <TabsContent value="dashboard" className="mt-4">
+          <PurchasesDashboard />
+        </TabsContent>
+      </Tabs>
 
       {/* Confirm Dialog */}
       <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
