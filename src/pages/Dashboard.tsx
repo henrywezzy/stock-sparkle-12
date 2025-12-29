@@ -24,6 +24,7 @@ import {
   Cell,
   BarChart,
   Bar,
+  Legend,
 } from "recharts";
 import { useProducts } from "@/hooks/useProducts";
 import { useAuth } from "@/contexts/AuthContext";
@@ -261,20 +262,18 @@ export default function Dashboard() {
             Distribuição por Categoria
           </h3>
           {categoryDistribution.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={350}>
               <PieChart>
                 <Pie
                   data={categoryDistribution}
                   cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
+                  cy="40%"
+                  innerRadius={50}
+                  outerRadius={85}
                   fill="#8884d8"
                   paddingAngle={5}
                   dataKey="value"
                   stroke="transparent"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  labelLine={false}
                 >
                   {categoryDistribution.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="transparent" />
@@ -294,10 +293,18 @@ export default function Dashboard() {
                     color: "hsl(var(--foreground))",
                   }}
                 />
+                <Legend 
+                  verticalAlign="bottom"
+                  height={60}
+                  formatter={(value) => <span className="text-foreground text-xs">{value}</span>}
+                  wrapperStyle={{
+                    paddingTop: "10px",
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+            <div className="h-[350px] flex items-center justify-center text-muted-foreground">
               Nenhum dado disponível
             </div>
           )}
@@ -457,20 +464,18 @@ export default function Dashboard() {
             Distribuição por Categoria
           </h3>
           {categoryDistribution.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={350}>
               <PieChart>
                 <Pie
                   data={categoryDistribution}
                   cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
+                  cy="40%"
+                  innerRadius={50}
+                  outerRadius={85}
                   fill="#8884d8"
                   paddingAngle={5}
                   dataKey="value"
                   stroke="transparent"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  labelLine={false}
                 >
                   {categoryDistribution.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="transparent" />
@@ -490,10 +495,18 @@ export default function Dashboard() {
                     color: "hsl(var(--foreground))",
                   }}
                 />
+                <Legend 
+                  verticalAlign="bottom"
+                  height={60}
+                  formatter={(value) => <span className="text-foreground text-xs">{value}</span>}
+                  wrapperStyle={{
+                    paddingTop: "10px",
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+            <div className="h-[350px] flex items-center justify-center text-muted-foreground">
               Nenhum dado disponível
             </div>
           )}
