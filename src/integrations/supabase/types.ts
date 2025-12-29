@@ -399,6 +399,69 @@ export type Database = {
           },
         ]
       }
+      nfe_history: {
+        Row: {
+          chave_acesso: string
+          cnpj_destinatario: string | null
+          cnpj_emitente: string | null
+          created_at: string
+          created_by: string | null
+          data_emissao: string | null
+          id: string
+          itens: Json | null
+          nome_destinatario: string | null
+          nome_emitente: string | null
+          numero: string | null
+          pdf_path: string | null
+          serie: string | null
+          source: string | null
+          status_manifestacao: string | null
+          updated_at: string
+          valor_total: number | null
+          xml_path: string | null
+        }
+        Insert: {
+          chave_acesso: string
+          cnpj_destinatario?: string | null
+          cnpj_emitente?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_emissao?: string | null
+          id?: string
+          itens?: Json | null
+          nome_destinatario?: string | null
+          nome_emitente?: string | null
+          numero?: string | null
+          pdf_path?: string | null
+          serie?: string | null
+          source?: string | null
+          status_manifestacao?: string | null
+          updated_at?: string
+          valor_total?: number | null
+          xml_path?: string | null
+        }
+        Update: {
+          chave_acesso?: string
+          cnpj_destinatario?: string | null
+          cnpj_emitente?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_emissao?: string | null
+          id?: string
+          itens?: Json | null
+          nome_destinatario?: string | null
+          nome_emitente?: string | null
+          numero?: string | null
+          pdf_path?: string | null
+          serie?: string | null
+          source?: string | null
+          status_manifestacao?: string | null
+          updated_at?: string
+          valor_total?: number | null
+          xml_path?: string | null
+        }
+        Relationships: []
+      }
       notification_settings: {
         Row: {
           created_at: string
