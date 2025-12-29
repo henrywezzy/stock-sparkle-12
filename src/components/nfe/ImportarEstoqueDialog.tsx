@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   Dialog, 
@@ -29,11 +29,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Check, Loader2, Package, AlertCircle } from "lucide-react";
+import { Check, Loader2, Package, AlertCircle, Tag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProducts } from "@/hooks/useProducts";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { useCategories } from "@/hooks/useCategories";
+import { useSupplierCategories } from "@/hooks/useSupplierCategories";
 import { useEntries } from "@/hooks/useEntries";
 import { formatCurrency } from "@/lib/currency";
 import type { NFEItem, NFEData } from "@/hooks/useNFe";
@@ -63,24 +64,41 @@ export function ImportarEstoqueDialog({
   const { products } = useProducts();
   const { suppliers, createSupplier } = useSuppliers();
   const { categories } = useCategories();
+  const { getCategoriesForSupplier, getFirstCategoryForSupplier, setSupplierCategories } = useSupplierCategories();
   const { createEntry } = useEntries();
   
   const [isLoading, setIsLoading] = useState(false);
+
+  // Find or create supplier based on emitente CNPJ
+  const existingSupplier = suppliers?.find(
+    s => s.cnpj?.replace(/\D/g, '') === nfeData.cnpj_emitente.replace(/\D/g, '')
+  );
+
+  // Get supplier's default category
+  const supplierDefaultCategory = existingSupplier 
+    ? getFirstCategoryForSupplier(existingSupplier.id) 
+    : undefined;
+
   const [items, setItems] = useState<ItemToImport[]>(() => 
     nfeData.itens.map(item => ({
       ...item,
       selected: true,
       isNewProduct: true,
       productId: undefined,
-      categoryId: undefined,
+      categoryId: supplierDefaultCategory,
       location: '',
     }))
   );
 
-  // Find or create supplier based on emitente CNPJ
-  const existingSupplier = suppliers?.find(
-    s => s.cnpj?.replace(/\D/g, '') === nfeData.cnpj_emitente.replace(/\D/g, '')
-  );
+  // Update items when supplier default category changes
+  useEffect(() => {
+    if (supplierDefaultCategory) {
+      setItems(prev => prev.map(item => ({
+        ...item,
+        categoryId: item.categoryId || supplierDefaultCategory,
+      })));
+    }
+  }, [supplierDefaultCategory]);
 
   const toggleItem = (index: number) => {
     setItems(prev => prev.map((item, i) => 
@@ -231,14 +249,27 @@ export function ImportarEstoqueDialog({
           <DialogDescription asChild>
             <div className="space-y-2">
               <span>Selecione os itens da NF-e {nfeData.numero} para importar ao estoque.</span>
-              {existingSupplier ? (
-                <Badge variant="outline" className="ml-2 text-success border-success/30">
-                  Fornecedor: <span className="truncate max-w-[200px] inline-block align-bottom">{existingSupplier.name}</span>
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="ml-2 text-warning border-warning/30">
-                  Novo fornecedor: <span className="truncate max-w-[200px] inline-block align-bottom">{nfeData.nome_emitente}</span>
-                </Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                {existingSupplier ? (
+                  <Badge variant="outline" className="text-success border-success/30">
+                    Fornecedor: <span className="truncate max-w-[200px] inline-block align-bottom">{existingSupplier.name}</span>
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-warning border-warning/30">
+                    Novo fornecedor: <span className="truncate max-w-[200px] inline-block align-bottom">{nfeData.nome_emitente}</span>
+                  </Badge>
+                )}
+                {supplierDefaultCategory && (
+                  <Badge variant="outline" className="text-primary border-primary/30">
+                    <Tag className="w-3 h-3 mr-1" />
+                    Categoria padrão: {categories.find(c => c.id === supplierDefaultCategory)?.name}
+                  </Badge>
+                )}
+              </div>
+              {supplierDefaultCategory && (
+                <p className="text-xs text-muted-foreground">
+                  A categoria foi pré-selecionada com base no fornecedor. Você pode alterá-la para cada item.
+                </p>
               )}
             </div>
           </DialogDescription>
@@ -256,9 +287,10 @@ export function ImportarEstoqueDialog({
                 </TableHead>
                 <TableHead className="w-20">Código</TableHead>
                 <TableHead>Descrição</TableHead>
-                <TableHead className="text-center w-20">Qtd</TableHead>
-                <TableHead className="text-right w-28">Vlr Unit.</TableHead>
-                <TableHead className="w-48">Vincular a Produto</TableHead>
+                <TableHead className="text-center w-16">Qtd</TableHead>
+                <TableHead className="text-right w-24">Vlr Unit.</TableHead>
+                <TableHead className="w-40">Produto</TableHead>
+                <TableHead className="w-36">Categoria</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -275,9 +307,9 @@ export function ImportarEstoqueDialog({
                   </TableCell>
                   <TableCell>
                     <div>
-                      <p className="font-medium text-sm">{item.descricao}</p>
+                      <p className="font-medium text-sm truncate max-w-[200px]" title={item.descricao}>{item.descricao}</p>
                       <p className="text-xs text-muted-foreground">
-                        {item.unidade_comercial} • Subtotal: {formatCurrency(item.valor_bruto)}
+                        {item.unidade_comercial} • {formatCurrency(item.valor_bruto)}
                       </p>
                     </div>
                   </TableCell>
@@ -305,7 +337,7 @@ export function ImportarEstoqueDialog({
                         <SelectItem value="new">
                           <span className="flex items-center gap-1">
                             <AlertCircle className="w-3 h-3 text-warning" />
-                            Criar novo produto
+                            Criar novo
                           </span>
                         </SelectItem>
                         {products?.filter(p => !p.deleted_at).map(product => (
@@ -315,6 +347,36 @@ export function ImportarEstoqueDialog({
                         ))}
                       </SelectContent>
                     </Select>
+                  </TableCell>
+                  <TableCell>
+                    {item.isNewProduct && (
+                      <Select
+                        value={item.categoryId || 'none'}
+                        onValueChange={(value) => {
+                          updateItem(index, { categoryId: value === 'none' ? undefined : value });
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Categoria..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">
+                            <span className="text-muted-foreground">Sem categoria</span>
+                          </SelectItem>
+                          {categories?.map(cat => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              <span className="flex items-center gap-1">
+                                <span 
+                                  className="w-2 h-2 rounded-full" 
+                                  style={{ backgroundColor: cat.color || '#3B82F6' }}
+                                />
+                                {cat.name}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
