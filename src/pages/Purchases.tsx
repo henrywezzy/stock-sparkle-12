@@ -16,6 +16,8 @@ import {
   ClipboardList,
   Plus,
   BarChart3,
+  Building2,
+  Star,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { GenericReportDialog, ReportColumn, ReportSummary } from "@/components/reports/GenericReportDialog";
@@ -34,6 +36,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useProducts } from "@/hooks/useProducts";
@@ -70,6 +73,9 @@ import { PurchaseOrderDialog } from "@/components/purchases/PurchaseOrderDialog"
 import { PurchaseOrdersListDialog } from "@/components/purchases/PurchaseOrdersListDialog";
 import { PurchasesDashboard } from "@/components/purchases/PurchasesDashboard";
 import { usePurchaseOrders } from "@/hooks/usePurchaseOrders";
+import { SupplierPerformanceReport } from "@/components/purchases/SupplierPerformanceReport";
+import { SupplierEvaluationDialog } from "@/components/purchases/SupplierEvaluationDialog";
+import { useSupplierPerformance } from "@/hooks/useSupplierPerformance";
 
 // Colunas padrão para a tabela
 const DEFAULT_COLUMNS = [
@@ -134,6 +140,9 @@ export default function Purchases() {
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [ordersListDialogOpen, setOrdersListDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"sugestoes" | "dashboard">("sugestoes");
+  const [supplierReportOpen, setSupplierReportOpen] = useState(false);
+  const [evaluationDialogOpen, setEvaluationDialogOpen] = useState(false);
+  const [selectedPerformanceId, setSelectedPerformanceId] = useState<string | undefined>();
   
   // Form state for purchase confirmation
   const [purchaseQuantity, setPurchaseQuantity] = useState<number>(0);
@@ -141,7 +150,8 @@ export default function Purchases() {
   const [purchaseSupplierId, setPurchaseSupplierId] = useState<string>("");
   
   const { getStatistics } = usePurchaseOrders();
-
+  const { getPendingEvaluations } = useSupplierPerformance();
+  const pendingEvaluations = getPendingEvaluations();
   // Gerar sugestões de compra baseado em produtos e EPIs com estoque baixo/crítico
   const purchaseSuggestions = useMemo(() => {
     const suggestions: PurchaseSuggestion[] = [];
@@ -487,6 +497,60 @@ export default function Purchases() {
                   <Plus className="w-4 h-4 mr-2" />
                   Gerar Nova Ordem
                 </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Menu para Fornecedores */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="relative">
+                  <Building2 className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Fornecedores</span>
+                  {pendingEvaluations.length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-warning text-warning-foreground text-xs rounded-full flex items-center justify-center">
+                      {pendingEvaluations.length}
+                    </span>
+                  )}
+                  <ChevronDown className="w-4 h-4 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => setSupplierReportOpen(true)}>
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  Relatório de Desempenho
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {pendingEvaluations.length > 0 ? (
+                  <>
+                    <p className="px-2 py-1.5 text-xs text-muted-foreground font-medium">
+                      Avaliações Pendentes ({pendingEvaluations.length})
+                    </p>
+                    {pendingEvaluations.slice(0, 5).map((perf) => {
+                      const supplier = suppliers.find((s) => s.id === perf.supplier_id);
+                      return (
+                        <DropdownMenuItem
+                          key={perf.id}
+                          onClick={() => {
+                            setSelectedPerformanceId(perf.id);
+                            setEvaluationDialogOpen(true);
+                          }}
+                        >
+                          <Star className="w-4 h-4 mr-2 text-warning" />
+                          <span className="truncate">{supplier?.name || "Fornecedor"}</span>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                    {pendingEvaluations.length > 5 && (
+                      <p className="px-2 py-1.5 text-xs text-muted-foreground text-center">
+                        +{pendingEvaluations.length - 5} mais
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="px-2 py-2 text-xs text-muted-foreground text-center">
+                    Nenhuma avaliação pendente
+                  </p>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
             
@@ -961,6 +1025,20 @@ export default function Purchases() {
       <PurchaseOrdersListDialog
         open={ordersListDialogOpen}
         onOpenChange={setOrdersListDialogOpen}
+      />
+
+      {/* Supplier Performance Report Dialog */}
+      <SupplierPerformanceReport
+        open={supplierReportOpen}
+        onOpenChange={setSupplierReportOpen}
+      />
+
+      {/* Supplier Evaluation Dialog */}
+      <SupplierEvaluationDialog
+        open={evaluationDialogOpen}
+        onOpenChange={setEvaluationDialogOpen}
+        performanceId={selectedPerformanceId}
+        onSuccess={() => setSelectedPerformanceId(undefined)}
       />
     </div>
   );
