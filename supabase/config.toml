@@ -1,4 +1,7 @@
 project_id = "fkeuexbcbtycdecruifd"
 
+[functions.send-purchase-order-email]
+verify_jwt = false
+
 [functions.send-notification-email]
 verify_jwt = false

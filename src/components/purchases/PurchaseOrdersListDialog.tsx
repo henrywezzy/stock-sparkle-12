@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -47,13 +49,15 @@ import {
   Trash2,
   Eye,
   Loader2,
-  Package,
   Truck,
   Calendar,
-  ArrowRight,
+  Mail,
+  Send,
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface PurchaseOrdersListDialogProps {
   open: boolean;
@@ -73,12 +77,17 @@ export function PurchaseOrdersListDialog({
   onOpenChange,
 }: PurchaseOrdersListDialogProps) {
   const { orders, isLoading, updateStatus, deleteOrder, fetchOrderById } = usePurchaseOrders();
+  const { toast } = useToast();
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const [loadingOrderId, setLoadingOrderId] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailRecipient, setEmailRecipient] = useState("");
+  const [emailRecipientName, setEmailRecipientName] = useState("");
   const printRef = useRef<HTMLDivElement>(null);
 
   const handleViewOrder = async (orderId: string) => {
@@ -131,7 +140,7 @@ export function PurchaseOrdersListDialog({
         logging: false,
       });
 
-      const imgWidth = 297; // A4 landscape
+      const imgWidth = 297;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
       const pdf = new jsPDF({
@@ -152,6 +161,48 @@ export function PurchaseOrdersListDialog({
       pdf.save(`ordem-compra-${selectedOrder.numero}.pdf`);
     } finally {
       setIsPrinting(false);
+    }
+  };
+
+  const handleOpenEmailDialog = (order: PurchaseOrder) => {
+    setSelectedOrder(order);
+    setEmailRecipient(order.supplier?.email || "");
+    setEmailRecipientName(order.supplier?.name || "");
+    setEmailDialogOpen(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!selectedOrder || !emailRecipient) return;
+
+    setIsSendingEmail(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-purchase-order-email', {
+        body: {
+          orderId: selectedOrder.id,
+          recipientEmail: emailRecipient,
+          recipientName: emailRecipientName || emailRecipient,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Email enviado!",
+        description: `A ordem de compra ${selectedOrder.numero} foi enviada para ${emailRecipient}`,
+      });
+      
+      setEmailDialogOpen(false);
+      setEmailRecipient("");
+      setEmailRecipientName("");
+    } catch (error) {
+      console.error('Error sending email:', error);
+      toast({
+        title: "Erro ao enviar email",
+        description: "Não foi possível enviar o email. Verifique as configurações.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -259,6 +310,7 @@ export function PurchaseOrdersListDialog({
                             className="h-8 w-8"
                             onClick={() => handleViewOrder(order.id)}
                             disabled={loadingOrderId === order.id}
+                            title="Visualizar"
                           >
                             {loadingOrderId === order.id ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
@@ -269,11 +321,21 @@ export function PurchaseOrdersListDialog({
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleOpenEmailDialog(order)}
+                            title="Enviar por email"
+                          >
+                            <Mail className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => {
                               setOrderToDelete(order.id);
                               setDeleteDialogOpen(true);
                             }}
+                            title="Excluir"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -317,6 +379,16 @@ export function PurchaseOrdersListDialog({
                 <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
                   Fechar
                 </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setViewDialogOpen(false);
+                    handleOpenEmailDialog(selectedOrder);
+                  }}
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Enviar Email
+                </Button>
                 <Button variant="outline" onClick={handlePrint}>
                   <Printer className="w-4 h-4 mr-2" />
                   Imprimir
@@ -332,6 +404,60 @@ export function PurchaseOrdersListDialog({
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Dialog */}
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+        <DialogContent className="glass border-border max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5 text-primary" />
+              Enviar Ordem por Email
+            </DialogTitle>
+            <DialogDescription>
+              Envie a ordem de compra {selectedOrder?.numero} diretamente para o fornecedor
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="recipientName">Nome do Destinatário</Label>
+              <Input
+                id="recipientName"
+                value={emailRecipientName}
+                onChange={(e) => setEmailRecipientName(e.target.value)}
+                placeholder="Nome do contato"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="recipientEmail">Email do Destinatário *</Label>
+              <Input
+                id="recipientEmail"
+                type="email"
+                value={emailRecipient}
+                onChange={(e) => setEmailRecipient(e.target.value)}
+                placeholder="email@fornecedor.com"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleSendEmail}
+              disabled={!emailRecipient || isSendingEmail}
+            >
+              {isSendingEmail ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4 mr-2" />
+              )}
+              Enviar Email
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

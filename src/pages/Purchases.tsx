@@ -14,7 +14,8 @@ import {
   Loader2,
   FileText,
   ClipboardList,
-  Plus
+  Plus,
+  BarChart3,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { GenericReportDialog, ReportColumn, ReportSummary } from "@/components/reports/GenericReportDialog";
@@ -28,6 +29,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useProducts } from "@/hooks/useProducts";
 import { useEntries } from "@/hooks/useEntries";
 import { useSuppliers } from "@/hooks/useSuppliers";
@@ -60,6 +68,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { PurchaseOrderDialog } from "@/components/purchases/PurchaseOrderDialog";
 import { PurchaseOrdersListDialog } from "@/components/purchases/PurchaseOrdersListDialog";
+import { PurchasesDashboard } from "@/components/purchases/PurchasesDashboard";
 import { usePurchaseOrders } from "@/hooks/usePurchaseOrders";
 
 // Colunas padrão para a tabela
