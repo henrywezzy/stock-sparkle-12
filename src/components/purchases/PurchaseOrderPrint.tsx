@@ -21,167 +21,316 @@ export const PurchaseOrderPrint = forwardRef<HTMLDivElement, PurchaseOrderPrintP
       cancelada: 'Cancelada',
     };
 
+    const statusColors: Record<string, { bg: string; text: string }> = {
+      rascunho: { bg: '#f3f4f6', text: '#4b5563' },
+      enviada: { bg: '#dbeafe', text: '#1d4ed8' },
+      confirmada: { bg: '#fef3c7', text: '#b45309' },
+      recebida: { bg: '#d1fae5', text: '#047857' },
+      cancelada: { bg: '#fee2e2', text: '#dc2626' },
+    };
+
+    const statusStyle = statusColors[order.status] || statusColors.rascunho;
+
     return (
       <div 
         ref={ref} 
-        className="bg-white text-black p-8 min-w-[800px]"
-        style={{ fontFamily: 'Arial, sans-serif' }}
+        className="bg-white text-black min-w-[800px]"
+        style={{ fontFamily: 'Segoe UI, Arial, sans-serif', padding: '32px 40px' }}
       >
         {/* Header */}
-        <div className="flex justify-between items-start border-b-2 border-gray-300 pb-4 mb-6">
-          <div className="flex items-center gap-4">
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'flex-start',
+          borderBottom: '1px solid #e5e7eb',
+          paddingBottom: '20px',
+          marginBottom: '24px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             {settings?.logo_url && (
               <img 
                 src={settings.logo_url} 
                 alt="Logo" 
-                className="h-16 w-auto object-contain"
+                style={{ height: '48px', width: 'auto', objectFit: 'contain' }}
               />
             )}
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">
+              <h1 style={{ 
+                fontSize: '18px', 
+                fontWeight: 700, 
+                color: '#111827',
+                margin: 0,
+                lineHeight: 1.3
+              }}>
                 {settings?.name || 'Empresa'}
               </h1>
               {settings?.cnpj && (
-                <p className="text-sm text-gray-600">CNPJ: {settings.cnpj}</p>
+                <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0' }}>
+                  CNPJ: {settings.cnpj}
+                </p>
               )}
               {settings?.address && (
-                <p className="text-sm text-gray-600">{settings.address}</p>
-              )}
-              {(settings?.city || settings?.state) && (
-                <p className="text-sm text-gray-600">
-                  {settings.city}{settings.city && settings.state ? ' - ' : ''}{settings.state}
+                <p style={{ fontSize: '11px', color: '#9ca3af', margin: '2px 0' }}>
+                  {settings.address}
+                  {settings.city && ` - ${settings.city}`}
+                  {settings.state && `/${settings.state}`}
                 </p>
               )}
             </div>
           </div>
-          <div className="text-right">
-            <h2 className="text-xl font-bold text-blue-600">ORDEM DE COMPRA</h2>
-            <p className="text-lg font-semibold mt-1">{order.numero}</p>
-            <p className="text-sm text-gray-600">
+          
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px',
+              justifyContent: 'flex-end',
+              marginBottom: '4px'
+            }}>
+              <h2 style={{ 
+                fontSize: '14px', 
+                fontWeight: 600, 
+                color: '#2563eb',
+                margin: 0,
+                letterSpacing: '0.5px'
+              }}>
+                ORDEM DE COMPRA
+              </h2>
+              <span 
+                style={{
+                  padding: '3px 10px',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  borderRadius: '12px',
+                  backgroundColor: statusStyle.bg,
+                  color: statusStyle.text,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.3px'
+                }}
+              >
+                {statusLabels[order.status] || order.status}
+              </span>
+            </div>
+            <p style={{ 
+              fontSize: '16px', 
+              fontWeight: 700, 
+              color: '#111827',
+              margin: '4px 0'
+            }}>
+              {order.numero}
+            </p>
+            <p style={{ fontSize: '11px', color: '#6b7280', margin: '2px 0' }}>
               Emissão: {format(new Date(order.data_emissao), "dd/MM/yyyy", { locale: ptBR })}
             </p>
             {order.data_entrega && (
-              <p className="text-sm text-gray-600">
-                Entrega: {format(new Date(order.data_entrega), "dd/MM/yyyy", { locale: ptBR })}
+              <p style={{ fontSize: '11px', color: '#6b7280', margin: '2px 0' }}>
+                Entrega prevista: {format(new Date(order.data_entrega), "dd/MM/yyyy", { locale: ptBR })}
               </p>
             )}
-            <span 
-              className="inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full"
-              style={{
-                backgroundColor: 
-                  order.status === 'rascunho' ? '#e5e7eb' :
-                  order.status === 'enviada' ? '#dbeafe' :
-                  order.status === 'confirmada' ? '#fef3c7' :
-                  order.status === 'recebida' ? '#d1fae5' :
-                  '#fee2e2',
-                color:
-                  order.status === 'rascunho' ? '#374151' :
-                  order.status === 'enviada' ? '#1e40af' :
-                  order.status === 'confirmada' ? '#92400e' :
-                  order.status === 'recebida' ? '#065f46' :
-                  '#991b1b'
-              }}
-            >
-              {statusLabels[order.status] || order.status}
-            </span>
           </div>
         </div>
 
         {/* Supplier Info */}
-        <div className="bg-gray-50 rounded-lg p-4 mb-6">
-          <h3 className="text-sm font-semibold text-gray-600 uppercase mb-2">
-            Fornecedor
-          </h3>
-          {order.supplier ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="font-semibold text-lg">{order.supplier.name}</p>
+        <div style={{ 
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '20px',
+          marginBottom: '20px'
+        }}>
+          <div style={{ 
+            backgroundColor: '#f8fafc', 
+            borderRadius: '8px', 
+            padding: '14px 16px',
+            border: '1px solid #e2e8f0'
+          }}>
+            <p style={{ 
+              fontSize: '10px', 
+              fontWeight: 600, 
+              color: '#64748b', 
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              margin: '0 0 8px 0'
+            }}>
+              Fornecedor
+            </p>
+            {order.supplier ? (
+              <>
+                <p style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', margin: '0 0 4px 0' }}>
+                  {order.supplier.name}
+                </p>
                 {order.supplier.cnpj && (
-                  <p className="text-sm text-gray-600">CNPJ: {order.supplier.cnpj}</p>
+                  <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0' }}>
+                    CNPJ: {order.supplier.cnpj}
+                  </p>
                 )}
-              </div>
-              <div className="text-right">
                 {order.supplier.email && (
-                  <p className="text-sm text-gray-600">{order.supplier.email}</p>
+                  <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0' }}>
+                    {order.supplier.email}
+                  </p>
                 )}
                 {order.supplier.phone && (
-                  <p className="text-sm text-gray-600">{order.supplier.phone}</p>
+                  <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0' }}>
+                    Tel: {order.supplier.phone}
+                  </p>
                 )}
-                {order.supplier.address && (
-                  <p className="text-sm text-gray-600">{order.supplier.address}</p>
-                )}
-              </div>
-            </div>
-          ) : (
-            <p className="text-gray-500">Fornecedor não informado</p>
-          )}
-        </div>
+              </>
+            ) : (
+              <p style={{ fontSize: '12px', color: '#94a3b8' }}>Não informado</p>
+            )}
+          </div>
 
-        {/* Order Details */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs text-gray-500 uppercase">Condições de Pagamento</p>
-            <p className="font-semibold">{order.condicoes_pagamento || '—'}</p>
-          </div>
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs text-gray-500 uppercase">Frete</p>
-            <p className="font-semibold">{order.frete || '—'}</p>
-          </div>
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs text-gray-500 uppercase">Solicitante</p>
-            <p className="font-semibold">{order.solicitante || '—'}</p>
+          <div style={{ 
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '12px'
+          }}>
+            <div style={{ 
+              backgroundColor: '#f8fafc', 
+              borderRadius: '8px', 
+              padding: '12px 14px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <p style={{ fontSize: '9px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', margin: '0 0 4px 0' }}>
+                Pagamento
+              </p>
+              <p style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a', margin: 0 }}>
+                {order.condicoes_pagamento || '—'}
+              </p>
+            </div>
+            <div style={{ 
+              backgroundColor: '#f8fafc', 
+              borderRadius: '8px', 
+              padding: '12px 14px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <p style={{ fontSize: '9px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', margin: '0 0 4px 0' }}>
+                Frete
+              </p>
+              <p style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a', margin: 0 }}>
+                {order.frete || '—'}
+              </p>
+            </div>
+            <div style={{ 
+              backgroundColor: '#f8fafc', 
+              borderRadius: '8px', 
+              padding: '12px 14px',
+              border: '1px solid #e2e8f0',
+              gridColumn: 'span 2'
+            }}>
+              <p style={{ fontSize: '9px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', margin: '0 0 4px 0' }}>
+                Solicitante
+              </p>
+              <p style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a', margin: 0 }}>
+                {order.solicitante || '—'}
+              </p>
+            </div>
           </div>
         </div>
 
         {/* Items Table */}
-        <table className="w-full border-collapse mb-6">
+        <table style={{ 
+          width: '100%', 
+          borderCollapse: 'collapse', 
+          marginBottom: '20px',
+          fontSize: '12px'
+        }}>
           <thead>
-            <tr className="bg-blue-600 text-white">
-              <th className="p-2 text-left text-sm font-semibold">Item</th>
-              <th className="p-2 text-left text-sm font-semibold">Código</th>
-              <th className="p-2 text-left text-sm font-semibold">Descrição</th>
-              <th className="p-2 text-center text-sm font-semibold">Und</th>
-              <th className="p-2 text-center text-sm font-semibold">Qtd</th>
-              <th className="p-2 text-right text-sm font-semibold">Preço Unit.</th>
-              <th className="p-2 text-right text-sm font-semibold">Subtotal</th>
+            <tr style={{ backgroundColor: '#1e40af' }}>
+              <th style={{ 
+                padding: '10px 12px', 
+                textAlign: 'center', 
+                color: 'white',
+                fontWeight: 600,
+                fontSize: '11px',
+                borderRadius: '6px 0 0 0'
+              }}>
+                #
+              </th>
+              <th style={{ padding: '10px 12px', textAlign: 'left', color: 'white', fontWeight: 600, fontSize: '11px' }}>
+                Código
+              </th>
+              <th style={{ padding: '10px 12px', textAlign: 'left', color: 'white', fontWeight: 600, fontSize: '11px' }}>
+                Descrição
+              </th>
+              <th style={{ padding: '10px 12px', textAlign: 'center', color: 'white', fontWeight: 600, fontSize: '11px' }}>
+                Und
+              </th>
+              <th style={{ padding: '10px 12px', textAlign: 'center', color: 'white', fontWeight: 600, fontSize: '11px' }}>
+                Qtd
+              </th>
+              <th style={{ padding: '10px 12px', textAlign: 'right', color: 'white', fontWeight: 600, fontSize: '11px' }}>
+                Preço Unit.
+              </th>
+              <th style={{ 
+                padding: '10px 12px', 
+                textAlign: 'right', 
+                color: 'white',
+                fontWeight: 600,
+                fontSize: '11px',
+                borderRadius: '0 6px 0 0'
+              }}>
+                Subtotal
+              </th>
             </tr>
           </thead>
           <tbody>
             {order.items?.map((item, index) => (
               <tr 
                 key={item.id} 
-                className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                style={{ 
+                  backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8fafc',
+                  borderBottom: '1px solid #e2e8f0'
+                }}
               >
-                <td className="p-2 text-sm border-b border-gray-200">
+                <td style={{ padding: '10px 12px', textAlign: 'center', color: '#64748b' }}>
                   {String(index + 1).padStart(2, '0')}
                 </td>
-                <td className="p-2 text-sm border-b border-gray-200 font-mono">
+                <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: '11px', color: '#475569' }}>
                   {item.codigo || '—'}
                 </td>
-                <td className="p-2 text-sm border-b border-gray-200">
+                <td style={{ padding: '10px 12px', color: '#0f172a', fontWeight: 500 }}>
                   {item.descricao}
                 </td>
-                <td className="p-2 text-sm border-b border-gray-200 text-center">
+                <td style={{ padding: '10px 12px', textAlign: 'center', color: '#64748b' }}>
                   {item.unidade}
                 </td>
-                <td className="p-2 text-sm border-b border-gray-200 text-center font-semibold">
+                <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: '#0f172a' }}>
                   {item.quantidade}
                 </td>
-                <td className="p-2 text-sm border-b border-gray-200 text-right">
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: '#475569' }}>
                   {formatCurrency(item.valor_unitario)}
                 </td>
-                <td className="p-2 text-sm border-b border-gray-200 text-right font-semibold">
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
                   {formatCurrency(item.subtotal || item.quantidade * item.valor_unitario)}
                 </td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr className="bg-blue-600 text-white">
-              <td colSpan={6} className="p-3 text-right font-bold">
+            <tr style={{ backgroundColor: '#1e40af' }}>
+              <td 
+                colSpan={6} 
+                style={{ 
+                  padding: '12px 16px', 
+                  textAlign: 'right', 
+                  fontWeight: 700,
+                  color: 'white',
+                  fontSize: '13px',
+                  borderRadius: '0 0 0 6px'
+                }}
+              >
                 TOTAL
               </td>
-              <td className="p-3 text-right font-bold text-lg">
+              <td 
+                style={{ 
+                  padding: '12px 16px', 
+                  textAlign: 'right', 
+                  fontWeight: 700,
+                  color: 'white',
+                  fontSize: '15px',
+                  borderRadius: '0 0 6px 0'
+                }}
+              >
                 {formatCurrency(order.total)}
               </td>
             </tr>
@@ -190,32 +339,78 @@ export const PurchaseOrderPrint = forwardRef<HTMLDivElement, PurchaseOrderPrintP
 
         {/* Notes */}
         {order.observacoes && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-            <h4 className="text-sm font-semibold text-yellow-800 mb-1">Observações</h4>
-            <p className="text-sm text-yellow-700 whitespace-pre-wrap">{order.observacoes}</p>
+          <div style={{ 
+            backgroundColor: '#fffbeb', 
+            border: '1px solid #fcd34d', 
+            borderRadius: '8px', 
+            padding: '12px 16px',
+            marginBottom: '24px'
+          }}>
+            <p style={{ 
+              fontSize: '10px', 
+              fontWeight: 600, 
+              color: '#b45309', 
+              textTransform: 'uppercase',
+              margin: '0 0 6px 0'
+            }}>
+              Observações
+            </p>
+            <p style={{ fontSize: '12px', color: '#78350f', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+              {order.observacoes}
+            </p>
           </div>
         )}
 
-        {/* Footer */}
-        <div className="border-t-2 border-gray-300 pt-6 mt-8">
-          <div className="grid grid-cols-2 gap-8">
-            <div className="text-center">
-              <div className="border-t border-gray-400 pt-2 mx-8">
-                <p className="text-sm text-gray-600">Responsável pela Compra</p>
-                <p className="font-semibold">{settings?.name || 'Empresa'}</p>
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="border-t border-gray-400 pt-2 mx-8">
-                <p className="text-sm text-gray-600">Fornecedor (Aceite)</p>
-                <p className="font-semibold">{order.supplier?.name || '—'}</p>
-              </div>
+        {/* Footer - Signatures */}
+        <div style={{ 
+          borderTop: '1px solid #e2e8f0', 
+          paddingTop: '24px', 
+          marginTop: '24px',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '48px'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ 
+              borderTop: '1px solid #94a3b8', 
+              marginTop: '40px',
+              paddingTop: '8px'
+            }}>
+              <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px 0' }}>
+                Responsável pela Compra
+              </p>
+              <p style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a', margin: 0 }}>
+                {settings?.name || 'Empresa'}
+              </p>
             </div>
           </div>
-          <p className="text-xs text-gray-400 text-center mt-6">
-            Documento gerado em {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-          </p>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ 
+              borderTop: '1px solid #94a3b8', 
+              marginTop: '40px',
+              paddingTop: '8px'
+            }}>
+              <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 2px 0' }}>
+                Fornecedor (Aceite)
+              </p>
+              <p style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a', margin: 0 }}>
+                {order.supplier?.name || '—'}
+              </p>
+            </div>
+          </div>
         </div>
+
+        {/* Generated timestamp */}
+        <p style={{ 
+          fontSize: '9px', 
+          color: '#9ca3af', 
+          textAlign: 'center', 
+          marginTop: '24px',
+          paddingTop: '12px',
+          borderTop: '1px solid #f1f5f9'
+        }}>
+          Documento gerado em {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+        </p>
       </div>
     );
   }
