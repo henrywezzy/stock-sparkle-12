@@ -26,7 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Badge } from "@/components/ui/badge";
 import { DateInput } from "@/components/ui/date-input";
 import { 
@@ -400,22 +400,20 @@ export function PurchaseOrderDialog({
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Input
-                              type="number"
+                            <NumericInput
                               min={1}
                               value={item.quantidade}
-                              onChange={(e) => updateItemQuantity(index, Number(e.target.value))}
+                              onChange={(val) => updateItemQuantity(index, val)}
                               className="w-20 text-center"
                               disabled={!item.selected}
                             />
                           </TableCell>
                           <TableCell>
-                            <Input
-                              type="number"
+                            <NumericInput
                               min={0}
-                              step="0.01"
+                              decimals={2}
                               value={item.valor_unitario}
-                              onChange={(e) => updateItemPrice(index, Number(e.target.value))}
+                              onChange={(val) => updateItemPrice(index, val)}
                               className="w-24 text-right"
                               disabled={!item.selected}
                             />

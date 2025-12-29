@@ -45,26 +45,29 @@ interface PurchaseOrderEmailRequest {
   pdfBase64?: string;
 }
 
-async function verifyAuth(req: Request): Promise<{ user: any; error?: string }> {
+async function verifyAuth(req: Request): Promise<{ user: any; supabase: any; error?: string }> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
-    return { user: null, error: "Missing authorization header" };
+    return { user: null, supabase: null, error: "Missing authorization header" };
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
-
-  const { data: { user }, error } = await supabase.auth.getUser();
+  // Extract token from header
+  const token = authHeader.replace("Bearer ", "");
+  
+  // Use service role to verify the token
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  
+  const { data: { user }, error } = await supabase.auth.getUser(token);
   
   if (error || !user) {
-    return { user: null, error: "Invalid or expired token" };
+    console.error("Token verification error:", error);
+    return { user: null, supabase: null, error: "Invalid or expired token" };
   }
 
-  return { user };
+  return { user, supabase };
 }
 
 async function verifyUserRole(supabase: any, userId: string, allowedRoles: string[]): Promise<boolean> {
@@ -84,18 +87,16 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     // Verify authentication
-    const { user, error: authError } = await verifyAuth(req);
+    const { user, supabase: authSupabase, error: authError } = await verifyAuth(req);
     if (authError || !user) {
       console.error("Authentication failed:", authError);
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({ code: 401, message: authError || "Unauthorized" }),
         { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = authSupabase;
 
     // Verify user has admin or almoxarife role
     const hasRole = await verifyUserRole(supabase, user.id, ["admin", "almoxarife"]);
