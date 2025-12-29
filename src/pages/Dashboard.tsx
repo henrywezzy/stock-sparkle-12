@@ -8,6 +8,7 @@ import {
   Users,
   HardHat,
   Clock,
+  Shield,
 } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -32,9 +33,12 @@ import { useEntries } from "@/hooks/useEntries";
 import { useExits } from "@/hooks/useExits";
 import { useCategories } from "@/hooks/useCategories";
 import { useEmployees } from "@/hooks/useEmployees";
+import { useEPICompliance } from "@/hooks/useEPICompliance";
 import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/currency";
+import { EPIComplianceAlert } from "@/components/dashboard/EPIComplianceAlert";
+import { StockTurnoverCard, SupplierPerformanceCard } from "@/components/dashboard/IndicatorsCards";
 
 const COLORS = ["hsl(199, 89%, 48%)", "hsl(142, 76%, 36%)", "hsl(38, 92%, 50%)", "hsl(280, 65%, 60%)", "hsl(0, 84%, 60%)", "hsl(180, 70%, 45%)"];
 
@@ -44,6 +48,7 @@ export default function Dashboard() {
   const { exits } = useExits();
   const { categories } = useCategories();
   const { employees } = useEmployees();
+  const { summary: epiSummary } = useEPICompliance();
   const { isViewer } = useAuth();
 
   // Estatísticas gerais
@@ -400,6 +405,9 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* EPI Compliance Alert */}
+      <EPIComplianceAlert />
+
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Movement Chart */}
@@ -513,7 +521,13 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Bottom Row */}
+      {/* Bottom Row - Indicators */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <StockTurnoverCard />
+        <SupplierPerformanceCard />
+      </div>
+
+      {/* Bottom Row - Alerts and Movements */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Stock Alerts */}
         <div className="glass rounded-xl p-6">

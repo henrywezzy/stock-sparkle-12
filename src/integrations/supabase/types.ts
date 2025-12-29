@@ -290,6 +290,39 @@ export type Database = {
           },
         ]
       }
+      epi_requirements: {
+        Row: {
+          created_at: string
+          department: string | null
+          epi_category: string
+          id: string
+          is_mandatory: boolean | null
+          notes: string | null
+          position: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department?: string | null
+          epi_category: string
+          id?: string
+          is_mandatory?: boolean | null
+          notes?: string | null
+          position?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department?: string | null
+          epi_category?: string
+          id?: string
+          is_mandatory?: boolean | null
+          notes?: string | null
+          position?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       epis: {
         Row: {
           ca_expiry_date: string | null
@@ -895,6 +928,60 @@ export type Database = {
           },
           {
             foreignKeyName: "supplier_categories_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_performance: {
+        Row: {
+          created_at: string
+          delivered_date: string | null
+          id: string
+          notes: string | null
+          order_id: string | null
+          price_final: number | null
+          price_quoted: number | null
+          promised_date: string | null
+          quality_score: number | null
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          delivered_date?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          price_final?: number | null
+          price_quoted?: number | null
+          promised_date?: string | null
+          quality_score?: number | null
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          delivered_date?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          price_final?: number | null
+          price_quoted?: number | null
+          promised_date?: string | null
+          quality_score?: number | null
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_performance_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_performance_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
