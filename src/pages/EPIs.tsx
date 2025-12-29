@@ -6,6 +6,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateInput } from "@/components/ui/date-input";
 import { useEPIs, EPI } from "@/hooks/useEPIs";
@@ -15,6 +16,7 @@ import { useTermosEntrega, TermoEntrega } from "@/hooks/useTermosEntrega";
 import { useAuth } from "@/contexts/AuthContext";
 import { DeliveryTermDialog } from "@/components/epis/DeliveryTermDialog";
 import { TermoViewDialog } from "@/components/epis/TermoViewDialog";
+import { ExportDropdown } from "@/components/ui/export-dropdown";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +25,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -49,6 +61,8 @@ export default function EPIs() {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [selectedTermo, setSelectedTermo] = useState<TermoEntrega | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [selectedEPIIds, setSelectedEPIIds] = useState<string[]>([]);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
 
   // Form state for new EPI
   const [newEPI, setNewEPI] = useState({
