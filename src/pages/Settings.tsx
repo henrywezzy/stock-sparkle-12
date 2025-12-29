@@ -20,6 +20,8 @@ import {
   UserCheck,
   UserX,
   AlertTriangle,
+  Edit,
+  X,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -90,6 +92,9 @@ export default function Settings() {
   
   const isViewer = userRole === 'visualizador';
   const canEditCompany = isAdmin || userRole === 'almoxarife';
+  
+  // Company edit mode state
+  const [isEditingCompany, setIsEditingCompany] = useState(false);
 
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [deleteUserName, setDeleteUserName] = useState<string>("");
@@ -323,7 +328,28 @@ export default function Settings() {
   };
 
   const handleSaveCompany = () => {
-    updateCompanySettings.mutate(companyForm);
+    updateCompanySettings.mutate(companyForm, {
+      onSuccess: () => {
+        setIsEditingCompany(false);
+      }
+    });
+  };
+
+  const handleCancelEditCompany = () => {
+    // Reset form to original values
+    if (companySettings) {
+      setCompanyForm({
+        name: companySettings.name || "",
+        cnpj: companySettings.cnpj || "",
+        address: companySettings.address || "",
+        city: companySettings.city || "",
+        state: companySettings.state || "",
+        zip_code: companySettings.zip_code || "",
+        phone: companySettings.phone || "",
+        email: companySettings.email || "",
+      });
+    }
+    setIsEditingCompany(false);
   };
 
   const getRoleBadge = (role: string) => {
@@ -384,16 +410,24 @@ export default function Settings() {
 
         <TabsContent value="company" className="space-y-4 sm:space-y-6">
           <div className="glass rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
-            <div className="flex items-center gap-3 pb-4 border-b border-border/50">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-primary" />
+            <div className="flex items-center justify-between pb-4 border-b border-border/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Dados da Empresa</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {isViewer ? "Visualize as informações da empresa" : isEditingCompany ? "Editando informações da empresa" : "Informações que aparecerão nos documentos"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold">Dados da Empresa</h3>
-                <p className="text-sm text-muted-foreground">
-                  {isViewer ? "Visualize as informações da empresa" : "Informações que aparecerão nos documentos"}
-                </p>
-              </div>
+              {canEditCompany && !isEditingCompany && (
+                <Button variant="outline" size="sm" onClick={() => setIsEditingCompany(true)}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Editar
+                </Button>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row gap-6">
@@ -405,7 +439,7 @@ export default function Settings() {
                     <Building2 className="w-12 h-12 text-muted-foreground" />
                   )}
                 </div>
-                {canEditCompany && (
+                {canEditCompany && isEditingCompany && (
                   <>
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleLogoUpload} />
                     <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
@@ -415,113 +449,152 @@ export default function Settings() {
                 )}
               </div>
 
-              <div className="flex-1 grid gap-4 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <Label>Nome da Empresa</Label>
-                  <Input 
-                    value={companyForm.name} 
-                    onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} 
-                    disabled={isViewer}
-                  />
-                </div>
-                <div>
-                  <Label>CNPJ</Label>
-                  <MaskedInput 
-                    mask="cnpj"
-                    value={companyForm.cnpj} 
-                    onChange={(value) => setCompanyForm({ ...companyForm, cnpj: value })} 
-                    placeholder="00.000.000/0001-00" 
-                    disabled={isViewer}
-                    onCompanyFound={(company: CNPJResponse) => {
-                      setCompanyForm(prev => ({
-                        ...prev,
-                        name: company.razao_social || prev.name,
-                        address: company.logradouro ? `${company.logradouro}, ${company.numero}` : prev.address,
-                        city: company.municipio || prev.city,
-                        state: company.uf || prev.state,
-                        zip_code: company.cep || prev.zip_code,
-                        phone: company.telefone || prev.phone,
-                        email: company.email || prev.email,
-                      }));
-                      toast({
-                        title: "Dados encontrados!",
-                        description: `Empresa: ${company.razao_social}`,
-                      });
-                    }}
-                  />
-                </div>
-                <div>
-                  <Label>Telefone</Label>
-                  <MaskedInput 
-                    mask="phone"
-                    value={companyForm.phone} 
-                    onChange={(value) => setCompanyForm({ ...companyForm, phone: value })} 
-                    placeholder="(00) 0000-0000" 
-                    disabled={isViewer}
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <Label>Email</Label>
-                  <Input 
-                    type="email" 
-                    value={companyForm.email} 
-                    onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })} 
-                    disabled={isViewer}
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <Label>Endereço</Label>
-                  <Input 
-                    value={companyForm.address} 
-                    onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })} 
-                    disabled={isViewer}
-                  />
-                </div>
-                <div>
-                  <Label>Cidade</Label>
-                  <Input 
-                    value={companyForm.city} 
-                    onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })} 
-                    disabled={isViewer}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
+              {/* View Mode */}
+              {!isEditingCompany && (
+                <div className="flex-1 grid gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <Label className="text-muted-foreground text-xs">Nome da Empresa</Label>
+                    <p className="font-medium">{companyForm.name || "—"}</p>
+                  </div>
                   <div>
-                    <Label>Estado</Label>
+                    <Label className="text-muted-foreground text-xs">CNPJ</Label>
+                    <p className="font-medium font-mono">{companyForm.cnpj || "—"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">Telefone</Label>
+                    <p className="font-medium">{companyForm.phone || "—"}</p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label className="text-muted-foreground text-xs">Email</Label>
+                    <p className="font-medium">{companyForm.email || "—"}</p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label className="text-muted-foreground text-xs">Endereço</Label>
+                    <p className="font-medium">{companyForm.address || "—"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">Cidade</Label>
+                    <p className="font-medium">{companyForm.city || "—"}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-muted-foreground text-xs">Estado</Label>
+                      <p className="font-medium">{companyForm.state || "—"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground text-xs">CEP</Label>
+                      <p className="font-medium">{companyForm.zip_code || "—"}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Edit Mode */}
+              {isEditingCompany && (
+                <div className="flex-1 grid gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <Label>Nome da Empresa</Label>
                     <Input 
-                      value={companyForm.state} 
-                      onChange={(e) => setCompanyForm({ ...companyForm, state: e.target.value })} 
-                      maxLength={2} 
-                      disabled={isViewer}
+                      value={companyForm.name} 
+                      onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} 
                     />
                   </div>
                   <div>
-                    <Label>CEP</Label>
+                    <Label>CNPJ</Label>
                     <MaskedInput 
-                      mask="cep"
-                      value={companyForm.zip_code} 
-                      onChange={(value) => setCompanyForm({ ...companyForm, zip_code: value })} 
-                      placeholder="00000-000" 
-                      disabled={isViewer}
-                      onAddressFound={(address: ViaCEPResponse) => {
+                      mask="cnpj"
+                      value={companyForm.cnpj} 
+                      onChange={(value) => setCompanyForm({ ...companyForm, cnpj: value })} 
+                      placeholder="00.000.000/0001-00" 
+                      onCompanyFound={(company: CNPJResponse) => {
                         setCompanyForm(prev => ({
                           ...prev,
-                          address: address.logradouro,
-                          city: address.localidade,
-                          state: address.uf,
+                          name: company.razao_social || prev.name,
+                          address: company.logradouro ? `${company.logradouro}, ${company.numero}` : prev.address,
+                          city: company.municipio || prev.city,
+                          state: company.uf || prev.state,
+                          zip_code: company.cep || prev.zip_code,
+                          phone: company.telefone || prev.phone,
+                          email: company.email || prev.email,
                         }));
+                        toast({
+                          title: "Dados encontrados!",
+                          description: `Empresa: ${company.razao_social}`,
+                        });
                       }}
                     />
                   </div>
+                  <div>
+                    <Label>Telefone</Label>
+                    <MaskedInput 
+                      mask="phone"
+                      value={companyForm.phone} 
+                      onChange={(value) => setCompanyForm({ ...companyForm, phone: value })} 
+                      placeholder="(00) 0000-0000" 
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>Email</Label>
+                    <Input 
+                      type="email" 
+                      value={companyForm.email} 
+                      onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })} 
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>Endereço</Label>
+                    <Input 
+                      value={companyForm.address} 
+                      onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })} 
+                    />
+                  </div>
+                  <div>
+                    <Label>Cidade</Label>
+                    <Input 
+                      value={companyForm.city} 
+                      onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })} 
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label>Estado</Label>
+                      <Input 
+                        value={companyForm.state} 
+                        onChange={(e) => setCompanyForm({ ...companyForm, state: e.target.value })} 
+                        maxLength={2} 
+                      />
+                    </div>
+                    <div>
+                      <Label>CEP</Label>
+                      <MaskedInput 
+                        mask="cep"
+                        value={companyForm.zip_code} 
+                        onChange={(value) => setCompanyForm({ ...companyForm, zip_code: value })} 
+                        placeholder="00000-000" 
+                        onAddressFound={(address: ViaCEPResponse) => {
+                          setCompanyForm(prev => ({
+                            ...prev,
+                            address: address.logradouro,
+                            city: address.localidade,
+                            state: address.uf,
+                          }));
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
-            {canEditCompany && (
-              <div className="flex justify-end pt-4 border-t border-border/50">
+            {canEditCompany && isEditingCompany && (
+              <div className="flex justify-end gap-2 pt-4 border-t border-border/50">
+                <Button variant="outline" onClick={handleCancelEditCompany}>
+                  <X className="w-4 h-4 mr-2" />
+                  Cancelar
+                </Button>
                 <Button onClick={handleSaveCompany} className="gradient-primary" disabled={updateCompanySettings.isPending}>
                   {updateCompanySettings.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                  Salvar Empresa
+                  Salvar
                 </Button>
               </div>
             )}
