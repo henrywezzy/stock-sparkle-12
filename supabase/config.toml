@@ -1,10 +1,10 @@
 project_id = "fkeuexbcbtycdecruifd"
 
 [functions.send-purchase-order-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-notification-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.focus-nfe]
-verify_jwt = false
+verify_jwt = true
