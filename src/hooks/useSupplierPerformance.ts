@@ -79,6 +79,39 @@ export const useSupplierPerformance = () => {
     },
   });
 
+  const updatePerformance = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string } & Partial<SupplierPerformanceFormData>) => {
+      const { data: result, error } = await supabase
+        .from('supplier_performance')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['supplier-performance'] });
+      toast({
+        title: 'Avaliação atualizada',
+        description: 'A avaliação do fornecedor foi atualizada com sucesso.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro ao atualizar avaliação',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Get pending evaluations (without quality score)
+  const getPendingEvaluations = () => {
+    return performances.filter((p) => p.quality_score === null);
+  };
+
   // Calculate metrics for a specific supplier
   const getMetricsForSupplier = (supplierId: string): SupplierMetrics | null => {
     const supplierPerformances = performances.filter(p => p.supplier_id === supplierId);
@@ -139,7 +172,9 @@ export const useSupplierPerformance = () => {
     isLoading,
     error,
     createPerformance,
+    updatePerformance,
     getMetricsForSupplier,
     getAllMetrics,
+    getPendingEvaluations,
   };
 };
