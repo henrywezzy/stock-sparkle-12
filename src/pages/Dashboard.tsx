@@ -272,18 +272,26 @@ export default function Dashboard() {
                   fill="#8884d8"
                   paddingAngle={5}
                   dataKey="value"
+                  stroke="transparent"
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   labelLine={false}
                 >
                   {categoryDistribution.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="transparent" />
                   ))}
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "hsl(222, 47%, 10%)",
-                    border: "1px solid hsl(222, 47%, 16%)",
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
                     borderRadius: "8px",
+                    color: "hsl(var(--foreground))",
+                  }}
+                  itemStyle={{
+                    color: "hsl(var(--foreground))",
+                  }}
+                  labelStyle={{
+                    color: "hsl(var(--foreground))",
                   }}
                 />
               </PieChart>
@@ -306,14 +314,21 @@ export default function Dashboard() {
               data={productStatusData}
               layout="vertical"
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(222, 47%, 16%)" />
-              <XAxis type="number" stroke="hsl(215, 20%, 55%)" fontSize={12} />
-              <YAxis dataKey="name" type="category" stroke="hsl(215, 20%, 55%)" fontSize={12} width={80} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+              <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={80} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "hsl(222, 47%, 10%)",
-                  border: "1px solid hsl(222, 47%, 16%)",
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
+                  color: "hsl(var(--foreground))",
+                }}
+                itemStyle={{
+                  color: "hsl(var(--foreground))",
+                }}
+                labelStyle={{
+                  color: "hsl(var(--foreground))",
                 }}
               />
               <Bar 
@@ -398,14 +413,21 @@ export default function Dashboard() {
                   <stop offset="95%" stopColor="hsl(0, 84%, 60%)" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(222, 47%, 16%)" />
-              <XAxis dataKey="month" stroke="hsl(215, 20%, 55%)" fontSize={12} />
-              <YAxis stroke="hsl(215, 20%, 55%)" fontSize={12} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "hsl(222, 47%, 10%)",
-                  border: "1px solid hsl(222, 47%, 16%)",
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
+                  color: "hsl(var(--foreground))",
+                }}
+                itemStyle={{
+                  color: "hsl(var(--foreground))",
+                }}
+                labelStyle={{
+                  color: "hsl(var(--foreground))",
                 }}
               />
               <Area
@@ -446,18 +468,26 @@ export default function Dashboard() {
                   fill="#8884d8"
                   paddingAngle={5}
                   dataKey="value"
+                  stroke="transparent"
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   labelLine={false}
                 >
                   {categoryDistribution.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="transparent" />
                   ))}
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "hsl(222, 47%, 10%)",
-                    border: "1px solid hsl(222, 47%, 16%)",
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
                     borderRadius: "8px",
+                    color: "hsl(var(--foreground))",
+                  }}
+                  itemStyle={{
+                    color: "hsl(var(--foreground))",
+                  }}
+                  labelStyle={{
+                    color: "hsl(var(--foreground))",
                   }}
                 />
               </PieChart>
