@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   Edit,
   X,
+  HardHat,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useTheme, ColorPalette } from "@/hooks/useTheme";
+import { EPIRequirementsSettings } from "@/components/settings/EPIRequirementsSettings";
 import { cn } from "@/lib/utils";
 import { ViaCEPResponse, CNPJResponse } from "@/lib/masks";
 import {
@@ -400,6 +402,12 @@ export default function Settings() {
             <TabsTrigger value="users" className="gap-2 text-xs sm:text-sm">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Usuários</span>
+            </TabsTrigger>
+          )}
+          {!isViewer && (
+            <TabsTrigger value="epi-rules" className="gap-2 text-xs sm:text-sm">
+              <HardHat className="w-4 h-4" />
+              <span className="hidden sm:inline">Regras EPI</span>
             </TabsTrigger>
           )}
           <TabsTrigger value="appearance" className="gap-2 text-xs sm:text-sm">
@@ -831,6 +839,13 @@ export default function Settings() {
             </div>
           </div>
         </TabsContent>
+
+        {/* Regras de EPI Tab */}
+        {!isViewer && (
+          <TabsContent value="epi-rules" className="space-y-4 sm:space-y-6">
+            <EPIRequirementsSettings />
+          </TabsContent>
+        )}
       </Tabs>
 
       <div className="flex justify-end">

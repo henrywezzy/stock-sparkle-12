@@ -91,6 +91,27 @@ export function useReceiveOrder() {
 
       if (updateOrderError) throw updateOrderError;
 
+      // Registrar avaliação automática do fornecedor
+      if (order.supplier_id) {
+        const { error: perfError } = await supabase
+          .from("supplier_performance")
+          .insert({
+            supplier_id: order.supplier_id,
+            order_id: order.id,
+            promised_date: order.data_entrega,
+            delivered_date: new Date().toISOString().split('T')[0],
+            price_quoted: order.total,
+            price_final: order.total,
+            quality_score: null, // A ser avaliado manualmente depois
+            notes: `Recebimento automático da OC ${order.numero}`,
+          });
+
+        if (perfError) {
+          console.error("Erro ao registrar avaliação do fornecedor:", perfError);
+          // Não interrompe o fluxo, apenas loga o erro
+        }
+      }
+
       return {
         productCount: productItems.length,
         epiCount: epiItems.length,
@@ -102,6 +123,7 @@ export function useReceiveOrder() {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["epis"] });
       queryClient.invalidateQueries({ queryKey: ["entries"] });
+      queryClient.invalidateQueries({ queryKey: ["supplier-performance"] });
       
       toast({
         title: "Ordem recebida com sucesso!",
