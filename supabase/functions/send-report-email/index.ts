@@ -107,7 +107,26 @@ async function sendEmail(to: string[], subject: string, html: string, attachment
   return await response.json();
 }
 
+// Log request for audit trail
+async function logRequest(requestId: string, functionName: string, userId: string, status: string): Promise<void> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  await supabase
+    .from("edge_function_requests")
+    .insert({
+      request_id: requestId,
+      function_name: functionName,
+      user_id: userId,
+      status: status,
+      completed_at: status !== 'pending' ? new Date().toISOString() : null
+    });
+}
+
 const handler = async (req: Request): Promise<Response> => {
+  const requestId = generateRequestId();
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -116,9 +135,9 @@ const handler = async (req: Request): Promise<Response> => {
     // Verify authentication
     const { user, error: authError } = await verifyAuth(req);
     if (authError || !user) {
-      console.error("Authentication failed:", authError);
+      console.error(`[${requestId}] Authentication failed:`, authError);
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({ error: "Unauthorized", request_id: requestId }),
         { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
@@ -126,16 +145,19 @@ const handler = async (req: Request): Promise<Response> => {
     // Verify user has admin or almoxarife role
     const hasRole = await verifyUserRole(user.id, ["admin", "almoxarife"]);
     if (!hasRole) {
-      console.error("User lacks required role:", user.id);
+      console.error(`[${requestId}] User lacks required role:`, user.id);
       return new Response(
-        JSON.stringify({ error: "Forbidden: Insufficient permissions" }),
+        JSON.stringify({ error: "Forbidden: Insufficient permissions", request_id: requestId }),
         { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
+    // Log the request
+    await logRequest(requestId, 'send-report-email', user.id, 'processing');
+
     const { to, subject, reportData, companyName, pdfBase64 }: ReportEmailRequest = await req.json();
 
-    console.log(`Sending report email to: ${to} by user ${user.id}`);
+    console.log(`[${requestId}] Sending report email to: ${to} by user ${user.id}`);
 
     // Escape user inputs
     const safeCompanyName = escapeHtml(companyName);

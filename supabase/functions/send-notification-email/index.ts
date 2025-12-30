@@ -93,27 +93,6 @@ async function logRequest(requestId: string, functionName: string, userId: strin
     });
 }
 
-async function verifyAuth(req: Request): Promise<{ user: any; error?: string }> {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return { user: null, error: "Missing authorization header" };
-  }
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
-
-  const { data: { user }, error } = await supabase.auth.getUser();
-  
-  if (error || !user) {
-    return { user: null, error: "Invalid or expired token" };
-  }
-
-  return { user };
-}
 
 const handler = async (req: Request): Promise<Response> => {
   const requestId = generateRequestId();
