@@ -1,10 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Helper to generate unique request ID
+function generateRequestId(): string {
+  return crypto.randomUUID();
+}
 
 async function verifyAuth(req: Request): Promise<{ user: any; error?: string }> {
   const authHeader = req.headers.get("Authorization");
@@ -28,7 +33,26 @@ async function verifyAuth(req: Request): Promise<{ user: any; error?: string }> 
   return { user };
 }
 
+// Log request for audit trail
+async function logRequest(requestId: string, functionName: string, userId: string, status: string): Promise<void> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  await supabase
+    .from("edge_function_requests")
+    .insert({
+      request_id: requestId,
+      function_name: functionName,
+      user_id: userId,
+      status: status,
+      completed_at: status !== 'pending' ? new Date().toISOString() : null
+    });
+}
+
 serve(async (req) => {
+  const requestId = generateRequestId();
+  
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -37,12 +61,15 @@ serve(async (req) => {
     // Verify authentication - this function queries user data so requires auth
     const { user, error: authError } = await verifyAuth(req);
     if (authError || !user) {
-      console.error("Authentication failed:", authError);
+      console.error(`[${requestId}] Authentication failed:`, authError);
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({ error: "Unauthorized", request_id: requestId }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Log the request
+    await logRequest(requestId, 'find-user-email', user.id, 'processing');
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

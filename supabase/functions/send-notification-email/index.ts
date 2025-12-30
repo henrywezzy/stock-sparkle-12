@@ -7,6 +7,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper to generate unique request ID
+function generateRequestId(): string {
+  return crypto.randomUUID();
+}
+
 interface NotificationRequest {
   type: "new_user_registration" | "user_approved" | "user_rejected";
   userEmail: string;
@@ -71,8 +76,48 @@ async function verifyAuth(req: Request): Promise<{ user: any; error?: string }> 
   return { user };
 }
 
+// Log request for audit trail
+async function logRequest(requestId: string, functionName: string, userId: string, status: string): Promise<void> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  await supabase
+    .from("edge_function_requests")
+    .insert({
+      request_id: requestId,
+      function_name: functionName,
+      user_id: userId,
+      status: status,
+      completed_at: status !== 'pending' ? new Date().toISOString() : null
+    });
+}
+
+async function verifyAuth(req: Request): Promise<{ user: any; error?: string }> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return { user: null, error: "Missing authorization header" };
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error || !user) {
+    return { user: null, error: "Invalid or expired token" };
+  }
+
+  return { user };
+}
+
 const handler = async (req: Request): Promise<Response> => {
-  console.log("send-notification-email function called");
+  const requestId = generateRequestId();
+  console.log(`[${requestId}] send-notification-email function called`);
 
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -83,15 +128,18 @@ const handler = async (req: Request): Promise<Response> => {
     // Verify authentication
     const { user, error: authError } = await verifyAuth(req);
     if (authError || !user) {
-      console.error("Authentication failed:", authError);
+      console.error(`[${requestId}] Authentication failed:`, authError);
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({ error: "Unauthorized", request_id: requestId }),
         { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
+    // Log the request
+    await logRequest(requestId, 'send-notification-email', user.id, 'processing');
+
     const { type, userEmail, userName }: NotificationRequest = await req.json();
-    console.log(`Processing ${type} notification for ${userEmail} by user ${user.id}`);
+    console.log(`[${requestId}] Processing ${type} notification for ${userEmail} by user ${user.id}`);
 
     // Escape user inputs to prevent XSS
     const safeUserName = escapeHtml(userName);

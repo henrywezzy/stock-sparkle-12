@@ -1,29 +1,136 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper to generate unique request ID
+function generateRequestId(): string {
+  return crypto.randomUUID();
+}
+
+// Verify authentication and return user
+async function verifyAuth(req: Request): Promise<{ user: any; error?: string }> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return { user: null, error: "Missing authorization header" };
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error || !user) {
+    return { user: null, error: "Invalid or expired token" };
+  }
+
+  return { user };
+}
+
+// Verify user has required role
+async function verifyUserRole(userId: string, allowedRoles: string[]): Promise<boolean> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  const { data: roles } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("approved", true);
+
+  return roles?.some((r: any) => allowedRoles.includes(r.role)) ?? false;
+}
+
+// Log request for audit trail
+async function logRequest(requestId: string, functionName: string, userId: string, status: string): Promise<void> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  await supabase
+    .from("edge_function_requests")
+    .insert({
+      request_id: requestId,
+      function_name: functionName,
+      user_id: userId,
+      status: status,
+      completed_at: status !== 'pending' ? new Date().toISOString() : null
+    });
+}
+
 serve(async (req) => {
+  const requestId = generateRequestId();
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Verify authentication
+    const { user, error: authError } = await verifyAuth(req);
+    if (authError || !user) {
+      console.error(`[${requestId}] Authentication failed:`, authError);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized', request_id: requestId }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify user has admin or almoxarife role
+    const hasRole = await verifyUserRole(user.id, ["admin", "almoxarife"]);
+    if (!hasRole) {
+      console.error(`[${requestId}] User lacks required role:`, user.id);
+      return new Response(
+        JSON.stringify({ error: 'Forbidden: Insufficient permissions', request_id: requestId }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Log the request
+    await logRequest(requestId, 'ocr-danfe', user.id, 'processing');
+
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
 
     if (!file) {
+      await logRequest(requestId, 'ocr-danfe', user.id, 'failed');
       return new Response(
-        JSON.stringify({ error: 'Nenhum arquivo enviado' }),
+        JSON.stringify({ error: 'Nenhum arquivo enviado', request_id: requestId }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Processando arquivo:', file.name, 'Tamanho:', file.size);
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+    if (!allowedTypes.includes(file.type)) {
+      await logRequest(requestId, 'ocr-danfe', user.id, 'failed');
+      return new Response(
+        JSON.stringify({ error: 'Tipo de arquivo não suportado. Use PDF ou imagem.', request_id: requestId }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      await logRequest(requestId, 'ocr-danfe', user.id, 'failed');
+      return new Response(
+        JSON.stringify({ error: 'Arquivo muito grande. Máximo 10MB.', request_id: requestId }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`[${requestId}] Processing file: ${file.name}, Size: ${file.size}, User: ${user.id}`);
 
     // Convert file to base64
     const arrayBuffer = await file.arrayBuffer();
@@ -33,15 +140,16 @@ serve(async (req) => {
 
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableApiKey) {
-      console.error('LOVABLE_API_KEY not configured');
+      console.error(`[${requestId}] LOVABLE_API_KEY not configured`);
+      await logRequest(requestId, 'ocr-danfe', user.id, 'failed');
       return new Response(
-        JSON.stringify({ error: 'Chave de API não configurada' }),
+        JSON.stringify({ error: 'Chave de API não configurada', request_id: requestId }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const mimeType = file.type || 'application/pdf';
-    console.log('Enviando para AI Gateway com mime:', mimeType);
+    console.log(`[${requestId}] Sending to AI Gateway with mime: ${mimeType}`);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -104,23 +212,25 @@ IMPORTANTE:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
+      console.error(`[${requestId}] AI Gateway error:`, response.status, errorText);
+      await logRequest(requestId, 'ocr-danfe', user.id, 'failed');
       return new Response(
         JSON.stringify({ 
           error: 'Erro ao processar imagem com IA',
-          details: errorText 
+          request_id: requestId
         }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const aiResponse = await response.json();
-    console.log('AI Response recebida');
+    console.log(`[${requestId}] AI Response received`);
 
     const content = aiResponse.choices?.[0]?.message?.content;
     if (!content) {
+      await logRequest(requestId, 'ocr-danfe', user.id, 'failed');
       return new Response(
-        JSON.stringify({ error: 'Resposta vazia da IA' }),
+        JSON.stringify({ error: 'Resposta vazia da IA', request_id: requestId }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -135,14 +245,14 @@ IMPORTANTE:
         .trim();
       
       nfeData = JSON.parse(jsonStr);
-      console.log('Dados extraídos com sucesso:', nfeData.chave_acesso);
+      console.log(`[${requestId}] Data extracted successfully: ${nfeData.chave_acesso}`);
     } catch (parseError) {
-      console.error('Erro ao parsear resposta da IA:', parseError);
-      console.log('Conteúdo recebido:', content);
+      console.error(`[${requestId}] Error parsing AI response:`, parseError);
+      await logRequest(requestId, 'ocr-danfe', user.id, 'failed');
       return new Response(
         JSON.stringify({ 
           error: 'Não foi possível extrair dados do DANFE',
-          raw_response: content 
+          request_id: requestId
         }),
         { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -150,6 +260,7 @@ IMPORTANTE:
 
     // Format the response to match NFEData structure
     const formattedData = {
+      request_id: requestId,
       chave_nfe: (nfeData.chave_acesso || '').replace(/\D/g, ''),
       status: 'ocr',
       numero: nfeData.numero || '',
@@ -172,17 +283,19 @@ IMPORTANTE:
       status_manifestacao: 'pendente',
     };
 
+    await logRequest(requestId, 'ocr-danfe', user.id, 'completed');
+
     return new Response(
       JSON.stringify(formattedData),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('OCR DANFE Error:', error);
+    console.error(`[${requestId}] OCR DANFE Error:`, error);
     return new Response(
       JSON.stringify({ 
         error: 'Erro interno ao processar DANFE',
-        details: error instanceof Error ? error.message : 'Erro desconhecido'
+        request_id: requestId
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
