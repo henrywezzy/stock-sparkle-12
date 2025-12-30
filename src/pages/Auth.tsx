@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, Loader2, Eye, EyeOff, Check, X, Mail, KeyRound, ArrowLeft, User, Phone } from 'lucide-react';
 import { z } from 'zod';
+import { usePasswordValidation, getStrengthColor, getStrengthLabel, validatePassword } from '@/hooks/usePasswordValidation';
 
 // Validação de email mais rigorosa
 const emailSchema = z.string()
@@ -19,17 +20,16 @@ const emailSchema = z.string()
     return emailRegex.test(email);
   }, 'Email inválido');
 
-// Validação de senha forte
-const passwordSchema = z.string()
-  .min(7, 'A senha deve ter no mínimo 7 caracteres')
-  .refine((password) => /[a-zA-Z]/.test(password), 'A senha deve conter pelo menos uma letra')
-  .refine((password) => /[0-9]/.test(password), 'A senha deve conter pelo menos um número')
-  .refine((password) => /[!@#$%^&*(),.?":{}|<>]/.test(password), 'A senha deve conter pelo menos um símbolo');
+// Validação de senha usando o hook
+const createPasswordSchema = () => z.string()
+  .refine((password) => validatePassword(password).isValid, {
+    message: 'A senha não atende aos requisitos mínimos de segurança'
+  });
 
 const signUpSchema = z.object({
   fullName: z.string().min(2, 'O nome deve ter no mínimo 2 caracteres'),
   email: emailSchema,
-  password: passwordSchema,
+  password: createPasswordSchema(),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'As senhas não conferem',
@@ -37,36 +37,56 @@ const signUpSchema = z.object({
 });
 
 const resetPasswordSchema = z.object({
-  password: passwordSchema,
+  password: createPasswordSchema(),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'As senhas não conferem',
   path: ['confirmPassword'],
 });
 
-// Componente de indicador de força de senha
+// Componente de indicador de força de senha com barra de progresso
 const PasswordStrengthIndicator = ({ password }: { password: string }) => {
-  const checks = [
-    { label: 'Mínimo 7 caracteres', valid: password.length >= 7 },
-    { label: 'Contém letra', valid: /[a-zA-Z]/.test(password) },
-    { label: 'Contém número', valid: /[0-9]/.test(password) },
-    { label: 'Contém símbolo', valid: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
-  ];
+  const validation = usePasswordValidation(password);
+
+  if (!password) return null;
 
   return (
-    <div className="mt-2 space-y-1">
-      {checks.map((check, index) => (
-        <div key={index} className="flex items-center gap-2 text-xs">
-          {check.valid ? (
-            <Check className="w-3 h-3 text-success" />
-          ) : (
-            <X className="w-3 h-3 text-muted-foreground" />
-          )}
-          <span className={check.valid ? 'text-success' : 'text-muted-foreground'}>
-            {check.label}
+    <div className="mt-3 space-y-2">
+      {/* Barra de força */}
+      <div className="space-y-1">
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-muted-foreground">Força da senha:</span>
+          <span className={`text-xs font-medium ${
+            validation.strength === 'very-strong' ? 'text-success' :
+            validation.strength === 'strong' ? 'text-success/80' :
+            validation.strength === 'medium' ? 'text-warning' : 'text-destructive'
+          }`}>
+            {getStrengthLabel(validation.strength)}
           </span>
         </div>
-      ))}
+        <div className="h-2 bg-muted rounded-full overflow-hidden">
+          <div 
+            className={`h-full transition-all duration-300 ${getStrengthColor(validation.strength)}`}
+            style={{ width: `${validation.strengthPercent}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Lista de requisitos */}
+      <div className="grid grid-cols-2 gap-1">
+        {validation.checks.map((check) => (
+          <div key={check.id} className="flex items-center gap-1.5 text-xs">
+            {check.valid ? (
+              <Check className="w-3 h-3 text-success shrink-0" />
+            ) : (
+              <X className="w-3 h-3 text-muted-foreground shrink-0" />
+            )}
+            <span className={check.valid ? 'text-success' : 'text-muted-foreground'}>
+              {check.label}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
