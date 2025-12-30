@@ -6,6 +6,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper to generate unique request ID
+function generateRequestId(): string {
+  return crypto.randomUUID();
+}
+
 // HTML escape function to prevent XSS in emails
 function escapeHtml(unsafe: string | undefined | null): string {
   if (!unsafe) return "";

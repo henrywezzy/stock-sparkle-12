@@ -1,13 +1,19 @@
 project_id = "fkeuexbcbtycdecruifd"
 
 [functions.send-purchase-order-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-notification-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.focus-nfe]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ocr-danfe]
-verify_jwt = false
+verify_jwt = true
+
+[functions.send-report-email]
+verify_jwt = true
+
+[functions.find-user-email]
+verify_jwt = true

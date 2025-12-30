@@ -1,10 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Helper to generate unique request ID
+function generateRequestId(): string {
+  return crypto.randomUUID();
+}
 
 // Focus NFe API endpoints
 const FOCUS_BASE_URLS = {
@@ -34,6 +39,61 @@ function getFocusAuthHeaders() {
   return {
     Authorization: `Basic ${btoa(`${FOCUS_TOKEN}:`)}`,
   };
+}
+
+// Verify authentication and return user
+async function verifyAuth(req: Request): Promise<{ user: any; error?: string }> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return { user: null, error: "Missing authorization header" };
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error || !user) {
+    return { user: null, error: "Invalid or expired token" };
+  }
+
+  return { user };
+}
+
+// Verify user has required role
+async function verifyUserRole(userId: string, allowedRoles: string[]): Promise<boolean> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  const { data: roles } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("approved", true);
+
+  return roles?.some((r: any) => allowedRoles.includes(r.role)) ?? false;
+}
+
+// Log request for audit trail
+async function logRequest(requestId: string, functionName: string, userId: string, status: string): Promise<void> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  await supabase
+    .from("edge_function_requests")
+    .insert({
+      request_id: requestId,
+      function_name: functionName,
+      user_id: userId,
+      status: status,
+      completed_at: status !== 'pending' ? new Date().toISOString() : null
+    });
 }
 
 async function fetchFocus(
@@ -121,43 +181,30 @@ function validateChaveAcesso(chave: string): boolean {
 }
 
 serve(async (req) => {
+  const requestId = generateRequestId();
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Verify authentication (we return JSON error with 200 to avoid generic invoke errors)
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.error('Missing authorization header');
-      return json({ error: 'Unauthorized: missing Authorization header' });
-    }
-
-    // Create Supabase client and verify user
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Verify authentication
+    const { user, error: authError } = await verifyAuth(req);
     if (authError || !user) {
-      console.error('Authentication failed:', authError?.message);
-      return json({ error: 'Unauthorized' });
+      console.error(`[${requestId}] Authentication failed:`, authError);
+      return json({ error: 'Unauthorized', request_id: requestId }, 401);
     }
 
-    // Check user role (admin or almoxarife)
-    const { data: roleData } = await supabase
-      .from('user_roles')
-      .select('role, approved')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!roleData?.approved || !['admin', 'almoxarife'].includes(roleData.role)) {
-      console.error('User lacks required role');
-      return json({ error: 'Insufficient permissions' });
+    // Verify user has admin or almoxarife role
+    const hasRole = await verifyUserRole(user.id, ["admin", "almoxarife"]);
+    if (!hasRole) {
+      console.error(`[${requestId}] User lacks required role:`, user.id);
+      return json({ error: 'Forbidden: Insufficient permissions', request_id: requestId }, 403);
     }
+
+    // Log the request
+    await logRequest(requestId, 'focus-nfe', user.id, 'processing');
 
     // Check if Focus NFe token is configured
     if (!FOCUS_TOKEN) {

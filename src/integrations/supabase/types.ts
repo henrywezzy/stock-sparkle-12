@@ -128,6 +128,39 @@ export type Database = {
         }
         Relationships: []
       }
+      edge_function_requests: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          function_name: string
+          id: string
+          ip_address: string | null
+          request_id: string
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          function_name: string
+          id?: string
+          ip_address?: string | null
+          request_id?: string
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          function_name?: string
+          id?: string
+          ip_address?: string | null
+          request_id?: string
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           admission_date: string | null
@@ -1167,6 +1200,21 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      insert_audit_log: {
+        Args: {
+          p_action: string
+          p_changed_fields?: string[]
+          p_new_data?: Json
+          p_old_data?: Json
+          p_record_id: string
+          p_table_name: string
+        }
+        Returns: string
+      }
+      validate_edge_request: {
+        Args: { p_function_name: string; p_user_id: string }
+        Returns: string
       }
     }
     Enums: {
