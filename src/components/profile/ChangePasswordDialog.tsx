@@ -13,41 +13,55 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Eye, EyeOff, Check, X, KeyRound, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
+import { usePasswordValidation, getStrengthColor, getStrengthLabel, validatePassword } from "@/hooks/usePasswordValidation";
 
 interface ChangePasswordDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const passwordSchema = z.string()
-  .min(7, 'A senha deve ter no mínimo 7 caracteres')
-  .refine((password) => /[a-zA-Z]/.test(password), 'A senha deve conter pelo menos uma letra')
-  .refine((password) => /[0-9]/.test(password), 'A senha deve conter pelo menos um número')
-  .refine((password) => /[!@#$%^&*(),.?":{}|<>]/.test(password), 'A senha deve conter pelo menos um símbolo');
-
 const PasswordStrengthIndicator = ({ password }: { password: string }) => {
-  const checks = [
-    { label: 'Mínimo 7 caracteres', valid: password.length >= 7 },
-    { label: 'Contém letra', valid: /[a-zA-Z]/.test(password) },
-    { label: 'Contém número', valid: /[0-9]/.test(password) },
-    { label: 'Contém símbolo', valid: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
-  ];
+  const validation = usePasswordValidation(password);
+
+  if (!password) return null;
 
   return (
-    <div className="mt-2 space-y-1">
-      {checks.map((check, index) => (
-        <div key={index} className="flex items-center gap-2 text-xs">
-          {check.valid ? (
-            <Check className="w-3 h-3 text-success" />
-          ) : (
-            <X className="w-3 h-3 text-muted-foreground" />
-          )}
-          <span className={check.valid ? 'text-success' : 'text-muted-foreground'}>
-            {check.label}
+    <div className="mt-3 space-y-2">
+      {/* Barra de força */}
+      <div className="space-y-1">
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-muted-foreground">Força da senha:</span>
+          <span className={`text-xs font-medium ${
+            validation.strength === 'very-strong' ? 'text-success' :
+            validation.strength === 'strong' ? 'text-success/80' :
+            validation.strength === 'medium' ? 'text-warning' : 'text-destructive'
+          }`}>
+            {getStrengthLabel(validation.strength)}
           </span>
         </div>
-      ))}
+        <div className="h-2 bg-muted rounded-full overflow-hidden">
+          <div 
+            className={`h-full transition-all duration-300 ${getStrengthColor(validation.strength)}`}
+            style={{ width: `${validation.strengthPercent}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Lista de requisitos */}
+      <div className="grid grid-cols-2 gap-1">
+        {validation.checks.map((check) => (
+          <div key={check.id} className="flex items-center gap-1.5 text-xs">
+            {check.valid ? (
+              <Check className="w-3 h-3 text-success shrink-0" />
+            ) : (
+              <X className="w-3 h-3 text-muted-foreground shrink-0" />
+            )}
+            <span className={check.valid ? 'text-success' : 'text-muted-foreground'}>
+              {check.label}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -111,13 +125,10 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
     e.preventDefault();
     setErrors({});
 
-    try {
-      passwordSchema.parse(passwordData.password);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        setErrors({ password: error.errors[0].message });
-        return;
-      }
+    const validation = validatePassword(passwordData.password);
+    if (!validation.isValid) {
+      setErrors({ password: validation.errors[0] });
+      return;
     }
 
     if (passwordData.password !== passwordData.confirmPassword) {
