@@ -91,17 +91,8 @@ export default function Assets() {
     notes: '',
   });
 
-  const { paginatedData, currentPage, totalPages, setCurrentPage } = usePagination(
-    assets || [],
-    9
-  );
-
-  const { 
-    paginatedData: paginatedConsumption, 
-    currentPage: consumptionPage, 
-    totalPages: consumptionTotalPages, 
-    setCurrentPage: setConsumptionPage 
-  } = usePagination(assetConsumption || [], 10);
+  const assetsPagination = usePagination(assets || [], { itemsPerPage: 9 });
+  const consumptionPagination = usePagination(assetConsumption || [], { itemsPerPage: 10 });
 
   const openDialog = (asset?: Asset) => {
     if (asset) {
@@ -241,7 +232,7 @@ export default function Assets() {
 
         <TabsContent value="assets">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {paginatedData.map((asset) => {
+            {assetsPagination.paginatedData.map((asset) => {
               const status = statusConfig[asset.status || 'active'];
               
               return (
@@ -310,7 +301,7 @@ export default function Assets() {
               );
             })}
 
-            {paginatedData.length === 0 && (
+            {assetsPagination.paginatedData.length === 0 && (
               <div className="col-span-full text-center py-12 text-muted-foreground">
                 <Wrench className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>Nenhum ativo cadastrado</p>
@@ -318,11 +309,16 @@ export default function Assets() {
             )}
           </div>
 
-          {totalPages > 1 && (
+          {assetsPagination.totalPages > 1 && (
             <TablePagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
+              currentPage={assetsPagination.currentPage}
+              totalPages={assetsPagination.totalPages}
+              startIndex={assetsPagination.startIndex}
+              endIndex={assetsPagination.endIndex}
+              totalItems={assetsPagination.totalItems}
+              onPageChange={assetsPagination.goToPage}
+              hasNextPage={assetsPagination.hasNextPage}
+              hasPrevPage={assetsPagination.hasPrevPage}
             />
           )}
         </TabsContent>
@@ -340,7 +336,7 @@ export default function Assets() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedConsumption.map((exit: any) => (
+                  {consumptionPagination.paginatedData.map((exit: any) => (
                     <TableRow key={exit.id}>
                       <TableCell>
                         {format(new Date(exit.exit_date), 'dd/MM/yyyy', { locale: ptBR })}
@@ -357,7 +353,7 @@ export default function Assets() {
                       <TableCell>{exit.quantity}</TableCell>
                     </TableRow>
                   ))}
-                  {paginatedConsumption.length === 0 && (
+                  {consumptionPagination.paginatedData.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                         Nenhum consumo registrado
@@ -369,11 +365,16 @@ export default function Assets() {
             </CardContent>
           </Card>
 
-          {consumptionTotalPages > 1 && (
+          {consumptionPagination.totalPages > 1 && (
             <TablePagination
-              currentPage={consumptionPage}
-              totalPages={consumptionTotalPages}
-              onPageChange={setConsumptionPage}
+              currentPage={consumptionPagination.currentPage}
+              totalPages={consumptionPagination.totalPages}
+              startIndex={consumptionPagination.startIndex}
+              endIndex={consumptionPagination.endIndex}
+              totalItems={consumptionPagination.totalItems}
+              onPageChange={consumptionPagination.goToPage}
+              hasNextPage={consumptionPagination.hasNextPage}
+              hasPrevPage={consumptionPagination.hasPrevPage}
             />
           )}
         </TabsContent>

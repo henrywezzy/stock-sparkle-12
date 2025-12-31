@@ -27,6 +27,12 @@ const Purchases = lazy(() => import("./pages/Purchases"));
 const NFe = lazy(() => import("./pages/NFe"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+// Enterprise modules
+const Warehouse = lazy(() => import("./pages/Warehouse"));
+const Locations = lazy(() => import("./pages/Locations"));
+const Transfers = lazy(() => import("./pages/Transfers"));
+const Kits = lazy(() => import("./pages/Kits"));
+const Assets = lazy(() => import("./pages/Assets"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,6 +71,11 @@ const App = () => (
                 <Route path="/relatorios" element={<Reports />} />
                 <Route path="/nfe" element={<NFe />} />
                 <Route path="/configuracoes" element={<Settings />} />
+                <Route path="/armazem" element={<Warehouse />} />
+                <Route path="/localizacoes" element={<Locations />} />
+                <Route path="/transferencias" element={<Transfers />} />
+                <Route path="/kits" element={<Kits />} />
+                <Route path="/ativos" element={<Assets />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

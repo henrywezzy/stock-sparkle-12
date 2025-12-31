@@ -22,6 +22,7 @@ export interface Product {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  barcode: string | null;
   categories?: { name: string; color: string } | null;
   suppliers?: { name: string } | null;
 }
