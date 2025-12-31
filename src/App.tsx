@@ -35,6 +35,8 @@ const Kits = lazy(() => import("./pages/Kits"));
 const Assets = lazy(() => import("./pages/Assets"));
 // Admin
 const Admin = lazy(() => import("./pages/Admin"));
+// Landing
+const Landing = lazy(() => import("./pages/Landing"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,9 +58,10 @@ const App = () => (
         <AuthProvider>
           <Suspense fallback={<PageLoader />}>
             <Routes>
+              <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<Auth />} />
               <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/produtos" element={<Products />} />
                 <Route path="/categorias" element={<Categories />} />
                 <Route path="/entrada" element={<Entries />} />

@@ -129,7 +129,7 @@ const Auth = () => {
 
   useEffect(() => {
     if (user && !loading && currentView !== 'reset-password') {
-      navigate('/');
+      navigate('/dashboard');
     }
   }, [user, loading, navigate, currentView]);
 
@@ -185,7 +185,7 @@ const Auth = () => {
     setIsLoading(false);
 
     if (!error) {
-      navigate('/');
+      navigate('/dashboard');
     }
   };
 

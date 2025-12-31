@@ -46,7 +46,7 @@ const menuCategories: MenuCategory[] = [
   {
     category: "Principal",
     items: [
-      { title: "Dashboard", icon: LayoutDashboard, path: "/" },
+      { title: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     ],
   },
   {
@@ -95,7 +95,7 @@ const visualizadorCategories: MenuCategory[] = [
   {
     category: "Principal",
     items: [
-      { title: "Dashboard", icon: LayoutDashboard, path: "/" },
+      { title: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
       { title: "Produtos", icon: Package, path: "/produtos" },
       { title: "Configurações", icon: Settings, path: "/configuracoes" },
     ],
