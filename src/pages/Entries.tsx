@@ -11,9 +11,12 @@ import { useSuppliers } from "@/hooks/useSuppliers";
 import { useCategories } from "@/hooks/useCategories";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColumnPreferences } from "@/hooks/useColumnPreferences";
+import { usePagination } from "@/hooks/usePagination";
 import { ColumnSettings } from "@/components/ui/column-settings";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { formatCurrency } from "@/lib/currency";
+import { abbreviateSupplierName } from "@/lib/formatters";
 import { QuickEntryDialog } from "@/components/entries/QuickEntryDialog";
 import { ExportDropdown } from "@/components/ui/export-dropdown";
 import {
@@ -219,6 +222,9 @@ export default function Entries() {
       return matchesSearch && matchesDateFrom && matchesDateTo && matchesSupplier;
     });
   }, [entries, products, searchTerm, dateFrom, dateTo, selectedSupplier]);
+
+  // Paginação
+  const pagination = usePagination(filteredEntries, { itemsPerPage: 10 });
 
   const handleSelectEntry = (id: string) => {
     setSelectedEntryIds(prev => 
@@ -427,7 +433,7 @@ export default function Entries() {
           ? formatCurrency(entry.total_price)
           : "—";
       case "supplier":
-        return entry.suppliers?.name || "—";
+        return abbreviateSupplierName(entry.suppliers?.name);
       case "invoice":
         return entry.invoice_number || "—";
       case "received_by":
