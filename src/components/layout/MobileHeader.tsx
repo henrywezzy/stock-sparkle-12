@@ -13,7 +13,7 @@ export function MobileHeader() {
       <header className="fixed top-0 left-0 right-0 z-40 lg:hidden">
         <div className="bg-card/95 backdrop-blur-xl border-b border-border/50 safe-top">
           <div className="flex items-center justify-between h-14 px-3">
-            {/* Left: Hamburger + User + App Name */}
+            {/* Left: Hamburger + App Icon + App Name */}
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
@@ -23,20 +23,20 @@ export function MobileHeader() {
               >
                 <Menu className="w-5 h-5" />
               </Button>
-              <ProfileMenu />
               <div className="flex items-center gap-1.5">
-                <div className="w-6 h-6 rounded-md gradient-primary flex items-center justify-center">
-                  <Package className="w-3.5 h-3.5 text-primary-foreground" />
+                <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center">
+                  <Package className="w-4 h-4 text-primary-foreground" />
                 </div>
-                <span className="font-semibold text-foreground text-sm">
+                <span className="font-bold text-foreground text-base">
                   Stockly
                 </span>
               </div>
             </div>
 
-            {/* Right: Notifications */}
-            <div className="flex items-center">
+            {/* Right: Notifications + User */}
+            <div className="flex items-center gap-1">
               <NotificationPanel />
+              <ProfileMenu />
             </div>
           </div>
         </div>
