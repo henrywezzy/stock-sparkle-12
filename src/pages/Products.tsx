@@ -403,16 +403,6 @@ export default function Products() {
               onReorder={reorderColumns}
               onReset={resetToDefaults}
             />
-            {canEdit && (
-              <Button
-                className="gradient-primary text-primary-foreground glow-sm"
-                onClick={() => handleOpenDialog()}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Novo Produto</span>
-                <span className="sm:hidden">Novo</span>
-              </Button>
-            )}
           </div>
         }
       />
