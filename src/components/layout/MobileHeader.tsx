@@ -1,42 +1,20 @@
 import { useState } from "react";
-import { Menu, Warehouse, X } from "lucide-react";
+import { Menu, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationPanel } from "@/components/notifications/NotificationPanel";
 import { ProfileMenu } from "@/components/profile/ProfileMenu";
 import { MobileMenu } from "./MobileMenu";
-import { useCompanySettings } from "@/hooks/useCompanySettings";
 
 export function MobileHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { settings } = useCompanySettings();
 
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-40 lg:hidden">
         <div className="bg-card/95 backdrop-blur-xl border-b border-border/50 safe-top">
-          <div className="flex items-center justify-between h-14 px-4">
-            {/* Logo */}
+          <div className="flex items-center justify-between h-14 px-3">
+            {/* Left: Hamburger + User + App Name */}
             <div className="flex items-center gap-2">
-              {settings?.logo_url ? (
-                <img 
-                  src={settings.logo_url} 
-                  alt={settings.name || "Logo"} 
-                  className="h-8 w-8 rounded-lg object-contain"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-                  <Warehouse className="w-4 h-4 text-primary-foreground" />
-                </div>
-              )}
-              <span className="font-bold text-foreground text-sm">
-                {settings?.name || "Stockly"}
-              </span>
-            </div>
-
-            {/* Right Actions */}
-            <div className="flex items-center gap-1">
-              <NotificationPanel />
-              <ProfileMenu />
               <Button
                 variant="ghost"
                 size="icon"
@@ -45,6 +23,20 @@ export function MobileHeader() {
               >
                 <Menu className="w-5 h-5" />
               </Button>
+              <ProfileMenu />
+              <div className="flex items-center gap-1.5">
+                <div className="w-6 h-6 rounded-md gradient-primary flex items-center justify-center">
+                  <Package className="w-3.5 h-3.5 text-primary-foreground" />
+                </div>
+                <span className="font-semibold text-foreground text-sm">
+                  Stockly
+                </span>
+              </div>
+            </div>
+
+            {/* Right: Notifications */}
+            <div className="flex items-center">
+              <NotificationPanel />
             </div>
           </div>
         </div>
