@@ -588,6 +588,21 @@ export default function Exits() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            {/* Quick Access - Warehouse Mode */}
+            {!editingExit && (
+              <Button
+                variant="outline"
+                className="w-full gap-2 border-dashed border-orange-500/50 text-orange-500 hover:bg-orange-500/10"
+                onClick={() => {
+                  setIsDialogOpen(false);
+                  navigate('/armazem');
+                }}
+              >
+                <ScanLine className="w-4 h-4" />
+                Saída Rápida com Scanner (Modo Armazém)
+              </Button>
+            )}
+
             {/* Product Search Mode Toggle */}
             <div className="flex gap-2">
               <Button
