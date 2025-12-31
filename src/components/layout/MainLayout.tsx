@@ -8,6 +8,9 @@ import { ProfileMenu } from "@/components/profile/ProfileMenu";
 import { MobileHeader } from "./MobileHeader";
 import { BottomNavigation } from "./BottomNavigation";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
+import { PlanBanner } from "@/components/subscription/PlanBanner";
+import { PWAInstallPrompt } from "@/components/pwa/PWAInstallPrompt";
 
 export function MainLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -15,6 +18,12 @@ export function MainLayout() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Onboarding Tour */}
+      <OnboardingTour />
+      
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
+
       {/* Mobile Layout */}
       {isMobile && (
         <>
@@ -30,6 +39,9 @@ export function MainLayout() {
       
       {/* Main Content */}
       <div className="lg:pl-64 transition-all duration-300">
+        {/* Plan Banner */}
+        <PlanBanner />
+        
         {/* Desktop Top Bar - Hidden on mobile */}
         <header className="hidden lg:flex sticky top-0 z-30 h-16 glass border-b border-border/50 items-center justify-between px-6">
           <div className="flex-1" />
