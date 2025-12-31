@@ -50,14 +50,12 @@ const menuCategories: MenuCategory[] = [
     category: "Principal",
     items: [
       { title: "Dashboard", icon: LayoutDashboard, path: "/" },
-      { title: "Modo Armazém", icon: ScanLine, path: "/armazem" },
     ],
   },
   {
     category: "Estoque",
     items: [
       { title: "Produtos", icon: Package, path: "/produtos" },
-      { title: "Kits", icon: Layers, path: "/kits" },
       { title: "Categorias", icon: Tags, path: "/categorias" },
       { title: "Inventário", icon: Archive, path: "/inventario" },
     ],
@@ -68,13 +66,6 @@ const menuCategories: MenuCategory[] = [
       { title: "Entrada", icon: ArrowDownToLine, path: "/entrada" },
       { title: "Saída", icon: ArrowUpFromLine, path: "/saida" },
       { title: "Histórico", icon: History, path: "/historico" },
-    ],
-  },
-  {
-    category: "Multi-Armazém",
-    items: [
-      { title: "Localizações", icon: MapPin, path: "/localizacoes" },
-      { title: "Transferências", icon: ArrowLeftRight, path: "/transferencias" },
     ],
   },
   {

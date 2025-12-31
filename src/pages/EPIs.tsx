@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Search, Edit, Trash2, HardHat, AlertTriangle, CheckCircle, Clock, FileText, Eye } from "lucide-react";
+import { Plus, Search, Edit, Trash2, HardHat, AlertTriangle, CheckCircle, Clock, FileText, Eye, Layers } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { GenericReportDialog, ReportColumn, ReportSummary } from "@/components/reports/GenericReportDialog";
 import { DataTable } from "@/components/ui/data-table";
@@ -16,6 +16,7 @@ import { useTermosEntrega, TermoEntrega } from "@/hooks/useTermosEntrega";
 import { useAuth } from "@/contexts/AuthContext";
 import { DeliveryTermDialog } from "@/components/epis/DeliveryTermDialog";
 import { TermoViewDialog } from "@/components/epis/TermoViewDialog";
+import { EPIKitsTab } from "@/components/epis/EPIKitsTab";
 import { ExportDropdown } from "@/components/ui/export-dropdown";
 import {
   Dialog,
@@ -373,10 +374,14 @@ export default function EPIs() {
 
       {/* Tabs */}
       <Tabs defaultValue="inventory" className="space-y-4">
-        <TabsList className="bg-secondary/50">
+        <TabsList className="bg-secondary/50 flex-wrap h-auto gap-1">
           <TabsTrigger value="inventory">Inventário de EPIs</TabsTrigger>
           <TabsTrigger value="deliveries">Entregas</TabsTrigger>
           <TabsTrigger value="termos">Termos ({termos.length})</TabsTrigger>
+          <TabsTrigger value="kits" className="gap-1">
+            <Layers className="w-3 h-3" />
+            Kits
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="inventory" className="space-y-4">
@@ -453,6 +458,10 @@ export default function EPIs() {
             ]} 
             data={termos} 
           />
+        </TabsContent>
+
+        <TabsContent value="kits" className="space-y-4">
+          <EPIKitsTab />
         </TabsContent>
       </Tabs>
 

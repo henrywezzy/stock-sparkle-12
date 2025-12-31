@@ -23,6 +23,9 @@ import {
   Edit,
   X,
   HardHat,
+  Warehouse,
+  MapPin,
+  ArrowLeftRight,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -408,6 +411,12 @@ export default function Settings() {
             <TabsTrigger value="epi-rules" className="gap-2 text-xs sm:text-sm">
               <HardHat className="w-4 h-4" />
               <span className="hidden sm:inline">Regras EPI</span>
+            </TabsTrigger>
+          )}
+          {!isViewer && (
+            <TabsTrigger value="warehouse" className="gap-2 text-xs sm:text-sm">
+              <Warehouse className="w-4 h-4" />
+              <span className="hidden sm:inline">Multi-Armazém</span>
             </TabsTrigger>
           )}
           <TabsTrigger value="appearance" className="gap-2 text-xs sm:text-sm">
@@ -844,6 +853,55 @@ export default function Settings() {
         {!isViewer && (
           <TabsContent value="epi-rules" className="space-y-4 sm:space-y-6">
             <EPIRequirementsSettings />
+          </TabsContent>
+        )}
+
+        {/* Multi-Armazém Tab */}
+        {!isViewer && (
+          <TabsContent value="warehouse" className="space-y-4 sm:space-y-6">
+            <div className="glass rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
+              <div className="flex items-center gap-3 pb-4 border-b border-border/50">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Warehouse className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Gestão Multi-Armazém</h3>
+                  <p className="text-sm text-muted-foreground">Configure localizações e transferências entre armazéns</p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <a
+                  href="/localizacoes"
+                  className="glass rounded-xl p-4 hover:border-primary/50 transition-all group cursor-pointer border border-transparent"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center group-hover:bg-success/20 transition-colors">
+                      <MapPin className="w-5 h-5 text-success" />
+                    </div>
+                    <h4 className="font-medium">Localizações</h4>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Gerencie os armazéns, filiais e locais de estoque
+                  </p>
+                </a>
+
+                <a
+                  href="/transferencias"
+                  className="glass rounded-xl p-4 hover:border-primary/50 transition-all group cursor-pointer border border-transparent"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center group-hover:bg-warning/20 transition-colors">
+                      <ArrowLeftRight className="w-5 h-5 text-warning" />
+                    </div>
+                    <h4 className="font-medium">Transferências</h4>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Gerencie transferências de produtos entre localizações
+                  </p>
+                </a>
+              </div>
+            </div>
           </TabsContent>
         )}
       </Tabs>

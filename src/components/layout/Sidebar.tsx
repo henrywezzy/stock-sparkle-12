@@ -47,21 +47,11 @@ interface MenuItem {
 
 const allMenuItems: MenuItem[] = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/" },
-  { title: "Modo Armazém", icon: ScanLine, path: "/armazem" },
   { title: "Produtos", icon: Package, path: "/produtos" },
-  { title: "Kits", icon: Layers, path: "/kits" },
   { title: "Categorias", icon: Tags, path: "/categorias" },
   { title: "Entrada", icon: ArrowDownToLine, path: "/entrada" },
   { title: "Saída", icon: ArrowUpFromLine, path: "/saida" },
   { title: "Compras", icon: ShoppingCart, path: "/compras" },
-  {
-    title: "Multi-Armazém",
-    icon: Warehouse,
-    children: [
-      { title: "Localizações", icon: MapPin, path: "/localizacoes" },
-      { title: "Transferências", icon: ArrowLeftRight, path: "/transferencias" },
-    ],
-  },
   {
     title: "Gestão de Pessoas",
     icon: Users,
