@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, Edit, Trash2, Package, Loader2, AlertTriangle, Calendar, FileText } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, Loader2, AlertTriangle, Calendar, FileText, Printer } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,7 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DataFilters } from "@/components/filters/DataFilters";
+import { LabelPrintDialog } from "@/components/products/LabelPrintDialog";
 
 // Colunas padrão para a tabela
 const DEFAULT_COLUMNS = [
@@ -96,6 +97,7 @@ export default function Products() {
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
+  const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
 
   const [formData, setFormData] = useState<ProductFormData>({
     name: "",
@@ -381,6 +383,13 @@ export default function Products() {
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Produtos" }]}
         actions={
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsLabelDialogOpen(true)}
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Etiquetas</span>
+            </Button>
             <Button
               variant="outline"
               onClick={() => setIsReportOpen(true)}
@@ -833,6 +842,20 @@ export default function Products() {
           }},
         ]}
         data={filteredProducts}
+      />
+
+      {/* Label Print Dialog */}
+      <LabelPrintDialog
+        open={isLabelDialogOpen}
+        onOpenChange={setIsLabelDialogOpen}
+        products={products.map(p => ({
+          id: p.id,
+          name: p.name,
+          sku: p.sku,
+          barcode: p.barcode,
+          quantity: p.quantity,
+        }))}
+        selectedProductIds={selectedProductIds}
       />
     </div>
   );
