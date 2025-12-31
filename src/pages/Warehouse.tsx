@@ -35,9 +35,11 @@ export default function Warehouse() {
   ) || [];
 
   const handleScan = (code: string) => {
-    // Search by SKU or ID
+    // Search by barcode, SKU, or ID (case insensitive for text fields)
+    const normalizedCode = code.trim().toLowerCase();
     const product = products?.find(p => 
-      p.sku === code ||
+      p.barcode?.toLowerCase() === normalizedCode ||
+      p.sku?.toLowerCase() === normalizedCode ||
       p.id === code
     );
 
@@ -46,12 +48,12 @@ export default function Warehouse() {
       setViewMode('menu');
       toast({
         title: 'Produto encontrado!',
-        description: product.name,
+        description: `${product.name}${product.sku ? ` (SKU: ${product.sku})` : ''}`,
       });
     } else {
       toast({
         title: 'Produto não encontrado',
-        description: `Código: ${code}`,
+        description: `Código escaneado: ${code}. Certifique-se de que o código está cadastrado no campo "Código de Barras" ou "SKU" do produto.`,
         variant: 'destructive',
       });
     }
