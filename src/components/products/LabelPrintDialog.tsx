@@ -435,7 +435,7 @@ export function LabelPrintDialog({
                       )}
                       {config.showProductName && (
                         <p className={cn(
-                          "label-text font-medium text-center truncate w-full mt-1",
+                          "label-text font-medium text-center truncate w-full mt-1 text-black",
                           config.labelSize === "small" && "text-[8px]",
                           config.labelSize === "medium" && "text-[10px]",
                           config.labelSize === "large" && "text-xs",
@@ -445,7 +445,7 @@ export function LabelPrintDialog({
                       )}
                       {config.showSku && (
                         <p className={cn(
-                          "label-sku text-muted-foreground truncate w-full text-center",
+                          "label-sku text-gray-600 truncate w-full text-center",
                           config.labelSize === "small" && "text-[6px]",
                           config.labelSize === "medium" && "text-[8px]",
                           config.labelSize === "large" && "text-[10px]",
@@ -455,7 +455,7 @@ export function LabelPrintDialog({
                       )}
                       {config.showQuantity && (
                         <p className={cn(
-                          "text-muted-foreground",
+                          "text-gray-600",
                           config.labelSize === "small" && "text-[6px]",
                           config.labelSize === "medium" && "text-[8px]",
                           config.labelSize === "large" && "text-[10px]",
