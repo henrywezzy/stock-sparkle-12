@@ -164,6 +164,26 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+
+  /* Safe area insets for mobile devices */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+
+  /* Touch-friendly sizing */
+  .touch-manipulation {
+    touch-action: manipulation;
   }
 
   /* Custom scrollbar */
@@ -219,7 +239,15 @@
   }
 
   .animate-slide-in-right {
-    animation: slideInRight 0.3s ease-out;
+    animation: slideInRight 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .animate-slide-out-right {
+    animation: slideOutRight 0.2s ease-in forwards;
+  }
+
+  .animate-slide-up-mobile {
+    animation: slideUpMobile 0.25s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   @keyframes fadeIn {
@@ -232,9 +260,26 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
+  @keyframes slideUpMobile {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   @keyframes slideInRight {
-    from { opacity: 0; transform: translateX(-10px); }
-    to { opacity: 1; transform: translateX(0); }
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+
+  @keyframes slideOutRight {
+    from { transform: translateX(0); }
+    to { transform: translateX(100%); }
+  }
+
+  /* Mobile-friendly active states */
+  @media (hover: none) and (pointer: coarse) {
+    .glass-hover:active {
+      @apply bg-card/95 border-primary/40 scale-[0.98];
+    }
   }
 }
 
