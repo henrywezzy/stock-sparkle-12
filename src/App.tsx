@@ -37,6 +37,8 @@ const Assets = lazy(() => import("./pages/Assets"));
 const Admin = lazy(() => import("./pages/Admin"));
 // Landing
 const Landing = lazy(() => import("./pages/Landing"));
+// Contact
+const Contact = lazy(() => import("./pages/Contact"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,6 +61,7 @@ const App = () => (
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Landing />} />
+              <Route path="/contato" element={<Contact />} />
               <Route path="/auth" element={<Auth />} />
               <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
                 <Route path="/dashboard" element={<Dashboard />} />

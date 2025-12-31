@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useInView, useScroll, useTransform } from "framer-motion";
 import {
   Package,
   Shield,
@@ -24,6 +24,8 @@ import {
   TrendingUp,
   Bell,
   FileCheck,
+  Play,
+  MousePointer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -279,49 +281,158 @@ const stats = [
   { value: "24/7", label: "Suporte Disponível" },
 ];
 
+// Animated Section Component
+const AnimatedSection = ({ children, className, delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 60 }}
+      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 60 }}
+      transition={{ duration: 0.7, delay, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+};
+
+// Staggered Children Animation
+const StaggerContainer = ({ children, className }: { children: React.ReactNode; className?: string }) => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-50px" });
+
+  return (
+    <motion.div
+      ref={ref}
+      initial="hidden"
+      animate={isInView ? "visible" : "hidden"}
+      variants={{
+        hidden: {},
+        visible: {
+          transition: {
+            staggerChildren: 0.12,
+          },
+        },
+      }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+};
+
+const StaggerItem = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  <motion.div
+    variants={{
+      hidden: { opacity: 0, y: 40, scale: 0.95 },
+      visible: { 
+        opacity: 1, 
+        y: 0, 
+        scale: 1,
+        transition: { duration: 0.5, ease: "easeOut" }
+      },
+    }}
+    className={className}
+  >
+    {children}
+  </motion.div>
+);
+
+// Floating Animation Component
+const FloatingElement = ({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) => (
+  <motion.div
+    animate={{
+      y: [0, -10, 0],
+    }}
+    transition={{
+      duration: 3,
+      repeat: Infinity,
+      ease: "easeInOut",
+      delay,
+    }}
+  >
+    {children}
+  </motion.div>
+);
+
 const Landing = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<"mensal" | "semestral" | "anual">("mensal");
+  
+  // Parallax scroll effect
+  const { scrollYProgress } = useScroll();
+  const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-xl">
+      <motion.header 
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-xl"
+      >
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-2">
+            <motion.div 
+              className="flex items-center gap-2"
+              whileHover={{ scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 400 }}
+            >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
                 <Package className="h-6 w-6 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold">AlmoxStock</span>
-            </div>
+              <span className="text-xl font-bold">Stockly</span>
+            </motion.div>
 
             {/* Desktop Navigation */}
             <nav className="hidden items-center gap-8 md:flex">
-              <a href="#features" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-                Funcionalidades
-              </a>
-              <a href="#pricing" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-                Preços
-              </a>
-              <a href="#testimonials" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-                Depoimentos
-              </a>
+              {["features", "pricing", "testimonials"].map((item, index) => (
+                <motion.a
+                  key={item}
+                  href={`#${item}`}
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 * index }}
+                  className="text-sm text-muted-foreground transition-colors hover:text-foreground relative group"
+                >
+                  {item === "features" ? "Funcionalidades" : item === "pricing" ? "Preços" : "Depoimentos"}
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
+                </motion.a>
+              ))}
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <Link to="/contato" className="text-sm text-muted-foreground transition-colors hover:text-foreground relative group">
+                  Contato
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
+                </Link>
+              </motion.div>
             </nav>
 
-            <div className="hidden items-center gap-4 md:flex">
+            <motion.div 
+              className="hidden items-center gap-4 md:flex"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+            >
               <Link to="/auth">
                 <Button variant="ghost" size="sm">
                   Entrar
                 </Button>
               </Link>
               <Link to="/auth">
-                <Button size="sm" className="gap-2">
+                <Button size="sm" className="gap-2 group">
                   Começar Agora
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Button>
               </Link>
-            </div>
+            </motion.div>
 
             {/* Mobile Menu Button */}
             <button
@@ -336,8 +447,9 @@ const Landing = () => {
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
             className="border-t border-border bg-background md:hidden"
           >
             <div className="container mx-auto space-y-4 px-4 py-4">
@@ -350,6 +462,9 @@ const Landing = () => {
               <a href="#testimonials" className="block text-sm text-muted-foreground">
                 Depoimentos
               </a>
+              <Link to="/contato" className="block text-sm text-muted-foreground">
+                Contato
+              </Link>
               <div className="flex flex-col gap-2 pt-4">
                 <Link to="/auth">
                   <Button variant="outline" className="w-full">
@@ -363,45 +478,89 @@ const Landing = () => {
             </div>
           </motion.div>
         )}
-      </header>
+      </motion.header>
 
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-32 pb-20 lg:pt-40 lg:pb-32">
-        {/* Background Effects */}
-        <div className="absolute inset-0 -z-10">
-          <div className="absolute top-0 left-1/4 h-[500px] w-[500px] rounded-full bg-primary/20 blur-[120px]" />
-          <div className="absolute bottom-0 right-1/4 h-[400px] w-[400px] rounded-full bg-cyan-500/10 blur-[100px]" />
-        </div>
+        {/* Animated Background Effects */}
+        <motion.div 
+          className="absolute inset-0 -z-10"
+          style={{ y: backgroundY }}
+        >
+          <motion.div 
+            className="absolute top-0 left-1/4 h-[500px] w-[500px] rounded-full bg-primary/20 blur-[120px]"
+            animate={{
+              scale: [1, 1.2, 1],
+              opacity: [0.3, 0.5, 0.3],
+            }}
+            transition={{
+              duration: 8,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          />
+          <motion.div 
+            className="absolute bottom-0 right-1/4 h-[400px] w-[400px] rounded-full bg-cyan-500/10 blur-[100px]"
+            animate={{
+              scale: [1, 1.3, 1],
+              opacity: [0.2, 0.4, 0.2],
+            }}
+            transition={{
+              duration: 10,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 1,
+            }}
+          />
+        </motion.div>
 
         <div className="container mx-auto px-4">
           <div className="mx-auto max-w-4xl text-center">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
             >
               <Badge variant="secondary" className="mb-6 gap-2 px-4 py-2">
-                <Sparkles className="h-4 w-4 text-primary" />
+                <motion.div
+                  animate={{ rotate: [0, 360] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                >
+                  <Sparkles className="h-4 w-4 text-primary" />
+                </motion.div>
                 Sistema completo de gestão de almoxarifado
               </Badge>
             </motion.div>
 
             <motion.h1
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
               className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl"
             >
               Controle Total do Seu{" "}
-              <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
+              <motion.span 
+                className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent inline-block"
+                animate={{
+                  backgroundPosition: ["0%", "100%", "0%"],
+                }}
+                transition={{
+                  duration: 5,
+                  repeat: Infinity,
+                  ease: "linear",
+                }}
+                style={{
+                  backgroundSize: "200% auto",
+                }}
+              >
                 Estoque e EPIs
-              </span>
+              </motion.span>
             </motion.h1>
 
             <motion.p
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
               className="mb-8 text-lg text-muted-foreground sm:text-xl"
             >
               Simplifique a gestão do seu almoxarifado com nossa plataforma completa.
@@ -409,22 +568,31 @@ const Landing = () => {
             </motion.p>
 
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
               className="flex flex-col items-center justify-center gap-4 sm:flex-row"
             >
               <Link to="/auth">
-                <Button size="lg" className="gap-2 text-base">
-                  Teste Grátis por 14 Dias
-                  <ArrowRight className="h-5 w-5" />
-                </Button>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button size="lg" className="gap-2 text-base group">
+                    Teste Grátis por 14 Dias
+                    <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  </Button>
+                </motion.div>
               </Link>
               <a href="#features">
-                <Button size="lg" variant="outline" className="gap-2 text-base">
-                  Ver Funcionalidades
-                  <ChevronDown className="h-5 w-5" />
-                </Button>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button size="lg" variant="outline" className="gap-2 text-base">
+                    Ver Funcionalidades
+                    <motion.div
+                      animate={{ y: [0, 5, 0] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    >
+                      <ChevronDown className="h-5 w-5" />
+                    </motion.div>
+                  </Button>
+                </motion.div>
               </a>
             </motion.div>
 
@@ -432,45 +600,67 @@ const Landing = () => {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.5 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
               className="mt-12 flex flex-wrap items-center justify-center gap-8"
             >
               {benefits.map((benefit, index) => (
-                <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
+                <motion.div 
+                  key={index} 
+                  className="flex items-center gap-2 text-sm text-muted-foreground"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.6 + index * 0.1 }}
+                  whileHover={{ scale: 1.05, color: "var(--primary)" }}
+                >
                   <benefit.icon className="h-5 w-5 text-primary" />
                   <span>{benefit.text}</span>
-                </div>
+                </motion.div>
               ))}
             </motion.div>
           </div>
         </div>
+
+        {/* Scroll indicator */}
+        <motion.div
+          className="absolute bottom-8 left-1/2 -translate-x-1/2"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.5 }}
+        >
+          <motion.div
+            animate={{ y: [0, 10, 0] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="flex flex-col items-center gap-2 text-muted-foreground"
+          >
+            <MousePointer className="h-5 w-5" />
+            <span className="text-xs">Role para explorar</span>
+          </motion.div>
+        </motion.div>
       </section>
 
       {/* Stats Section */}
       <section className="border-y border-border bg-muted/30 py-12">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+          <StaggerContainer className="grid grid-cols-2 gap-8 md:grid-cols-4">
             {stats.map((stat, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                className="text-center"
-              >
-                <div className="text-3xl font-bold text-primary sm:text-4xl">{stat.value}</div>
-                <div className="mt-1 text-sm text-muted-foreground">{stat.label}</div>
-              </motion.div>
+              <StaggerItem key={index} className="text-center">
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <div className="text-3xl font-bold text-primary sm:text-4xl">{stat.value}</div>
+                  <div className="mt-1 text-sm text-muted-foreground">{stat.label}</div>
+                </motion.div>
+              </StaggerItem>
             ))}
-          </div>
+          </StaggerContainer>
         </div>
       </section>
 
       {/* Features Section */}
       <section id="features" className="py-20 lg:py-32">
         <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-2xl text-center">
+          <AnimatedSection className="mx-auto max-w-2xl text-center">
             <Badge variant="secondary" className="mb-4">Funcionalidades</Badge>
             <h2 className="mb-4 text-3xl font-bold sm:text-4xl">
               Tudo que você precisa para{" "}
@@ -479,72 +669,54 @@ const Landing = () => {
             <p className="text-muted-foreground">
               Uma plataforma completa com todas as ferramentas necessárias para uma gestão eficiente
             </p>
-          </div>
+          </AnimatedSection>
 
-          <div className="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <StaggerContainer className="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {features.map((feature, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                viewport={{ once: true }}
-              >
-                <Card className="h-full transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
-                  <CardHeader>
-                    <div className={cn("mb-4 flex h-12 w-12 items-center justify-center rounded-xl", feature.bgColor)}>
-                      <feature.icon className={cn("h-6 w-6", feature.color)} />
-                    </div>
-                    <CardTitle className="text-xl">{feature.title}</CardTitle>
-                    <CardDescription>{feature.description}</CardDescription>
-                  </CardHeader>
-                </Card>
-              </motion.div>
+              <StaggerItem key={index}>
+                <motion.div
+                  whileHover={{ y: -8, scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <Card className="h-full transition-all hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5">
+                    <CardHeader>
+                      <motion.div 
+                        className={cn("mb-4 flex h-12 w-12 items-center justify-center rounded-xl", feature.bgColor)}
+                        whileHover={{ rotate: [0, -10, 10, 0], scale: 1.1 }}
+                        transition={{ duration: 0.5 }}
+                      >
+                        <feature.icon className={cn("h-6 w-6", feature.color)} />
+                      </motion.div>
+                      <CardTitle className="text-xl">{feature.title}</CardTitle>
+                      <CardDescription>{feature.description}</CardDescription>
+                    </CardHeader>
+                  </Card>
+                </motion.div>
+              </StaggerItem>
             ))}
-          </div>
+          </StaggerContainer>
 
           {/* Additional Features */}
-          <div className="mt-16 grid gap-6 md:grid-cols-3">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              viewport={{ once: true }}
-              className="rounded-2xl border border-border bg-card p-6"
-            >
-              <Building2 className="mb-4 h-8 w-8 text-primary" />
-              <h3 className="mb-2 text-lg font-semibold">Multi-Filial</h3>
-              <p className="text-sm text-muted-foreground">
-                Gerencie múltiplas unidades e localizações em uma única plataforma centralizada.
-              </p>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              viewport={{ once: true }}
-              className="rounded-2xl border border-border bg-card p-6"
-            >
-              <Bell className="mb-4 h-8 w-8 text-primary" />
-              <h3 className="mb-2 text-lg font-semibold">Alertas Inteligentes</h3>
-              <p className="text-sm text-muted-foreground">
-                Receba notificações de estoque baixo, vencimentos de EPIs e requisições pendentes.
-              </p>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              viewport={{ once: true }}
-              className="rounded-2xl border border-border bg-card p-6"
-            >
-              <FileCheck className="mb-4 h-8 w-8 text-primary" />
-              <h3 className="mb-2 text-lg font-semibold">Integração NF-e</h3>
-              <p className="text-sm text-muted-foreground">
-                Importe produtos automaticamente via XML de notas fiscais eletrônicas.
-              </p>
-            </motion.div>
-          </div>
+          <StaggerContainer className="mt-16 grid gap-6 md:grid-cols-3">
+            {[
+              { icon: Building2, title: "Multi-Filial", desc: "Gerencie múltiplas unidades e localizações em uma única plataforma centralizada." },
+              { icon: Bell, title: "Alertas Inteligentes", desc: "Receba notificações de estoque baixo, vencimentos de EPIs e requisições pendentes." },
+              { icon: FileCheck, title: "Integração NF-e", desc: "Importe produtos automaticamente via XML de notas fiscais eletrônicas." },
+            ].map((item, index) => (
+              <StaggerItem key={index}>
+                <motion.div
+                  whileHover={{ y: -5, scale: 1.02 }}
+                  className="rounded-2xl border border-border bg-card p-6 transition-all hover:border-primary/50 hover:shadow-lg"
+                >
+                  <FloatingElement delay={index * 0.5}>
+                    <item.icon className="mb-4 h-8 w-8 text-primary" />
+                  </FloatingElement>
+                  <h3 className="mb-2 text-lg font-semibold">{item.title}</h3>
+                  <p className="text-sm text-muted-foreground">{item.desc}</p>
+                </motion.div>
+              </StaggerItem>
+            ))}
+          </StaggerContainer>
         </div>
       </section>
 
@@ -553,7 +725,7 @@ const Landing = () => {
         <div className="absolute inset-0 -z-10 bg-muted/30" />
         
         <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-2xl text-center">
+          <AnimatedSection className="mx-auto max-w-2xl text-center">
             <Badge variant="secondary" className="mb-4">Preços</Badge>
             <h2 className="mb-4 text-3xl font-bold sm:text-4xl">
               Planos que{" "}
@@ -581,26 +753,32 @@ const Landing = () => {
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-          </div>
+          </AnimatedSection>
 
           <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-3">
             {plans[billingPeriod].map((plan, index) => (
               <motion.div
                 key={`${billingPeriod}-${index}`}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
+                transition={{ duration: 0.5, delay: index * 0.15 }}
+                whileHover={{ y: plan.highlighted ? 0 : -10 }}
               >
                 <Card
                   className={cn(
                     "relative h-full transition-all",
                     plan.highlighted
                       ? "border-primary shadow-xl shadow-primary/10 scale-105"
-                      : "hover:border-primary/50"
+                      : "hover:border-primary/50 hover:shadow-lg"
                   )}
                 >
                   {plan.badge && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <motion.div 
+                      className="absolute -top-3 left-1/2 -translate-x-1/2"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", delay: 0.3 + index * 0.1 }}
+                    >
                       <Badge 
                         className={cn(
                           "px-4",
@@ -609,7 +787,7 @@ const Landing = () => {
                       >
                         {plan.badge}
                       </Badge>
-                    </div>
+                    </motion.div>
                   )}
                   <CardHeader className="pb-4">
                     <CardTitle className="text-2xl">{plan.name}</CardTitle>
@@ -617,7 +795,15 @@ const Landing = () => {
                     <div className="mt-4">
                       <div className="flex items-baseline gap-1">
                         <span className="text-sm text-muted-foreground">R$</span>
-                        <span className="text-5xl font-bold">{plan.price}</span>
+                        <motion.span 
+                          className="text-5xl font-bold"
+                          key={plan.price}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          {plan.price}
+                        </motion.span>
                         <span className="text-muted-foreground">{plan.period}</span>
                       </div>
                       {"originalPrice" in plan && plan.originalPrice && (
@@ -634,19 +820,27 @@ const Landing = () => {
                   </CardHeader>
                   <CardContent>
                     <Link to="/auth">
-                      <Button
-                        className="mb-6 w-full"
-                        variant={plan.highlighted ? "default" : "outline"}
-                      >
-                        Começar Agora
-                      </Button>
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <Button
+                          className="mb-6 w-full"
+                          variant={plan.highlighted ? "default" : "outline"}
+                        >
+                          Começar Agora
+                        </Button>
+                      </motion.div>
                     </Link>
                     <ul className="space-y-3">
                       {plan.features.map((feature, featureIndex) => (
-                        <li key={featureIndex} className="flex items-start gap-2">
+                        <motion.li 
+                          key={featureIndex} 
+                          className="flex items-start gap-2"
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.4 + featureIndex * 0.05 }}
+                        >
                           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                           <span className="text-sm">{feature}</span>
-                        </li>
+                        </motion.li>
                       ))}
                     </ul>
                   </CardContent>
@@ -660,45 +854,51 @@ const Landing = () => {
       {/* Testimonials Section */}
       <section id="testimonials" className="py-20 lg:py-32">
         <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-2xl text-center">
+          <AnimatedSection className="mx-auto max-w-2xl text-center">
             <Badge variant="secondary" className="mb-4">Depoimentos</Badge>
             <h2 className="mb-4 text-3xl font-bold sm:text-4xl">
               O que nossos{" "}
               <span className="text-primary">clientes dizem</span>
             </h2>
             <p className="text-muted-foreground">
-              Empresas que transformaram sua gestão com o AlmoxStock
+              Empresas que transformaram sua gestão com o Stockly
             </p>
-          </div>
+          </AnimatedSection>
 
-          <div className="mt-16 grid gap-8 md:grid-cols-3">
+          <StaggerContainer className="mt-16 grid gap-8 md:grid-cols-3">
             {testimonials.map((testimonial, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                viewport={{ once: true }}
-              >
-                <Card className="h-full">
-                  <CardContent className="pt-6">
-                    <div className="mb-4 flex gap-1">
-                      {[...Array(testimonial.rating)].map((_, i) => (
-                        <Star key={i} className="h-5 w-5 fill-amber-400 text-amber-400" />
-                      ))}
-                    </div>
-                    <p className="mb-6 text-muted-foreground">"{testimonial.text}"</p>
-                    <div>
-                      <div className="font-semibold">{testimonial.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {testimonial.role} • {testimonial.company}
+              <StaggerItem key={index}>
+                <motion.div
+                  whileHover={{ y: -5, scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <Card className="h-full transition-all hover:shadow-lg">
+                    <CardContent className="pt-6">
+                      <div className="mb-4 flex gap-1">
+                        {[...Array(testimonial.rating)].map((_, i) => (
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, scale: 0 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.1 * i }}
+                          >
+                            <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+                          </motion.div>
+                        ))}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+                      <p className="mb-6 text-muted-foreground">"{testimonial.text}"</p>
+                      <div>
+                        <div className="font-semibold">{testimonial.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {testimonial.role} • {testimonial.company}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </StaggerItem>
             ))}
-          </div>
+          </StaggerContainer>
         </div>
       </section>
 
@@ -709,31 +909,48 @@ const Landing = () => {
         </div>
         
         <div className="container mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            viewport={{ once: true }}
-            className="mx-auto max-w-3xl rounded-3xl border border-border bg-card p-8 text-center shadow-2xl sm:p-12"
-          >
-            <h2 className="mb-4 text-3xl font-bold sm:text-4xl">
-              Pronto para transformar sua gestão?
-            </h2>
-            <p className="mb-8 text-lg text-muted-foreground">
-              Comece seu teste gratuito de 14 dias. Sem cartão de crédito necessário.
-            </p>
-            <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link to="/auth">
-                <Button size="lg" className="gap-2 text-base">
-                  Criar Conta Gratuita
-                  <ArrowRight className="h-5 w-5" />
-                </Button>
-              </Link>
-              <Button size="lg" variant="outline" className="gap-2 text-base">
-                Falar com Vendas
-              </Button>
-            </div>
-          </motion.div>
+          <AnimatedSection>
+            <motion.div
+              whileHover={{ scale: 1.01 }}
+              className="mx-auto max-w-3xl rounded-3xl border border-border bg-card p-8 text-center shadow-2xl sm:p-12"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                whileInView={{ scale: 1 }}
+                transition={{ type: "spring", delay: 0.2 }}
+                viewport={{ once: true }}
+              >
+                <FloatingElement>
+                  <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+                    <Zap className="h-8 w-8 text-primary" />
+                  </div>
+                </FloatingElement>
+              </motion.div>
+              <h2 className="mb-4 text-3xl font-bold sm:text-4xl">
+                Pronto para transformar sua gestão?
+              </h2>
+              <p className="mb-8 text-lg text-muted-foreground">
+                Comece seu teste gratuito de 14 dias. Sem cartão de crédito necessário.
+              </p>
+              <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+                <Link to="/auth">
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                    <Button size="lg" className="gap-2 text-base group">
+                      Criar Conta Gratuita
+                      <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                    </Button>
+                  </motion.div>
+                </Link>
+                <Link to="/contato">
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                    <Button size="lg" variant="outline" className="gap-2 text-base">
+                      Falar com Vendas
+                    </Button>
+                  </motion.div>
+                </Link>
+              </div>
+            </motion.div>
+          </AnimatedSection>
         </div>
       </section>
 
@@ -741,20 +958,23 @@ const Landing = () => {
       <footer className="border-t border-border bg-muted/30 py-12">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
-            <div className="flex items-center gap-2">
+            <motion.div 
+              className="flex items-center gap-2"
+              whileHover={{ scale: 1.05 }}
+            >
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                 <Package className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-lg font-bold">AlmoxStock</span>
-            </div>
+              <span className="text-lg font-bold">Stockly</span>
+            </motion.div>
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
-              <a href="#" className="hover:text-foreground">Termos de Uso</a>
-              <a href="#" className="hover:text-foreground">Privacidade</a>
-              <a href="#" className="hover:text-foreground">Suporte</a>
-              <a href="#" className="hover:text-foreground">Contato</a>
+              <a href="#" className="hover:text-foreground transition-colors">Termos de Uso</a>
+              <a href="#" className="hover:text-foreground transition-colors">Privacidade</a>
+              <Link to="/contato" className="hover:text-foreground transition-colors">Suporte</Link>
+              <Link to="/contato" className="hover:text-foreground transition-colors">Contato</Link>
             </div>
             <div className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} AlmoxStock. Todos os direitos reservados.
+              © {new Date().getFullYear()} Stockly. Todos os direitos reservados.
             </div>
           </div>
         </div>
