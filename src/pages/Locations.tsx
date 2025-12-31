@@ -46,10 +46,7 @@ export default function Locations() {
     status: 'active',
   });
 
-  const { paginatedData, currentPage, totalPages, setCurrentPage } = usePagination(
-    locations || [],
-    10
-  );
+  const pagination = usePagination(locations || [], { itemsPerPage: 10 });
 
   const openDialog = (location?: Location) => {
     if (location) {
@@ -118,7 +115,7 @@ export default function Locations() {
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {paginatedData.map((location) => (
+        {pagination.paginatedData.map((location) => (
           <Card key={location.id} className="relative">
             {location.is_default && (
               <div className="absolute top-3 right-3">
@@ -180,11 +177,16 @@ export default function Locations() {
         ))}
       </div>
 
-      {totalPages > 1 && (
+      {pagination.totalPages > 1 && (
         <TablePagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          totalItems={pagination.totalItems}
+          onPageChange={pagination.goToPage}
+          hasNextPage={pagination.hasNextPage}
+          hasPrevPage={pagination.hasPrevPage}
         />
       )}
 

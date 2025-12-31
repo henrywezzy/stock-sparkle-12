@@ -18,7 +18,6 @@ import { MobileEntryForm } from '@/components/mobile/MobileEntryForm';
 import { MobileExitForm } from '@/components/mobile/MobileExitForm';
 import { useProducts, Product } from '@/hooks/useProducts';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 
 type ViewMode = 'menu' | 'scan' | 'search' | 'entry' | 'exit';
 
@@ -32,14 +31,12 @@ export default function Warehouse() {
 
   const filteredProducts = products?.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.barcode?.toLowerCase().includes(searchQuery.toLowerCase())
+    p.sku?.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
 
   const handleScan = (code: string) => {
-    // Search by barcode or SKU
+    // Search by SKU or ID
     const product = products?.find(p => 
-      p.barcode === code || 
       p.sku === code ||
       p.id === code
     );
@@ -140,7 +137,7 @@ export default function Warehouse() {
           <div className="relative mb-4">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
-              placeholder="Nome, SKU ou código de barras..."
+              placeholder="Nome ou SKU..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-14 pl-12 text-lg"

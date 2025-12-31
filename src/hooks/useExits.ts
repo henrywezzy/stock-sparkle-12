@@ -26,6 +26,8 @@ export interface ExitFormData {
   reason?: string;
   notes?: string;
   exit_date?: string;
+  asset_id?: string;
+  location_id?: string;
 }
 
 export const useExits = () => {

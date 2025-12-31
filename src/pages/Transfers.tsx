@@ -62,10 +62,7 @@ export default function Transfers() {
     requested_by: user?.email || '',
   });
 
-  const { paginatedData, currentPage, totalPages, setCurrentPage } = usePagination(
-    transfers || [],
-    10
-  );
+  const pagination = usePagination(transfers || [], { itemsPerPage: 10 });
 
   const handleSubmit = async () => {
     await createTransfer.mutateAsync(formData);
@@ -177,7 +174,7 @@ export default function Transfers() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedData.map((transfer) => {
+              {pagination.paginatedData.map((transfer) => {
                 const status = statusConfig[transfer.status || 'pending'];
                 return (
                   <TableRow key={transfer.id}>
@@ -227,7 +224,7 @@ export default function Transfers() {
                   </TableRow>
                 );
               })}
-              {paginatedData.length === 0 && (
+              {pagination.paginatedData.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Nenhuma transferência encontrada
@@ -239,11 +236,16 @@ export default function Transfers() {
         </CardContent>
       </Card>
 
-      {totalPages > 1 && (
+      {pagination.totalPages > 1 && (
         <TablePagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          totalItems={pagination.totalItems}
+          onPageChange={pagination.goToPage}
+          hasNextPage={pagination.hasNextPage}
+          hasPrevPage={pagination.hasPrevPage}
         />
       )}
 

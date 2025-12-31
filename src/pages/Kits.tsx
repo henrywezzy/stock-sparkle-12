@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Package, Layers, AlertTriangle, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, Layers, AlertTriangle, Check } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -57,10 +57,7 @@ export default function Kits() {
     items: [],
   });
 
-  const { paginatedData, currentPage, totalPages, setCurrentPage } = usePagination(
-    kits || [],
-    9
-  );
+  const pagination = usePagination(kits || [], { itemsPerPage: 9 });
 
   const openDialog = (kit?: ProductKit) => {
     if (kit) {
@@ -150,7 +147,7 @@ export default function Kits() {
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {paginatedData.map((kit) => {
+        {pagination.paginatedData.map((kit) => {
           const availability = checkKitAvailability(kit);
           
           return (
@@ -249,7 +246,7 @@ export default function Kits() {
           );
         })}
 
-        {paginatedData.length === 0 && (
+        {pagination.paginatedData.length === 0 && (
           <div className="col-span-full text-center py-12 text-muted-foreground">
             <Layers className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p>Nenhum kit cadastrado</p>
@@ -257,11 +254,16 @@ export default function Kits() {
         )}
       </div>
 
-      {totalPages > 1 && (
+      {pagination.totalPages > 1 && (
         <TablePagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          totalItems={pagination.totalItems}
+          onPageChange={pagination.goToPage}
+          hasNextPage={pagination.hasNextPage}
+          hasPrevPage={pagination.hasPrevPage}
         />
       )}
 

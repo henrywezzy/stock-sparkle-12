@@ -89,35 +89,45 @@ export function useTransfers() {
 
       if (fetchError) throw fetchError;
 
-      // Update location stock (decrease from source)
-      const { error: decreaseError } = await supabase
+      // Update or insert location stock at destination
+      const { data: existingDestStock } = await supabase
         .from('location_stock')
-        .upsert({
-          location_id: transfer.from_location_id,
-          product_id: transfer.product_id,
-          quantity: 0
-        }, { onConflict: 'location_id,product_id' });
+        .select('*')
+        .eq('location_id', transfer.to_location_id)
+        .eq('product_id', transfer.product_id)
+        .maybeSingle();
 
-      if (decreaseError) throw decreaseError;
+      if (existingDestStock) {
+        // Update existing stock
+        await supabase
+          .from('location_stock')
+          .update({ quantity: existingDestStock.quantity + transfer.quantity })
+          .eq('id', existingDestStock.id);
+      } else {
+        // Insert new stock record
+        await supabase
+          .from('location_stock')
+          .insert({
+            location_id: transfer.to_location_id,
+            product_id: transfer.product_id,
+            quantity: transfer.quantity
+          });
+      }
 
-      // Decrease stock at source
-      const { error: updateSourceError } = await supabase.rpc('decrease_location_stock', {
-        p_location_id: transfer.from_location_id,
-        p_product_id: transfer.product_id,
-        p_quantity: transfer.quantity
-      }).single();
-
-      // Update location stock (increase at destination)
-      const { error: increaseError } = await supabase
+      // Update or decrease location stock at source
+      const { data: existingSourceStock } = await supabase
         .from('location_stock')
-        .upsert({
-          location_id: transfer.to_location_id,
-          product_id: transfer.product_id,
-          quantity: transfer.quantity
-        }, { 
-          onConflict: 'location_id,product_id',
-          ignoreDuplicates: false 
-        });
+        .select('*')
+        .eq('location_id', transfer.from_location_id)
+        .eq('product_id', transfer.product_id)
+        .maybeSingle();
+
+      if (existingSourceStock) {
+        await supabase
+          .from('location_stock')
+          .update({ quantity: Math.max(0, existingSourceStock.quantity - transfer.quantity) })
+          .eq('id', existingSourceStock.id);
+      }
 
       // Update transfer status
       const { data: result, error } = await supabase
