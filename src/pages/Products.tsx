@@ -10,9 +10,12 @@ import { useCategories } from "@/hooks/useCategories";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColumnPreferences } from "@/hooks/useColumnPreferences";
+import { usePagination } from "@/hooks/usePagination";
 import { ColumnSettings } from "@/components/ui/column-settings";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { formatCurrency } from "@/lib/currency";
+import { abbreviateSupplierName } from "@/lib/formatters";
 import { GenericReportDialog, ReportColumn, ReportSummary } from "@/components/reports/GenericReportDialog";
 import {
   Dialog,
@@ -118,6 +121,9 @@ export default function Products() {
       return matchesSearch && matchesCategory && matchesSupplier;
     });
   }, [products, searchTerm, selectedCategory, selectedSupplier]);
+
+  // Paginação
+  const pagination = usePagination(filteredProducts, { itemsPerPage: 10 });
 
   const lowStockProducts = useMemo(() => {
     return products.filter((p) => p.quantity <= (p.min_quantity || 10));
@@ -306,7 +312,7 @@ export default function Products() {
       case "location":
         return product.location || "—";
       case "supplier":
-        return product.suppliers?.name || "—";
+        return abbreviateSupplierName(product.suppliers?.name);
       case "status":
         const critical = product.quantity === 0;
         const low = product.quantity > 0 && product.quantity <= (product.min_quantity || 10);
@@ -517,7 +523,7 @@ export default function Products() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProducts.map((product) => (
+                {pagination.paginatedData.map((product) => (
                   <TableRow
                     key={product.id}
                     className={`hover:bg-secondary/30 border-border/50 transition-colors ${
@@ -541,6 +547,16 @@ export default function Products() {
                 ))}
               </TableBody>
             </Table>
+            <TablePagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              startIndex={pagination.startIndex}
+              endIndex={pagination.endIndex}
+              totalItems={pagination.totalItems}
+              onPageChange={pagination.goToPage}
+              hasNextPage={pagination.hasNextPage}
+              hasPrevPage={pagination.hasPrevPage}
+            />
           </div>
         </div>
       )}
