@@ -699,6 +699,21 @@ export default function Entries() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            {/* Quick Access - Warehouse Mode */}
+            {!editingEntry && (
+              <Button
+                variant="outline"
+                className="w-full gap-2 border-dashed border-primary/50 text-primary hover:bg-primary/10"
+                onClick={() => {
+                  setIsDialogOpen(false);
+                  navigate('/armazem');
+                }}
+              >
+                <ScanLine className="w-4 h-4" />
+                Entrada Rápida com Scanner (Modo Armazém)
+              </Button>
+            )}
+
             {/* Product Search Mode Toggle */}
             <div className="flex gap-2">
               <Button
