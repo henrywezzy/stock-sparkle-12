@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { Plus, Edit, Trash2, ArrowUpFromLine, Calendar, Loader2, Search, Package, Hash, X, FileText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Edit, Trash2, ArrowUpFromLine, Calendar, Loader2, Search, Package, Hash, X, FileText, ScanLine } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -68,6 +69,7 @@ const DEFAULT_COLUMNS = [
 ];
 
 export default function Exits() {
+  const navigate = useNavigate();
   const { exits, isLoading, createExit, updateExit, deleteExit } = useExits();
   const { products } = useProducts();
   const { employees } = useEmployees();
@@ -391,6 +393,14 @@ export default function Exits() {
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Saídas" }]}
         actions={
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/armazem')}
+              className="gap-2"
+            >
+              <ScanLine className="w-4 h-4" />
+              <span className="hidden sm:inline">Modo Armazém</span>
+            </Button>
             <Button
               variant="outline"
               onClick={() => setIsReportOpen(true)}

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, Edit, Trash2, ArrowDownToLine, Calendar, Loader2, X, Package, Hash, Zap, FileText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Search, Edit, Trash2, ArrowDownToLine, Calendar, Loader2, X, Package, Hash, Zap, FileText, ScanLine } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/ui/page-header";
 import { GenericReportDialog, ReportColumn, ReportSummary } from "@/components/reports/GenericReportDialog";
@@ -98,6 +99,7 @@ const generateSKU = (
 };
 
 export default function Entries() {
+  const navigate = useNavigate();
   const { entries, isLoading, createEntry, updateEntry, deleteEntry } = useEntries();
   const { products, createProduct } = useProducts();
   const { suppliers } = useSuppliers();
@@ -492,6 +494,14 @@ export default function Entries() {
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Entradas" }]}
         actions={
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/armazem')}
+              className="gap-2"
+            >
+              <ScanLine className="w-4 h-4" />
+              <span className="hidden sm:inline">Modo Armazém</span>
+            </Button>
             <Button
               variant="outline"
               onClick={() => setIsReportOpen(true)}
