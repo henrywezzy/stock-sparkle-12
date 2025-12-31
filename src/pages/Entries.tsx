@@ -631,7 +631,7 @@ export default function Entries() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredEntries.length === 0 ? (
+              {pagination.paginatedData.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={visibleColumns.length + 1}
@@ -641,7 +641,7 @@ export default function Entries() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredEntries.map((entry) => (
+                pagination.paginatedData.map((entry) => (
                   <TableRow 
                     key={entry.id} 
                     className={`border-border ${selectedEntryIds.includes(entry.id) ? 'bg-primary/5' : ''}`}
@@ -663,6 +663,16 @@ export default function Entries() {
             </TableBody>
           </Table>
         </div>
+        <TablePagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          totalItems={pagination.totalItems}
+          onPageChange={pagination.goToPage}
+          hasNextPage={pagination.hasNextPage}
+          hasPrevPage={pagination.hasPrevPage}
+        />
       </div>
 
       {/* Create/Edit Dialog */}

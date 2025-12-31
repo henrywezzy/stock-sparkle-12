@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { Plus, Search, Edit, Trash2, UserCircle, Mail, Phone, Building2, Loader2 } from "lucide-react";
+import { usePagination } from "@/hooks/usePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +64,9 @@ export default function Employees() {
         e.registration_number?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [employees, searchTerm]);
+
+  // Paginação
+  const pagination = usePagination(filteredEmployees, { itemsPerPage: 10 });
 
   const resetForm = () => {
     setFormData({
@@ -199,7 +204,7 @@ export default function Employees() {
       </div>
 
       {/* Employee Cards */}
-      {filteredEmployees.length === 0 ? (
+      {pagination.paginatedData.length === 0 ? (
         <div className="glass rounded-xl p-8 text-center">
           <UserCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
           <p className="text-muted-foreground">Nenhum funcionário encontrado</p>
@@ -211,8 +216,9 @@ export default function Employees() {
           )}
         </div>
       ) : (
+        <>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredEmployees.map((employee) => (
+          {pagination.paginatedData.map((employee) => (
             <div
               key={employee.id}
               className="glass rounded-xl p-4 sm:p-6 glass-hover animate-slide-up"
@@ -285,6 +291,17 @@ export default function Employees() {
             </div>
           ))}
         </div>
+        <TablePagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          totalItems={pagination.totalItems}
+          onPageChange={pagination.goToPage}
+          hasNextPage={pagination.hasNextPage}
+          hasPrevPage={pagination.hasPrevPage}
+        />
+        </>
       )}
 
       {/* Create/Edit Dialog */}

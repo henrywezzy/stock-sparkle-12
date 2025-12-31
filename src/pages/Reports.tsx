@@ -32,9 +32,11 @@ import { toast } from "@/hooks/use-toast";
 import { useProducts } from "@/hooks/useProducts";
 import { useEntries } from "@/hooks/useEntries";
 import { useExits } from "@/hooks/useExits";
+import { useCategories } from "@/hooks/useCategories";
+import { useSuppliers } from "@/hooks/useSuppliers";
 import { useStockIndicators } from "@/hooks/useStockIndicators";
-import { useABCAnalysis } from "@/hooks/useABCAnalysis";
-import { useDemandForecast } from "@/hooks/useDemandForecast";
+import { useABCAnalysis, ABCFilters } from "@/hooks/useABCAnalysis";
+import { useDemandForecast, DemandFilters } from "@/hooks/useDemandForecast";
 import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/currency";
@@ -42,6 +44,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { usePagination } from "@/hooks/usePagination";
+import { ReportFiltersComponent, ReportFilters } from "@/components/filters/ReportFilters";
 import {
   Table,
   TableBody,
@@ -57,13 +60,39 @@ export default function Reports() {
   const { products, isLoading: productsLoading } = useProducts();
   const { entries, isLoading: entriesLoading } = useEntries();
   const { exits, isLoading: exitsLoading } = useExits();
+  const { categories } = useCategories();
+  const { suppliers } = useSuppliers();
   const { indicators, summary } = useStockIndicators(30);
-  const { items: abcItems, summary: abcSummary, isLoading: abcLoading } = useABCAnalysis(90);
-  const { items: forecastItems, summary: forecastSummary, isLoading: forecastLoading } = useDemandForecast(90);
   
   const [period, setPeriod] = useState("month");
   const [activeTab, setActiveTab] = useState("overview");
+  
+  // Filtros avançados para ABC e Previsão
+  const [reportFilters, setReportFilters] = useState<ReportFilters>({
+    categoryId: "all",
+    supplierId: "all",
+    dateFrom: undefined,
+    dateTo: undefined,
+  });
 
+  // Converter filtros para formato dos hooks
+  const abcFilters: ABCFilters = {
+    categoryId: reportFilters.categoryId,
+    supplierId: reportFilters.supplierId,
+    dateFrom: reportFilters.dateFrom,
+    dateTo: reportFilters.dateTo,
+  };
+
+  const demandFilters: DemandFilters = {
+    categoryId: reportFilters.categoryId,
+    supplierId: reportFilters.supplierId,
+    dateFrom: reportFilters.dateFrom,
+    dateTo: reportFilters.dateTo,
+  };
+
+  const { items: abcItems, summary: abcSummary, isLoading: abcLoading } = useABCAnalysis(90, abcFilters);
+  const { items: forecastItems, summary: forecastSummary, isLoading: forecastLoading } = useDemandForecast(90, demandFilters);
+  
   // Paginação para tabelas
   const abcPagination = usePagination(abcItems, { itemsPerPage: 10 });
   const forecastPagination = usePagination(forecastItems, { itemsPerPage: 10 });
@@ -208,6 +237,12 @@ export default function Reports() {
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Relatórios" }]}
         actions={
           <div className="flex gap-2">
+            <ReportFiltersComponent
+              filters={reportFilters}
+              onFiltersChange={setReportFilters}
+              categories={categories}
+              suppliers={suppliers}
+            />
             <Select value={period} onValueChange={setPeriod}>
               <SelectTrigger className="w-40">
                 <SelectValue />

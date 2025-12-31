@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { Plus, Search, Edit, Trash2, Package, Loader2, HardHat, Shield, Users, ChevronRight, Building2 } from "lucide-react";
+import { usePagination } from "@/hooks/usePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,6 +89,9 @@ export default function Categories() {
     );
   }, [categories, searchTerm]);
 
+  // Paginação
+  const categoriesPagination = usePagination(filteredCategories, { itemsPerPage: 10 });
+
   // Group EPIs by category
   const episByCategory = useMemo(() => {
     const grouped: Record<string, typeof epis> = {};
@@ -105,6 +110,9 @@ export default function Categories() {
       category.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [episByCategory, searchTerm]);
+
+  // Paginação para EPIs
+  const epiCategoriesPagination = usePagination(filteredEPICategories, { itemsPerPage: 10 });
 
   const getProductCount = (categoryId: string) => {
     return products.filter((p) => p.category_id === categoryId).length;
@@ -264,67 +272,79 @@ export default function Categories() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredCategories.map((category) => {
-                const categorySuppliers = getSuppliersForCategory(category.id);
-                return (
-                  <div
-                    key={category.id}
-                    className="glass rounded-xl p-4 sm:p-6 glass-hover animate-slide-up"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
-                          style={{ backgroundColor: category.color || "#3B82F6" }}
-                        >
-                          <Package className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {categoriesPagination.paginatedData.map((category) => {
+                  const categorySuppliers = getSuppliersForCategory(category.id);
+                  return (
+                    <div
+                      key={category.id}
+                      className="glass rounded-xl p-4 sm:p-6 glass-hover animate-slide-up"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: category.color || "#3B82F6" }}
+                          >
+                            <Package className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-sm sm:text-base truncate">{category.name}</h3>
+                            <p className="text-xs sm:text-sm text-muted-foreground">
+                              {getProductCount(category.id)} produtos
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <h3 className="font-semibold text-sm sm:text-base truncate">{category.name}</h3>
-                          <p className="text-xs sm:text-sm text-muted-foreground">
-                            {getProductCount(category.id)} produtos
-                          </p>
+                        <div className="flex gap-1 shrink-0">
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-primary"
+                              onClick={() => handleOpenDialog(category)}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => openDeleteDialog(category.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
-                      <div className="flex gap-1 shrink-0">
-                        {canEdit && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-primary"
-                            onClick={() => handleOpenDialog(category)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                        )}
-                        {canDelete && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => openDeleteDialog(category.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-4 line-clamp-2">
+                        {category.description || "Sem descrição"}
+                      </p>
+                      {categorySuppliers.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border/50">
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Building2 className="w-3 h-3" />
+                            <span>{categorySuppliers.length} fornecedor{categorySuppliers.length !== 1 ? 'es' : ''}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-xs sm:text-sm text-muted-foreground mt-4 line-clamp-2">
-                      {category.description || "Sem descrição"}
-                    </p>
-                    {categorySuppliers.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-border/50">
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Building2 className="w-3 h-3" />
-                          <span>{categorySuppliers.length} fornecedor{categorySuppliers.length !== 1 ? 'es' : ''}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+              <TablePagination
+                currentPage={categoriesPagination.currentPage}
+                totalPages={categoriesPagination.totalPages}
+                startIndex={categoriesPagination.startIndex}
+                endIndex={categoriesPagination.endIndex}
+                totalItems={categoriesPagination.totalItems}
+                onPageChange={categoriesPagination.goToPage}
+                hasNextPage={categoriesPagination.hasNextPage}
+                hasPrevPage={categoriesPagination.hasPrevPage}
+              />
+            </>
           )}
         </TabsContent>
 
@@ -339,8 +359,9 @@ export default function Categories() {
               </p>
             </div>
           ) : (
+            <>
             <div className="space-y-3">
-              {filteredEPICategories.map(([category, episList]) => {
+              {epiCategoriesPagination.paginatedData.map(([category, episList]) => {
                 const categorySuppliers = getEPICategorySuppliers(category);
                 const isExpanded = expandedEPICategory === category;
                 const totalStock = episList.reduce((sum, epi) => sum + epi.quantity, 0);
@@ -479,9 +500,20 @@ export default function Categories() {
                       </div>
                     )}
                   </div>
-                );
+              );
               })}
             </div>
+            <TablePagination
+              currentPage={epiCategoriesPagination.currentPage}
+              totalPages={epiCategoriesPagination.totalPages}
+              startIndex={epiCategoriesPagination.startIndex}
+              endIndex={epiCategoriesPagination.endIndex}
+              totalItems={epiCategoriesPagination.totalItems}
+              onPageChange={epiCategoriesPagination.goToPage}
+              hasNextPage={epiCategoriesPagination.hasNextPage}
+              hasPrevPage={epiCategoriesPagination.hasPrevPage}
+            />
+            </>
           )}
         </TabsContent>
       </Tabs>

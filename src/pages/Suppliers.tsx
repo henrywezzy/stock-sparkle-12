@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Plus, Search, Edit, Trash2, Truck, Mail, Phone, MapPin, Star, Loader2, User, Tag } from "lucide-react";
+import { usePagination } from "@/hooks/usePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,6 +87,9 @@ export default function Suppliers() {
       return matchesSearch;
     });
   }, [suppliers, searchTerm, filterCategoryId, allSupplierCategories]);
+
+  // Paginação
+  const pagination = usePagination(filteredSuppliers, { itemsPerPage: 10 });
 
   const handleSelectAll = () => {
     if (selectedSupplierIds.length === filteredSuppliers.length) {
@@ -315,7 +320,7 @@ export default function Suppliers() {
             </div>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredSuppliers.map((supplier) => (
+            {pagination.paginatedData.map((supplier) => (
               <div
                 key={supplier.id}
                 className={`glass rounded-xl p-4 sm:p-6 glass-hover animate-slide-up ${
@@ -441,6 +446,16 @@ export default function Suppliers() {
             </div>
           ))}
         </div>
+        <TablePagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          totalItems={pagination.totalItems}
+          onPageChange={pagination.goToPage}
+          hasNextPage={pagination.hasNextPage}
+          hasPrevPage={pagination.hasPrevPage}
+        />
       </>
       )}
 

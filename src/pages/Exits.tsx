@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { Plus, Edit, Trash2, ArrowUpFromLine, Calendar, Loader2, Search, Package, Hash, X, FileText } from "lucide-react";
+import { usePagination } from "@/hooks/usePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/ui/page-header";
 import { GenericReportDialog, ReportColumn, ReportSummary } from "@/components/reports/GenericReportDialog";
@@ -169,6 +171,9 @@ export default function Exits() {
       return matchesSearch && matchesDateFrom && matchesDateTo && matchesEmployee;
     });
   }, [exits, products, searchTerm, dateFrom, dateTo, selectedEmployee]);
+
+  // Paginação
+  const pagination = usePagination(filteredExits, { itemsPerPage: 10 });
 
   const handleSelectExit = (id: string) => {
     setSelectedExitIds(prev => 
@@ -515,7 +520,7 @@ export default function Exits() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredExits.length === 0 ? (
+              {pagination.paginatedData.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={visibleColumns.length + 1}
@@ -525,7 +530,7 @@ export default function Exits() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredExits.map((exit) => (
+                pagination.paginatedData.map((exit) => (
                   <TableRow 
                     key={exit.id} 
                     className={`border-border ${selectedExitIds.includes(exit.id) ? 'bg-primary/5' : ''}`}
@@ -547,6 +552,16 @@ export default function Exits() {
             </TableBody>
           </Table>
         </div>
+        <TablePagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          totalItems={pagination.totalItems}
+          onPageChange={pagination.goToPage}
+          hasNextPage={pagination.hasNextPage}
+          hasPrevPage={pagination.hasPrevPage}
+        />
       </div>
 
       {/* Create/Edit Dialog */}
