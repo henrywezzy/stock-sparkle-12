@@ -33,6 +33,8 @@ const Locations = lazy(() => import("./pages/Locations"));
 const Transfers = lazy(() => import("./pages/Transfers"));
 const Kits = lazy(() => import("./pages/Kits"));
 const Assets = lazy(() => import("./pages/Assets"));
+// Admin
+const Admin = lazy(() => import("./pages/Admin"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,6 +78,7 @@ const App = () => (
                 <Route path="/transferencias" element={<Transfers />} />
                 <Route path="/kits" element={<Kits />} />
                 <Route path="/ativos" element={<Assets />} />
+                <Route path="/admin" element={<Admin />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
