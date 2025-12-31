@@ -27,7 +27,14 @@ export interface ABCAnalysis {
   isLoading: boolean;
 }
 
-export function useABCAnalysis(days: number = 90): ABCAnalysis {
+export interface ABCFilters {
+  categoryId?: string;
+  supplierId?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+}
+
+export function useABCAnalysis(days: number = 90, filters?: ABCFilters): ABCAnalysis {
   const { products, isLoading: loadingProducts } = useProducts();
   const { exits, isLoading: loadingExits } = useExits();
 
@@ -43,13 +50,17 @@ export function useABCAnalysis(days: number = 90): ABCAnalysis {
       };
     }
 
-    const cutoffDate = subDays(new Date(), days);
+    const cutoffDate = filters?.dateFrom || subDays(new Date(), days);
+    const endDate = filters?.dateTo || new Date();
 
     // Calcular valor total de saídas por produto
     const productStats: Map<string, { exits: number; value: number }> = new Map();
 
     exits
-      .filter((e) => new Date(e.exit_date) >= cutoffDate)
+      .filter((e) => {
+        const exitDate = new Date(e.exit_date);
+        return exitDate >= cutoffDate && exitDate <= endDate;
+      })
       .forEach((exit) => {
         const product = products.find((p) => p.id === exit.product_id);
         if (!product) return;
@@ -66,8 +77,17 @@ export function useABCAnalysis(days: number = 90): ABCAnalysis {
       totalValue += stats.value;
     });
 
+    // Filtrar produtos por categoria/fornecedor se especificado
+    let filteredProducts = products;
+    if (filters?.categoryId && filters.categoryId !== "all") {
+      filteredProducts = filteredProducts.filter(p => p.category_id === filters.categoryId);
+    }
+    if (filters?.supplierId && filters.supplierId !== "all") {
+      filteredProducts = filteredProducts.filter(p => p.supplier_id === filters.supplierId);
+    }
+
     // Criar lista ordenada por valor
-    const sortedProducts = products
+    const sortedProducts = filteredProducts
       .map((product) => {
         const stats = productStats.get(product.id) || { exits: 0, value: 0 };
         return {
@@ -135,7 +155,7 @@ export function useABCAnalysis(days: number = 90): ABCAnalysis {
         },
       },
     };
-  }, [products, exits, days, loadingProducts, loadingExits]);
+  }, [products, exits, days, loadingProducts, loadingExits, filters?.categoryId, filters?.supplierId, filters?.dateFrom, filters?.dateTo]);
 
   return {
     ...analysis,

@@ -29,7 +29,14 @@ export interface DemandForecastSummary {
   totalForecastedDemand30Days: number;
 }
 
-export function useDemandForecast(historyDays: number = 90) {
+export interface DemandFilters {
+  categoryId?: string;
+  supplierId?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+}
+
+export function useDemandForecast(historyDays: number = 90, filters?: DemandFilters) {
   const { products, isLoading: loadingProducts } = useProducts();
   const { exits, isLoading: loadingExits } = useExits();
 
@@ -38,13 +45,26 @@ export function useDemandForecast(historyDays: number = 90) {
       return { items: [], summary: { totalProductsAtRisk: 0, averageStockoutDays: 0, totalForecastedDemand30Days: 0 } };
     }
 
-    const cutoffDate = subDays(new Date(), historyDays);
+    const cutoffDate = filters?.dateFrom || subDays(new Date(), historyDays);
+    const endDate = filters?.dateTo || new Date();
     const recentCutoff = subDays(new Date(), 30);
 
-    const items: DemandForecastItem[] = products.map((product) => {
+    // Filtrar produtos por categoria/fornecedor se especificado
+    let filteredProducts = products;
+    if (filters?.categoryId && filters.categoryId !== "all") {
+      filteredProducts = filteredProducts.filter(p => p.category_id === filters.categoryId);
+    }
+    if (filters?.supplierId && filters.supplierId !== "all") {
+      filteredProducts = filteredProducts.filter(p => p.supplier_id === filters.supplierId);
+    }
+
+    const items: DemandForecastItem[] = filteredProducts.map((product) => {
       // Filtrar saídas do produto no período
       const productExits = exits.filter(
-        (e) => e.product_id === product.id && new Date(e.exit_date) >= cutoffDate
+        (e) => {
+          const exitDate = new Date(e.exit_date);
+          return e.product_id === product.id && exitDate >= cutoffDate && exitDate <= endDate;
+        }
       );
 
       const recentExits = productExits.filter((e) => new Date(e.exit_date) >= recentCutoff);
@@ -151,7 +171,7 @@ export function useDemandForecast(historyDays: number = 90) {
         totalForecastedDemand30Days: activeItems.reduce((sum, i) => sum + i.forecastedDemand30Days, 0),
       },
     };
-  }, [products, exits, historyDays, loadingProducts, loadingExits]);
+  }, [products, exits, historyDays, loadingProducts, loadingExits, filters?.categoryId, filters?.supplierId, filters?.dateFrom, filters?.dateTo]);
 
   return {
     ...forecast,
