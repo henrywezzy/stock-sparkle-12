@@ -1,10 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
+// Restrict CORS to specific origin in production
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "*";
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 // Helper to generate unique request ID
@@ -137,7 +140,7 @@ const handler = async (req: Request): Promise<Response> => {
         .eq("approved", true);
 
       if (!roles?.some((r) => r.role === "admin")) {
-        console.error("User is not an admin:", user.id);
+        console.error(`[${requestId}] User is not an admin:`, user.id);
         return new Response(
           JSON.stringify({ error: "Forbidden: Admin access required" }),
           { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -154,12 +157,12 @@ const handler = async (req: Request): Promise<Response> => {
         .eq("approved", true);
 
       if (rolesError) {
-        console.error("Error fetching admin roles:", rolesError);
+        console.error(`[${requestId}] Error fetching admin roles:`, rolesError);
         throw rolesError;
       }
 
       if (!adminRoles || adminRoles.length === 0) {
-        console.log("No admin users found to notify");
+        console.log(`[${requestId}] No admin users found to notify`);
         return new Response(JSON.stringify({ message: "No admins to notify" }), {
           status: 200,
           headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -174,7 +177,7 @@ const handler = async (req: Request): Promise<Response> => {
         .in("user_id", adminUserIds);
 
       if (profilesError) {
-        console.error("Error fetching admin profiles:", profilesError);
+        console.error(`[${requestId}] Error fetching admin profiles:`, profilesError);
         throw profilesError;
       }
 
@@ -183,14 +186,14 @@ const handler = async (req: Request): Promise<Response> => {
         .filter((email): email is string => !!email);
 
       if (!adminEmails || adminEmails.length === 0) {
-        console.log("No admin emails found");
+        console.log(`[${requestId}] No admin emails found`);
         return new Response(JSON.stringify({ message: "No admin emails found" }), {
           status: 200,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         });
       }
 
-      console.log(`Sending notification to ${adminEmails.length} admins`);
+      console.log(`[${requestId}] Sending notification to ${adminEmails.length} admins`);
 
       // Send email to all admins
       const emailResponse = await sendEmail(
@@ -237,7 +240,7 @@ const handler = async (req: Request): Promise<Response> => {
         `
       );
 
-      console.log("Admin notification email sent:", emailResponse);
+      console.log(`[${requestId}] Admin notification email sent:`, emailResponse);
 
       return new Response(JSON.stringify({ success: true, emailResponse }), {
         status: 200,
@@ -288,7 +291,7 @@ const handler = async (req: Request): Promise<Response> => {
         `
       );
 
-      console.log("User approved email sent:", emailResponse);
+      console.log(`[${requestId}] User approved email sent:`, emailResponse);
 
       return new Response(JSON.stringify({ success: true, emailResponse }), {
         status: 200,
@@ -333,7 +336,7 @@ const handler = async (req: Request): Promise<Response> => {
         `
       );
 
-      console.log("User rejected email sent:", emailResponse);
+      console.log(`[${requestId}] User rejected email sent:`, emailResponse);
 
       return new Response(JSON.stringify({ success: true, emailResponse }), {
         status: 200,
@@ -346,7 +349,7 @@ const handler = async (req: Request): Promise<Response> => {
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: any) {
-    console.error("Error in send-notification-email function:", error);
+    console.error(`[${requestId}] Error in send-notification-email function:`, error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

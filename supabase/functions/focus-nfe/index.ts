@@ -1,9 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
 
+// Restrict CORS to specific origin in production
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "*";
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 // Helper to generate unique request ID
@@ -214,7 +218,7 @@ serve(async (req) => {
 
     const { action, chave_acesso, tipo_manifestacao } = await req.json();
 
-    console.log(`Focus NFe action: ${action}, chave: ${chave_acesso?.substring(0, 10)}...`);
+    console.log(`[${requestId}] Focus NFe action: ${action}, chave: ${chave_acesso?.substring(0, 10)}...`);
 
     // Validate chave_acesso for actions that require it
     if (['consultar', 'manifestar', 'download_xml'].includes(action)) {
@@ -343,7 +347,7 @@ serve(async (req) => {
         }
 
         const data = await response.json();
-        console.log(`Manifestação ${tipo_manifestacao} registrada para chave ${cleanChave}`);
+        console.log(`[${requestId}] Manifestação ${tipo_manifestacao} registrada para chave ${cleanChave}`);
 
         return json({ success: true, ...data, _focus_env: envUsed, _focus_env_config: CONFIG_ENV });
       }
