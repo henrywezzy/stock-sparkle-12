@@ -1,9 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
+// Restrict CORS to specific origin in production
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "*";
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 // Helper to generate unique request ID
@@ -31,6 +35,21 @@ async function verifyAuth(req: Request): Promise<{ user: any; error?: string }> 
   }
 
   return { user };
+}
+
+// Verify user has required role
+async function verifyUserRole(userId: string, allowedRoles: string[]): Promise<boolean> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  const { data: roles } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("approved", true);
+
+  return roles?.some((r: any) => allowedRoles.includes(r.role)) ?? false;
 }
 
 // Log request for audit trail
@@ -65,6 +84,16 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Unauthorized", request_id: requestId }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify user has admin or almoxarife role - prevents email enumeration by regular users
+    const hasRole = await verifyUserRole(user.id, ["admin", "almoxarife"]);
+    if (!hasRole) {
+      console.error(`[${requestId}] User lacks required role:`, user.id);
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Insufficient permissions", request_id: requestId }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -135,7 +164,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`User email found for identifier by user ${user.id}`);
+    console.log(`[${requestId}] User email found for identifier by authorized user ${user.id}`);
 
     return new Response(
       JSON.stringify({ email: data[0].email }),
