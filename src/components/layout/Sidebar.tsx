@@ -198,8 +198,9 @@ export function Sidebar({
 
         {/* Footer */}
         <div className="p-4 border-t border-sidebar-border space-y-3">
-          {(!collapsed || mobileOpen) && user}
-          
+          {(!collapsed || mobileOpen) && user && (
+            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+          )}
           {(!collapsed || mobileOpen) && <p className="text-xs text-muted-foreground text-center">Stockly v2.0</p>}
         </div>
       </aside>
