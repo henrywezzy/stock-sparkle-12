@@ -37,7 +37,7 @@ export function MainLayout() {
         <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
       </div>
       
-      {/* Main Content */}
+      {/* Main Content - pl-64 = 256px sidebar width */}
       <div className="lg:pl-64 transition-all duration-300">
         {/* Plan Banner */}
         <PlanBanner />

@@ -156,7 +156,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           "fixed left-0 top-0 z-50 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col",
           // Desktop
           "hidden lg:flex",
-          collapsed ? "lg:w-16" : "lg:w-64",
+          collapsed ? "lg:w-12" : "lg:w-64",
           // Mobile - show when open
           mobileOpen && "flex w-64"
         )}
@@ -165,12 +165,12 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
           {(!collapsed || mobileOpen) && (
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center glow-sm">
-                <Warehouse className="w-5 h-5 text-primary-foreground" />
+              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
+                <Warehouse className="h-6 w-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="font-bold text-foreground">Stockly</h1>
-                <p className="text-xs text-muted-foreground">Gestão de Almoxarifado</p>
+                <h1 className="text-lg font-semibold text-foreground">Stockly</h1>
+                <p className="text-xs text-muted-foreground">Gestão de Estoque</p>
               </div>
             </div>
           )}
@@ -181,11 +181,11 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             className="text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
           >
             {mobileOpen ? (
-              <X className="w-5 h-5" />
+              <X className="h-4 w-4" />
             ) : collapsed ? (
-              <Menu className="w-5 h-5" />
+              <Menu className="h-4 w-4" />
             ) : (
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="h-4 w-4" />
             )}
           </Button>
         </div>
@@ -199,12 +199,12 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 {(!collapsed || mobileOpen) ? (
                   <button
                     onClick={() => toggleCategory(category.category)}
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
                   >
                     <span>{category.category}</span>
                     <ChevronDown
                       className={cn(
-                        "w-4 h-4 transition-transform duration-200",
+                        "h-4 w-4 transition-transform duration-200",
                         expandedCategories.includes(category.category) && "rotate-180"
                       )}
                     />
@@ -229,33 +229,18 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                       key={item.path}
                       to={item.path}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group",
+                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all group",
                         isActive(item.path)
-                          ? "bg-primary/10 text-primary glow-sm"
+                          ? "bg-primary/10 text-primary font-medium"
                           : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
                       )}
                     >
                       {collapsed && !mobileOpen ? (
-                        <item.icon className="w-5 h-5 mx-auto" />
+                        <item.icon className="h-4 w-4 mx-auto" />
                       ) : (
                         <>
-                          <div
-                            className={cn(
-                              "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-                              isActive(item.path)
-                                ? "bg-primary/20"
-                                : "bg-sidebar-accent group-hover:bg-sidebar-border"
-                            )}
-                          >
-                            <item.icon className="w-4 h-4" />
-                          </div>
+                          <item.icon className="h-4 w-4" />
                           <span className="flex-1">{item.title}</span>
-                          <ChevronRight
-                            className={cn(
-                              "w-4 h-4 opacity-0 -translate-x-2 transition-all group-hover:opacity-50 group-hover:translate-x-0",
-                              isActive(item.path) && "opacity-70 translate-x-0"
-                            )}
-                          />
                         </>
                       )}
                     </NavLink>
@@ -269,7 +254,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         {/* Footer */}
         <div className="p-4 border-t border-sidebar-border space-y-3">
           {(!collapsed || mobileOpen) && user && (
-            <div className="glass rounded-lg p-3">
+            <div className="rounded-lg bg-sidebar-accent p-3">
               <p className="text-sm font-medium text-foreground truncate">{user.email}</p>
               <p className="text-xs text-primary capitalize">{userRole || 'Carregando...'}</p>
             </div>
@@ -280,9 +265,12 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             onClick={signOut}
             className="w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="h-4 w-4" />
             {(!collapsed || mobileOpen) && <span className="ml-2">Sair</span>}
           </Button>
+          {(!collapsed || mobileOpen) && (
+            <p className="text-xs text-muted-foreground text-center">Stockly v2.0</p>
+          )}
         </div>
       </aside>
     </>
