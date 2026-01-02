@@ -6,7 +6,6 @@ import {
   Bell,
   Users,
   Shield,
-  Palette,
   Database,
   Save,
   Loader2,
@@ -14,8 +13,6 @@ import {
   UserCog,
   Eye,
   Upload,
-  Sun,
-  Moon,
   Trash2,
   UserCheck,
   UserX,
@@ -46,7 +43,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
-import { useTheme, ColorPalette } from "@/hooks/useTheme";
+
 import { EPIRequirementsSettings } from "@/components/settings/EPIRequirementsSettings";
 import { cn } from "@/lib/utils";
 import { ViaCEPResponse, CNPJResponse } from "@/lib/masks";
@@ -79,21 +76,13 @@ interface UserWithRole {
   approved: boolean;
 }
 
-const COLOR_PALETTES: { id: ColorPalette; name: string; primary: string }[] = [
-  { id: "cyan", name: "Ciano", primary: "hsl(199, 89%, 48%)" },
-  { id: "violet", name: "Violeta", primary: "hsl(270, 76%, 60%)" },
-  { id: "emerald", name: "Esmeralda", primary: "hsl(160, 84%, 39%)" },
-  { id: "rose", name: "Rosa", primary: "hsl(350, 89%, 60%)" },
-  { id: "amber", name: "Âmbar", primary: "hsl(38, 92%, 50%)" },
-  { id: "blue", name: "Azul", primary: "hsl(217, 91%, 60%)" },
-];
 
 export default function Settings() {
   const { user, isAdmin, userRole } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { settings: companySettings, updateSettings: updateCompanySettings, uploadLogo, isLoading: companyLoading } = useCompanySettings();
-  const { theme, setMode, setPalette, isDark } = useTheme();
+  
   
   const isViewer = userRole === 'visualizador';
   const canEditCompany = isAdmin || userRole === 'almoxarife';
@@ -419,10 +408,6 @@ export default function Settings() {
               <span className="hidden sm:inline">Multi-Armazém</span>
             </TabsTrigger>
           )}
-          <TabsTrigger value="appearance" className="gap-2 text-xs sm:text-sm">
-            <Palette className="w-4 h-4" />
-            <span className="hidden sm:inline">Aparência</span>
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="company" className="space-y-4 sm:space-y-6">
@@ -802,52 +787,6 @@ export default function Settings() {
           </TabsContent>
         )}
 
-        <TabsContent value="appearance" className="space-y-4 sm:space-y-6">
-          <div className="glass rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
-            <div className="flex items-center gap-3 pb-4 border-b border-border/50">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Palette className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Personalização</h3>
-                <p className="text-sm text-muted-foreground">Customize a aparência do sistema</p>
-              </div>
-            </div>
-
-            <div className="space-y-6 max-w-xl">
-              <div className="space-y-3">
-                <Label>Modo de Exibição</Label>
-                <div className="flex gap-3">
-                  <Button variant={isDark ? "default" : "outline"} onClick={() => setMode("dark")} className="flex-1">
-                    <Moon className="w-4 h-4 mr-2" /> Escuro
-                  </Button>
-                  <Button variant={!isDark ? "default" : "outline"} onClick={() => setMode("light")} className="flex-1">
-                    <Sun className="w-4 h-4 mr-2" /> Claro
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label>Paleta de Cores</Label>
-                <div className="grid grid-cols-3 gap-3">
-                  {COLOR_PALETTES.map((palette) => (
-                    <button
-                      key={palette.id}
-                      onClick={() => setPalette(palette.id)}
-                      className={cn(
-                        "p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-2",
-                        theme.palette === palette.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
-                      )}
-                    >
-                      <div className="w-8 h-8 rounded-full" style={{ backgroundColor: palette.primary }} />
-                      <span className="text-xs font-medium">{palette.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </TabsContent>
 
         {/* Regras de EPI Tab */}
         {!isViewer && (

@@ -12,8 +12,8 @@ interface ThemeConfig {
 const USER_THEME_KEY = "stockly-user-theme";
 
 const defaultTheme: ThemeConfig = {
-  mode: "dark",
-  palette: "cyan",
+  mode: "light",
+  palette: "blue",
 };
 
 // Apply theme to document
