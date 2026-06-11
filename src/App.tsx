@@ -58,7 +58,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Suspense fallback={<PageLoader />}>
+          <Suspense fallback={null}>
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/contato" element={<Contact />} />
