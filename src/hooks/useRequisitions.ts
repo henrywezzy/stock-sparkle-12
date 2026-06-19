@@ -106,7 +106,7 @@ export const useRequisitions = () => {
 
       const { data, error } = await supabase
         .from('requisitions')
-        .update(updateData)
+        .update(updateData as never)
         .eq('id', id)
         .select(`
           *,

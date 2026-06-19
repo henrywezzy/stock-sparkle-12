@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { 
   ShoppingCart, 
   Check, 
@@ -18,7 +18,9 @@ import {
   BarChart3,
   Building2,
   Star,
+  RotateCcw,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/ui/page-header";
 import { GenericReportDialog, ReportColumn, ReportSummary } from "@/components/reports/GenericReportDialog";
 import { Button } from "@/components/ui/button";
@@ -115,7 +117,7 @@ interface PurchaseSuggestion {
 
 export default function Purchases() {
   const { products, isLoading: loadingProducts } = useProducts();
-  const { entries } = useEntries();
+  const { entries, createEntry } = useEntries();
   const { suppliers } = useSuppliers();
   const { epis, isLoading: loadingEPIs } = useEPIs();
   const { canEdit } = useAuth();
@@ -143,6 +145,24 @@ export default function Purchases() {
   const [supplierReportOpen, setSupplierReportOpen] = useState(false);
   const [evaluationDialogOpen, setEvaluationDialogOpen] = useState(false);
   const [selectedPerformanceId, setSelectedPerformanceId] = useState<string | undefined>();
+
+  // Bulk selection & rejection persistence
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [rejectedIds, setRejectedIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem("purchases_rejected_ids");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [bulkApproveOpen, setBulkApproveOpen] = useState(false);
+  const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("purchases_rejected_ids", JSON.stringify(rejectedIds));
+  }, [rejectedIds]);
   
   // Form state for purchase confirmation
   const [purchaseQuantity, setPurchaseQuantity] = useState<number>(0);
@@ -234,9 +254,13 @@ export default function Purchases() {
     });
   }, [products, entries, epis]);
 
+  const getSuggestionId = (s: PurchaseSuggestion) => `${s.type}-${s.product.id}`;
+
   // Filtrar sugestões
   const filteredSuggestions = useMemo(() => {
     return purchaseSuggestions.filter((suggestion) => {
+      if (rejectedIds.includes(getSuggestionId(suggestion))) return false;
+
       const matchesSearch =
         suggestion.product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         suggestion.product.sku?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -249,7 +273,7 @@ export default function Purchases() {
 
       return matchesSearch && matchesStatus && matchesType;
     });
-  }, [purchaseSuggestions, searchTerm, statusFilter, typeFilter]);
+  }, [purchaseSuggestions, searchTerm, statusFilter, typeFilter, rejectedIds]);
 
   const toggleRow = (productId: string) => {
     setExpandedRow(expandedRow === productId ? null : productId);
@@ -269,7 +293,72 @@ export default function Purchases() {
     setRejectDialogOpen(true);
   };
 
-  const { createEntry } = useEntries();
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredSuggestions.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredSuggestions.map(getSuggestionId));
+    }
+  };
+
+  const clearRejected = () => {
+    setRejectedIds([]);
+    toast({
+      title: "Sugestões restauradas",
+      description: "Todas as sugestões rejeitadas foram restauradas.",
+    });
+  };
+
+  const handleBulkApprove = async () => {
+    setBulkProcessing(true);
+    const selected = filteredSuggestions.filter((s) => selectedIds.includes(getSuggestionId(s)));
+    let success = 0;
+    let failed = 0;
+    let skipped = 0;
+    for (const s of selected) {
+      if (s.type === 'epi') {
+        skipped++;
+        continue;
+      }
+      const best = getBestPrice(s.lastPurchases);
+      try {
+        await createEntry.mutateAsync({
+          product_id: s.product.id,
+          quantity: s.suggestedQuantity,
+          unit_price: best?.unit_price ?? undefined,
+          total_price: best?.unit_price ? best.unit_price * s.suggestedQuantity : undefined,
+          supplier_id: best?.supplier_id || s.product.supplier_id || undefined,
+          entry_date: new Date().toISOString(),
+        });
+        success++;
+      } catch {
+        failed++;
+      }
+    }
+    setBulkProcessing(false);
+    setBulkApproveOpen(false);
+    setSelectedIds([]);
+    toast({
+      title: "Compras em lote",
+      description: `${success} aprovada(s)${failed ? `, ${failed} com erro` : ''}${skipped ? `, ${skipped} EPI(s) ignorada(s)` : ''}.`,
+    });
+  };
+
+  const handleBulkReject = () => {
+    setRejectedIds((prev) => Array.from(new Set([...prev, ...selectedIds])));
+    toast({
+      title: "Sugestões rejeitadas",
+      description: `${selectedIds.length} sugestão(ões) rejeitada(s).`,
+      variant: "destructive",
+    });
+    setSelectedIds([]);
+    setBulkRejectOpen(false);
+  };
+
 
   const confirmPurchase = async () => {
     if (selectedProduct && purchaseQuantity > 0) {
@@ -316,9 +405,11 @@ export default function Purchases() {
 
   const rejectPurchase = () => {
     if (selectedProduct) {
+      const id = getSuggestionId(selectedProduct);
+      setRejectedIds((prev) => Array.from(new Set([...prev, id])));
       toast({
-        title: "Compra rejeitada",
-        description: `Sugestão de compra de ${selectedProduct.product.name} foi rejeitada.`,
+        title: "Sugestão rejeitada",
+        description: `Sugestão de ${selectedProduct.product.name} foi removida da lista.`,
         variant: "destructive",
       });
     }
@@ -698,12 +789,69 @@ export default function Purchases() {
         </div>
       </div>
 
+      {/* Bulk Actions Bar */}
+      {canEdit && (selectedIds.length > 0 || rejectedIds.length > 0) && (
+        <div className="flex flex-wrap items-center gap-2 p-3 bg-secondary/50 rounded-lg border border-border">
+          {selectedIds.length > 0 && (
+            <>
+              <span className="text-sm font-medium">
+                {selectedIds.length} selecionada(s)
+              </span>
+              <Button
+                size="sm"
+                className="bg-success text-success-foreground hover:bg-success/90"
+                onClick={() => setBulkApproveOpen(true)}
+                disabled={bulkProcessing}
+              >
+                <Check className="w-4 h-4 mr-2" />
+                Aprovar selecionadas
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setBulkRejectOpen(true)}
+                disabled={bulkProcessing}
+              >
+                <X className="w-4 h-4 mr-2" />
+                Rejeitar selecionadas
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setSelectedIds([])}>
+                Limpar seleção
+              </Button>
+            </>
+          )}
+          {rejectedIds.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto"
+              onClick={clearRejected}
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Restaurar {rejectedIds.length} rejeitada(s)
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Table */}
       <div className="glass rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
+                {canEdit && (
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={
+                        filteredSuggestions.length > 0 &&
+                        selectedIds.length === filteredSuggestions.length
+                      }
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Selecionar todos"
+                    />
+                  </TableHead>
+                )}
                 <TableHead className="w-10"></TableHead>
                 {visibleColumns.map((col) => (
                   <TableHead key={col.key} className="text-muted-foreground font-medium">
@@ -715,7 +863,7 @@ export default function Purchases() {
             <TableBody>
               {filteredSuggestions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={visibleColumns.length + 1} className="h-32 text-center">
+                  <TableCell colSpan={visibleColumns.length + (canEdit ? 2 : 1)} className="h-32 text-center">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       <ShoppingCart className="w-10 h-10 opacity-50" />
                       <p>Nenhum produto com estoque baixo ou crítico</p>
@@ -724,7 +872,9 @@ export default function Purchases() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredSuggestions.map((suggestion) => (
+                filteredSuggestions.map((suggestion) => {
+                  const sid = getSuggestionId(suggestion);
+                  return (
                   <>
                     <TableRow
                       key={suggestion.product.id}
@@ -732,10 +882,20 @@ export default function Purchases() {
                         "border-border cursor-pointer transition-colors",
                         suggestion.status === 'critical' && "bg-destructive/5",
                         suggestion.status === 'low' && "bg-warning/5",
-                        expandedRow === suggestion.product.id && "bg-secondary/50"
+                        expandedRow === suggestion.product.id && "bg-secondary/50",
+                        selectedIds.includes(sid) && "bg-primary/5"
                       )}
                       onClick={() => toggleRow(suggestion.product.id)}
                     >
+                      {canEdit && (
+                        <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.includes(sid)}
+                            onCheckedChange={() => toggleSelect(sid)}
+                            aria-label={`Selecionar ${suggestion.product.name}`}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="w-10">
                         <Button variant="ghost" size="icon" className="h-6 w-6">
                           {expandedRow === suggestion.product.id ? (
@@ -800,7 +960,8 @@ export default function Purchases() {
                       </TableRow>
                     )}
                   </>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -968,6 +1129,59 @@ export default function Purchases() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Approve Dialog */}
+      <Dialog open={bulkApproveOpen} onOpenChange={setBulkApproveOpen}>
+        <DialogContent className="glass border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Check className="w-5 h-5 text-success" />
+              Aprovar {selectedIds.length} compra(s)
+            </DialogTitle>
+            <DialogDescription>
+              Será registrada uma entrada para cada produto selecionado usando a quantidade sugerida e o melhor preço histórico. EPIs serão ignorados.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkApproveOpen(false)} disabled={bulkProcessing}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-success text-success-foreground hover:bg-success/90"
+              onClick={handleBulkApprove}
+              disabled={bulkProcessing}
+            >
+              {bulkProcessing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Confirmar aprovação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Reject Dialog */}
+      <Dialog open={bulkRejectOpen} onOpenChange={setBulkRejectOpen}>
+        <DialogContent className="glass border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <X className="w-5 h-5 text-destructive" />
+              Rejeitar {selectedIds.length} sugestão(ões)
+            </DialogTitle>
+            <DialogDescription>
+              As sugestões selecionadas serão removidas da lista. Você pode restaurá-las depois através do botão "Restaurar".
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkRejectOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleBulkReject}>
+              <X className="w-4 h-4 mr-2" />
+              Rejeitar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Purchases Report Dialog */}
       <GenericReportDialog

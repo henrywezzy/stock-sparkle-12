@@ -383,6 +383,16 @@ export default function Products() {
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "Produtos" }]}
         actions={
           <div className="flex items-center gap-2">
+            {canEdit && (
+              <Button
+                className="gradient-primary text-primary-foreground"
+                onClick={() => handleOpenDialog()}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Adicionar Produto</span>
+                <span className="sm:hidden">Novo</span>
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => setIsLabelDialogOpen(true)}
