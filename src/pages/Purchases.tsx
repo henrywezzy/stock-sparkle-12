@@ -117,7 +117,7 @@ interface PurchaseSuggestion {
 
 export default function Purchases() {
   const { products, isLoading: loadingProducts } = useProducts();
-  const { entries } = useEntries();
+  const { entries, createEntry } = useEntries();
   const { suppliers } = useSuppliers();
   const { epis, isLoading: loadingEPIs } = useEPIs();
   const { canEdit } = useAuth();
