@@ -360,22 +360,6 @@ export default function Purchases() {
   };
 
 
-  const handleConfirmPurchase = (suggestion: PurchaseSuggestion) => {
-    setSelectedProduct(suggestion);
-    setPurchaseQuantity(suggestion.suggestedQuantity);
-    const bestPrice = getBestPrice(suggestion.lastPurchases);
-    setPurchasePrice(bestPrice?.unit_price?.toString() || "");
-    setPurchaseSupplierId(bestPrice?.supplier_id || suggestion.product.supplier_id || "");
-    setConfirmDialogOpen(true);
-  };
-
-  const handleRejectPurchase = (suggestion: PurchaseSuggestion) => {
-    setSelectedProduct(suggestion);
-    setRejectDialogOpen(true);
-  };
-
-  const { createEntry } = useEntries();
-
   const confirmPurchase = async () => {
     if (selectedProduct && purchaseQuantity > 0) {
       try {
@@ -421,9 +405,11 @@ export default function Purchases() {
 
   const rejectPurchase = () => {
     if (selectedProduct) {
+      const id = getSuggestionId(selectedProduct);
+      setRejectedIds((prev) => Array.from(new Set([...prev, id])));
       toast({
-        title: "Compra rejeitada",
-        description: `Sugestão de compra de ${selectedProduct.product.name} foi rejeitada.`,
+        title: "Sugestão rejeitada",
+        description: `Sugestão de ${selectedProduct.product.name} foi removida da lista.`,
         variant: "destructive",
       });
     }
