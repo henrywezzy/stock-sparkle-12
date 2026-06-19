@@ -93,7 +93,7 @@ export const useEntries = () => {
   });
 
   const updateEntry = useMutation({
-    mutationFn: async ({ id, ...entry }: Partial<Entry> & { id: string }) => {
+    mutationFn: async ({ id, products: _p, suppliers: _s, ...entry }: Partial<Entry> & { id: string }) => {
       // Convert empty strings to null for UUID and optional fields
       const sanitizedEntry = {
         ...entry,
