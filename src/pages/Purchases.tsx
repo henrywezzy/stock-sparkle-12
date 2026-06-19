@@ -145,6 +145,24 @@ export default function Purchases() {
   const [supplierReportOpen, setSupplierReportOpen] = useState(false);
   const [evaluationDialogOpen, setEvaluationDialogOpen] = useState(false);
   const [selectedPerformanceId, setSelectedPerformanceId] = useState<string | undefined>();
+
+  // Bulk selection & rejection persistence
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [rejectedIds, setRejectedIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem("purchases_rejected_ids");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [bulkApproveOpen, setBulkApproveOpen] = useState(false);
+  const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("purchases_rejected_ids", JSON.stringify(rejectedIds));
+  }, [rejectedIds]);
   
   // Form state for purchase confirmation
   const [purchaseQuantity, setPurchaseQuantity] = useState<number>(0);
