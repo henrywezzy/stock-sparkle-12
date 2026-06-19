@@ -960,7 +960,8 @@ export default function Purchases() {
                       </TableRow>
                     )}
                   </>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>
