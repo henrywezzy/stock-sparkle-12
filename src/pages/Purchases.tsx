@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { 
   ShoppingCart, 
   Check, 
@@ -18,7 +18,9 @@ import {
   BarChart3,
   Building2,
   Star,
+  RotateCcw,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/ui/page-header";
 import { GenericReportDialog, ReportColumn, ReportSummary } from "@/components/reports/GenericReportDialog";
 import { Button } from "@/components/ui/button";
