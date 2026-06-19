@@ -254,9 +254,13 @@ export default function Purchases() {
     });
   }, [products, entries, epis]);
 
+  const getSuggestionId = (s: PurchaseSuggestion) => `${s.type}-${s.product.id}`;
+
   // Filtrar sugestões
   const filteredSuggestions = useMemo(() => {
     return purchaseSuggestions.filter((suggestion) => {
+      if (rejectedIds.includes(getSuggestionId(suggestion))) return false;
+
       const matchesSearch =
         suggestion.product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         suggestion.product.sku?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -269,11 +273,92 @@ export default function Purchases() {
 
       return matchesSearch && matchesStatus && matchesType;
     });
-  }, [purchaseSuggestions, searchTerm, statusFilter, typeFilter]);
+  }, [purchaseSuggestions, searchTerm, statusFilter, typeFilter, rejectedIds]);
 
   const toggleRow = (productId: string) => {
     setExpandedRow(expandedRow === productId ? null : productId);
   };
+
+  const handleConfirmPurchase = (suggestion: PurchaseSuggestion) => {
+    setSelectedProduct(suggestion);
+    setPurchaseQuantity(suggestion.suggestedQuantity);
+    const bestPrice = getBestPrice(suggestion.lastPurchases);
+    setPurchasePrice(bestPrice?.unit_price?.toString() || "");
+    setPurchaseSupplierId(bestPrice?.supplier_id || suggestion.product.supplier_id || "");
+    setConfirmDialogOpen(true);
+  };
+
+  const handleRejectPurchase = (suggestion: PurchaseSuggestion) => {
+    setSelectedProduct(suggestion);
+    setRejectDialogOpen(true);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredSuggestions.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredSuggestions.map(getSuggestionId));
+    }
+  };
+
+  const clearRejected = () => {
+    setRejectedIds([]);
+    toast({
+      title: "Sugestões restauradas",
+      description: "Todas as sugestões rejeitadas foram restauradas.",
+    });
+  };
+
+  const handleBulkApprove = async () => {
+    setBulkProcessing(true);
+    const selected = filteredSuggestions.filter((s) => selectedIds.includes(getSuggestionId(s)));
+    let success = 0;
+    let failed = 0;
+    let skipped = 0;
+    for (const s of selected) {
+      if (s.type === 'epi') {
+        skipped++;
+        continue;
+      }
+      const best = getBestPrice(s.lastPurchases);
+      try {
+        await createEntry.mutateAsync({
+          product_id: s.product.id,
+          quantity: s.suggestedQuantity,
+          unit_price: best?.unit_price ?? undefined,
+          total_price: best?.unit_price ? best.unit_price * s.suggestedQuantity : undefined,
+          supplier_id: best?.supplier_id || s.product.supplier_id || undefined,
+          entry_date: new Date().toISOString(),
+        });
+        success++;
+      } catch {
+        failed++;
+      }
+    }
+    setBulkProcessing(false);
+    setBulkApproveOpen(false);
+    setSelectedIds([]);
+    toast({
+      title: "Compras em lote",
+      description: `${success} aprovada(s)${failed ? `, ${failed} com erro` : ''}${skipped ? `, ${skipped} EPI(s) ignorada(s)` : ''}.`,
+    });
+  };
+
+  const handleBulkReject = () => {
+    setRejectedIds((prev) => Array.from(new Set([...prev, ...selectedIds])));
+    toast({
+      title: "Sugestões rejeitadas",
+      description: `${selectedIds.length} sugestão(ões) rejeitada(s).`,
+      variant: "destructive",
+    });
+    setSelectedIds([]);
+    setBulkRejectOpen(false);
+  };
+
 
   const handleConfirmPurchase = (suggestion: PurchaseSuggestion) => {
     setSelectedProduct(suggestion);
