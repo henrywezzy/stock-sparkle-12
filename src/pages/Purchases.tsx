@@ -789,12 +789,69 @@ export default function Purchases() {
         </div>
       </div>
 
+      {/* Bulk Actions Bar */}
+      {canEdit && (selectedIds.length > 0 || rejectedIds.length > 0) && (
+        <div className="flex flex-wrap items-center gap-2 p-3 bg-secondary/50 rounded-lg border border-border">
+          {selectedIds.length > 0 && (
+            <>
+              <span className="text-sm font-medium">
+                {selectedIds.length} selecionada(s)
+              </span>
+              <Button
+                size="sm"
+                className="bg-success text-success-foreground hover:bg-success/90"
+                onClick={() => setBulkApproveOpen(true)}
+                disabled={bulkProcessing}
+              >
+                <Check className="w-4 h-4 mr-2" />
+                Aprovar selecionadas
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setBulkRejectOpen(true)}
+                disabled={bulkProcessing}
+              >
+                <X className="w-4 h-4 mr-2" />
+                Rejeitar selecionadas
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setSelectedIds([])}>
+                Limpar seleção
+              </Button>
+            </>
+          )}
+          {rejectedIds.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto"
+              onClick={clearRejected}
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Restaurar {rejectedIds.length} rejeitada(s)
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Table */}
       <div className="glass rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
+                {canEdit && (
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={
+                        filteredSuggestions.length > 0 &&
+                        selectedIds.length === filteredSuggestions.length
+                      }
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Selecionar todos"
+                    />
+                  </TableHead>
+                )}
                 <TableHead className="w-10"></TableHead>
                 {visibleColumns.map((col) => (
                   <TableHead key={col.key} className="text-muted-foreground font-medium">
@@ -806,7 +863,7 @@ export default function Purchases() {
             <TableBody>
               {filteredSuggestions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={visibleColumns.length + 1} className="h-32 text-center">
+                  <TableCell colSpan={visibleColumns.length + (canEdit ? 2 : 1)} className="h-32 text-center">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       <ShoppingCart className="w-10 h-10 opacity-50" />
                       <p>Nenhum produto com estoque baixo ou crítico</p>
@@ -815,7 +872,9 @@ export default function Purchases() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredSuggestions.map((suggestion) => (
+                filteredSuggestions.map((suggestion) => {
+                  const sid = getSuggestionId(suggestion);
+                  return (
                   <>
                     <TableRow
                       key={suggestion.product.id}
@@ -823,10 +882,20 @@ export default function Purchases() {
                         "border-border cursor-pointer transition-colors",
                         suggestion.status === 'critical' && "bg-destructive/5",
                         suggestion.status === 'low' && "bg-warning/5",
-                        expandedRow === suggestion.product.id && "bg-secondary/50"
+                        expandedRow === suggestion.product.id && "bg-secondary/50",
+                        selectedIds.includes(sid) && "bg-primary/5"
                       )}
                       onClick={() => toggleRow(suggestion.product.id)}
                     >
+                      {canEdit && (
+                        <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.includes(sid)}
+                            onCheckedChange={() => toggleSelect(sid)}
+                            aria-label={`Selecionar ${suggestion.product.name}`}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="w-10">
                         <Button variant="ghost" size="icon" className="h-6 w-6">
                           {expandedRow === suggestion.product.id ? (
