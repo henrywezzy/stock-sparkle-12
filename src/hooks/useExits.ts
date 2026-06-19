@@ -91,7 +91,7 @@ export const useExits = () => {
   });
 
   const updateExit = useMutation({
-    mutationFn: async ({ id, ...exit }: Partial<Exit> & { id: string }) => {
+    mutationFn: async ({ id, products: _p, employees: _e, requisitions: _r, ...exit }: Partial<Exit> & { id: string }) => {
       // Convert empty strings to null for UUID fields
       const sanitizedExit = {
         ...exit,
