@@ -1130,6 +1130,59 @@ export default function Purchases() {
         </DialogContent>
       </Dialog>
 
+      {/* Bulk Approve Dialog */}
+      <Dialog open={bulkApproveOpen} onOpenChange={setBulkApproveOpen}>
+        <DialogContent className="glass border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Check className="w-5 h-5 text-success" />
+              Aprovar {selectedIds.length} compra(s)
+            </DialogTitle>
+            <DialogDescription>
+              Será registrada uma entrada para cada produto selecionado usando a quantidade sugerida e o melhor preço histórico. EPIs serão ignorados.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkApproveOpen(false)} disabled={bulkProcessing}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-success text-success-foreground hover:bg-success/90"
+              onClick={handleBulkApprove}
+              disabled={bulkProcessing}
+            >
+              {bulkProcessing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Confirmar aprovação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Reject Dialog */}
+      <Dialog open={bulkRejectOpen} onOpenChange={setBulkRejectOpen}>
+        <DialogContent className="glass border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <X className="w-5 h-5 text-destructive" />
+              Rejeitar {selectedIds.length} sugestão(ões)
+            </DialogTitle>
+            <DialogDescription>
+              As sugestões selecionadas serão removidas da lista. Você pode restaurá-las depois através do botão "Restaurar".
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkRejectOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleBulkReject}>
+              <X className="w-4 h-4 mr-2" />
+              Rejeitar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
       {/* Purchases Report Dialog */}
       <GenericReportDialog
         open={isReportOpen}
